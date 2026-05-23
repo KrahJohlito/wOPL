@@ -16,6 +16,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include <dirent.h>
+#include <time.h>
 
 #define MENU_POS_V      50
 #define HINT_HEIGHT     32
@@ -996,8 +997,17 @@ static void drawInfoHintText(struct menu_list *menu, struct submenu_list *item, 
 
 // Coverflow ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-int isAnimating = 0;        // Animation flag
-int animationDirection = 0; // 1 for right (next), -1 for left (prev)
+static int isAnimating = 0;        // Animation flag
+static int animationDirection = 0; // 1 for right (next), -1 for left (prev)
+static clock_t animationStartTime = 0;
+#define COVERFLOW_ANIM_DURATION_MS 200
+
+void thmTriggerCoverflowAnim(int direction)
+{
+    isAnimating = 1;
+    animationDirection = direction;
+    animationStartTime = clock();
+}
 
 static void drawCoverFlow(struct menu_list *menu, struct submenu_list *item, config_set_t *config, struct theme_element *elem)
 {
@@ -1021,10 +1031,7 @@ static void drawCoverFlow(struct menu_list *menu, struct submenu_list *item, con
         coverSpacing = rmWideScale(coverSpacing);
 
     int coverDistance = coverWidth + coverSpacing;
-    int posX = (coverSpacing << 1) + (coverWidth >> 1);
-
-    float animationProgress = 0.0f; // Progress of animation (0.0 - 1.0)
-    float animationSpeed = 0.05f;   // Speed of animation
+    int basePosX = (coverSpacing << 1) + (coverWidth >> 1);
 
     struct
     {
@@ -1036,14 +1043,23 @@ static void drawCoverFlow(struct menu_list *menu, struct submenu_list *item, con
         {item, NULL, NULL},
         {item->next, NULL, NULL}};
 
+    float animOffset = 0.0f;
     if (isAnimating) {
-        posX += animationDirection * (animationProgress * coverDistance);
-        animationProgress += animationSpeed;
-        if (animationProgress >= 1.0f) {
+        clock_t elapsed = clock() - animationStartTime;
+        float t = (float)elapsed / ((float)COVERFLOW_ANIM_DURATION_MS * CLOCKS_PER_SEC / 1000);
+
+        if (t >= 1.0f) {
+            t = 1.0f;
             isAnimating = 0;
-            animationProgress = 0.0f;
+            animationStartTime = 0;
         }
+
+        float inv = 1.0f - t;
+        float eased = 1.0f - inv * inv * inv;
+        animOffset = (float)animationDirection * (float)coverDistance * (eased - 1.0f);
     }
+
+    int posX = basePosX + (int)animOffset;
 
     int scaling = 30;
     for (int i = 0; i < COVERFLOW_COUNT; i++) {
