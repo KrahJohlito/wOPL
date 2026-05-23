@@ -159,7 +159,6 @@ int thmFindGuiID(const char *theme);
 const char **thmGetGuiList(void);
 char *thmGetFilePath(int themeID);
 
-extern int isAnimating;
-extern int animationDirection;
+extern void thmTriggerCoverflowAnim(int direction);
 
 #endif
