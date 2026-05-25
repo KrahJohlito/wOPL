@@ -157,7 +157,6 @@ void bdmLoadModules(void)
     sysLoadModuleBuffer(&usbd_irx, size_usbd_irx, 0, NULL);
     LOG("[USBMASS_BD]:\n");
     sysLoadModuleBuffer(&usbmass_bd_irx, size_usbmass_bd_irx, 0, NULL);
-    DelayThread(1500 * 1000);
 
     // Load Optional Block Device drivers
     ioPutRequest(IO_CUSTOM_SIMPLEACTION, &bdmLoadBlockDeviceModules);

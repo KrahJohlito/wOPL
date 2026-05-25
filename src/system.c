@@ -274,7 +274,7 @@ void sysReset()
     sysLoadModuleBuffer(&poweroff_irx, size_poweroff_irx, 0, NULL);
 
     LOG("[USBD]:\n");
-    sysLoadModuleBuffer(&usbd_irx, size_usbd_irx, 0, NULL);
+    bdmLoadModules();
 
     LOG("[ISOFS]:\n");
     sysLoadModuleBuffer(&isofs_irx, size_isofs_irx, 0, NULL);
