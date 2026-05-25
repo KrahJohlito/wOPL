@@ -21,6 +21,7 @@ typedef struct
     unsigned char ThemesLoaded;
     unsigned char LanguagesLoaded;
     unsigned char ForceRefresh;
+    int disconnectCounter;
 } bdm_device_data_t;
 
 #define MAX_BDM_DEVICES 5

@@ -878,6 +878,8 @@ int bdmUpdateDeviceData(item_list_t *itemList)
 
     // If we opened the device and the menu isn't visible (OR is visible but hasn't been initialized ex: manual device start) initialize device info.
     if (dir >= 0 && (visible == 0 || pDeviceData->bdmPrefix[0] == '\0')) {
+        pDeviceData->disconnectCounter = 0;
+
         if (gBDMPrefix[0] != '\0')
             snprintf(pDeviceData->bdmPrefix, sizeof(pDeviceData->bdmPrefix), "mass%d:%s/", itemList->mode, gBDMPrefix);
         else
@@ -919,19 +921,24 @@ int bdmUpdateDeviceData(item_list_t *itemList)
         fileXioDclose(dir);
         return 1;
     } else if (dir < 0 && visible == 1) {
-        // Device has been removed, make the menu item invisible. We can't really cleanup resources (like the game list) just yet
-        // as we don't know if the data is being used asynchronously.
-        if (itemList->owner != NULL) {
-            LOG("bdmUpdateDeviceData: setting device %d invisible\n", itemList->mode);
-            ((opl_io_module_t *)itemList->owner)->menuItem.visible = 0;
-        }
+		    pDeviceData->disconnectCounter++;
 
-        LOG("Mass device: %d (%d) disconnected\n", itemList->mode, pDeviceData->massDeviceIndex);
-        return -1;
+        if (pDeviceData->disconnectCounter < 20) {
+            // Device has been removed, make the menu item invisible. We can't really cleanup resources (like the game list) just yet
+            // as we don't know if the data is being used asynchronously.
+            if (itemList->owner != NULL) {
+                LOG("bdmUpdateDeviceData: setting device %d invisible\n", itemList->mode);
+                ((opl_io_module_t *)itemList->owner)->menuItem.visible = 0;
+            }
+
+            LOG("Mass device: %d (%d) disconnected\n", itemList->mode, pDeviceData->massDeviceIndex);
+            return -1;
+        }
     }
 
     // No change to the device state detected.
     if (dir >= 0)
+        pDeviceData->disconnectCounter = 0;
         fileXioDclose(dir);
     return 0;
 }
