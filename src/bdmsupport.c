@@ -938,9 +938,11 @@ int bdmUpdateDeviceData(item_list_t *itemList)
     }
 
     // No change to the device state detected.
-    if (dir >= 0)
+    if (dir >= 0) {
         pDeviceData->disconnectCounter = 0;
         fileXioDclose(dir);
+    }
+
     return 0;
 }
 
