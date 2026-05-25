@@ -1043,6 +1043,7 @@ static void drawCoverFlow(struct menu_list *menu, struct submenu_list *item, con
         {item, NULL, NULL},
         {item->next, NULL, NULL}};
 
+    float eased = 1.0f;
     float animOffset = 0.0f;
     if (isAnimating) {
         clock_t elapsed = clock() - animationStartTime;
@@ -1055,13 +1056,17 @@ static void drawCoverFlow(struct menu_list *menu, struct submenu_list *item, con
         }
 
         float inv = 1.0f - t;
-        float eased = 1.0f - inv * inv * inv;
+        eased = 1.0f - inv * inv * inv;
         animOffset = (float)animationDirection * (float)coverDistance * (eased - 1.0f);
     }
 
     int posX = basePosX + (int)animOffset;
 
     int scaling = 30;
+    // direction=1 (next): covers[2] is visually at center at t=0
+    // direction=-1 (prev): covers[0] is visually at center at t=0
+    int leavingIndex = (animationDirection > 0) ? 2 : 0;
+
     for (int i = 0; i < COVERFLOW_COUNT; i++) {
         int renderPosX = posX;
         posX += coverDistance;
@@ -1074,11 +1079,22 @@ static void drawCoverFlow(struct menu_list *menu, struct submenu_list *item, con
         int overlayOffsetY = 0;
         int overlayOffsetX = 0;
 
+        // Interpolate scaling.. center cover grows in.. leaving cover shrinks out
+        int currentScaling = 0;
         if (i == 1) {
-            currentCoverWidth += scaling;
-            currentCoverHeight += scaling;
-            overlayOffsetY = scaling;
-            overlayOffsetX = scaling * (gWideScreen ? (4.0f / 3.0f) : 1.0f) - (scaling * ((4.0f / 3.0f) - 1.0f) / 2.0f);
+            // New selection.. grows into center as animation progresses
+            float growFactor = isAnimating ? eased : 1.0f;
+            currentScaling = (int)(scaling * growFactor);
+        } else if (isAnimating && i == leavingIndex) {
+            // Cover leaving center.. shrinks as animation progresses
+            currentScaling = (int)(scaling * (1.0f - eased));
+        }
+
+        if (currentScaling > 0) {
+            currentCoverWidth += currentScaling;
+            currentCoverHeight += currentScaling;
+            overlayOffsetY = currentScaling;
+            overlayOffsetX = currentScaling * (gWideScreen ? (4.0f / 3.0f) : 1.0f) - (currentScaling * ((4.0f / 3.0f) - 1.0f) / 2.0f);
         }
 
         covers[i].cover = (mutable_image_t *)elem->extended;
