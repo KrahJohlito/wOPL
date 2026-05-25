@@ -115,6 +115,9 @@ static void bdmLoadBlockDeviceModules(void)
 
     if (gEnableUSB && !iUSBModLoaded) {
         // Load USB Block Device drivers
+        LOG("[USBD]:\n");
+        sysLoadModuleBuffer(&usbd_irx, size_usbd_irx, 0, NULL);
+
         LOG("[USBMASS_BD]:\n");
         sysLoadModuleBuffer(&usbmass_bd_irx, size_usbmass_bd_irx, 0, NULL);
 
