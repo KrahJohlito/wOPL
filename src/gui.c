@@ -355,7 +355,6 @@ static void guiShowBlockDeviceConfig(void)
 {
     int ret;
 
-    diaSetInt(diaBlockDevicesConfig, CFG_ENABLEUSB, gEnableUSB);
     diaSetInt(diaBlockDevicesConfig, CFG_ENABLEILK, gEnableILK);
     diaSetInt(diaBlockDevicesConfig, CFG_ENABLEMX4SIO, gEnableMX4SIO);
     diaSetEnabled(diaBlockDevicesConfig, CFG_ENABLEBDMHDD, !gHDDStartMode);
@@ -363,7 +362,6 @@ static void guiShowBlockDeviceConfig(void)
 
     ret = diaExecuteDialog(diaBlockDevicesConfig, -1, 1, NULL);
     if (ret) {
-        diaGetInt(diaBlockDevicesConfig, CFG_ENABLEUSB, &gEnableUSB);
         diaGetInt(diaBlockDevicesConfig, CFG_ENABLEILK, &gEnableILK);
         diaGetInt(diaBlockDevicesConfig, CFG_ENABLEMX4SIO, &gEnableMX4SIO);
         diaGetInt(diaBlockDevicesConfig, CFG_ENABLEBDMHDD, &gEnableBdmHDD);
