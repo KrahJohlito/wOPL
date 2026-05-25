@@ -1420,6 +1420,7 @@ void menuClearGameList(opl_io_module_t *mdl)
         mdl->menuItem.submenu = NULL;
         mdl->menuItem.current = NULL;
         mdl->menuItem.pagestart = NULL;
+        mdl->menuItem.last = NULL;
         mdl->menuItem.remindLast = 0;
 
         // unlock
