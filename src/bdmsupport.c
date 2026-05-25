@@ -115,9 +115,6 @@ static void bdmLoadBlockDeviceModules(void)
 
     if (gEnableUSB && !iUSBModLoaded) {
         // Load USB Block Device drivers
-        LOG("[USBD]:\n");
-        sysLoadModuleBuffer(&usbd_irx, size_usbd_irx, 0, NULL);
-
         LOG("[USBMASS_BD]:\n");
         sysLoadModuleBuffer(&usbmass_bd_irx, size_usbmass_bd_irx, 0, NULL);
 
@@ -165,6 +162,9 @@ void bdmLoadModules(void)
     LOG("[BDMFS_FATFS]:\n");
     sysLoadModuleBuffer(&bdmfs_fatfs_irx, size_bdmfs_fatfs_irx, 0, NULL);
 
+    LOG("[USBD]:\n");
+    sysLoadModuleBuffer(&usbd_irx, size_usbd_irx, 0, NULL);
+
     // Load Optional Block Device drivers
     ioPutRequest(IO_CUSTOM_SIMPLEACTION, &bdmLoadBlockDeviceModules);
 
@@ -185,7 +185,7 @@ static void bdmInit(item_list_t *itemList)
     pDeviceData->bdmModifiedDVDPrev = 0;
     pDeviceData->bdmGameCount = 0;
     pDeviceData->bdmGames = NULL;
-    bdmLoadModules();
+
     configGetInt(configGetByType(CONFIG_OPL), "usb_frames_delay", &itemList->delay);
     itemList->enabled = 1;
 }
