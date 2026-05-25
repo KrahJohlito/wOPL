@@ -270,7 +270,7 @@ jobs:
     needs: [build, merge-variants, build-lang, merge-debug]
     runs-on: ubuntu-22.04
     # Create a NEW prerelease + NEW tag on every run (never on PRs).
-    if: github.event_name == 'push'
+    if: github.event_name != 'pull_request'
     steps:
       - name: Checkout
         uses: actions/checkout@v6
