@@ -617,8 +617,7 @@ static void drawGameImage(struct menu_list *menu, struct submenu_list *item, con
 
     } else if (elem->type == ELEM_TYPE_BACKGROUND) {
         if (gameImage->defaultTexture)
-            rmDrawPixmap(&gameImage->defaultTexture->source, elem->posX, elem->posY,
-                         elem->aligned, elem->width, elem->height, elem->scaled, gDefaultCol, 0);
+            rmDrawPixmap(&gameImage->defaultTexture->source, elem->posX, elem->posY, elem->aligned, elem->width, elem->height, elem->scaled, gDefaultCol, 0);
         else
             guiDrawBGPlasma();
     }
