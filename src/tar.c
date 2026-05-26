@@ -332,7 +332,7 @@ int tarClose(TarKind kind)
 TarEntryBase *tarFind(TarKind kind, const char *filename)
 {
     if (s_notFound[kind])
-       return NULL;
+        return NULL;
 
     if (!s_index[kind] || s_count[kind] == 0)
         if (tarLoadFromAnyDevice(kind) < 0)
