@@ -1113,7 +1113,6 @@ static void drawCoverFlow(struct menu_list *menu, struct submenu_list *item, con
                                 covers[i].cover->overlayTexture->lowerRight_x + overlayOffsetX, covers[i].cover->overlayTexture->lowerRight_y + overlayOffsetY, elem->reflection);
         } else
             rmDrawPixmap(covers[i].texture, renderPosX, elem->posY, ALIGN_CENTER, currentCoverWidth, currentCoverHeight, SCALING_NONE, gDefaultCol, elem->reflection);
-
     }
 }
 
