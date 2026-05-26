@@ -408,7 +408,7 @@ void *tarGet(TarKind kind, const char *filename)
 int tarEnsureLoaded(TarKind kind)
 {
     if (s_notFound[kind])
-        return -1;
+        return 0;
 
     if (!s_index[kind] || s_count[kind] == 0)
         return tarLoadFromAnyDevice(kind);
