@@ -60,6 +60,8 @@ v1.2
 * Added back the old background configuration
 * Added a hint to hide R3 while is being selected
 * Added a lazy tar loader for ART/CFG/CHT thanks to mystyq
+* Coverflow improvements thanks to KrahJohlito
+* Support grayscale and grayscale+alpha images
 
 ### ART/CFG/CHT .tar compact support
 
@@ -67,7 +69,9 @@ You can now store your ART/CFG/CHT files using tar archive.
 All you need it´s to do it´s pack all the files into a `.tar` file name after the folder like this:
 
 `ART/art.tar`
+
 `CFG/cfg.tar`
+
 `CHT/cht.tar`
 
 ### wOPL Easter egg
