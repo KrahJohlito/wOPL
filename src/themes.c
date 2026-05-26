@@ -290,37 +290,40 @@ static item_list_t *thmGetItemSource(struct menu_list *menu, struct submenu_list
     return list;
 }
 
-// Find a mutable_image_t in an element list by cache suffix
-static mutable_image_t *thmFindImageBySuffix(theme_elems_t *elems, const char *suffix)
+// Find a theme_element_t in an element list by cache suffix
+static theme_element_t *thmFindElemBySuffix(theme_elems_t *elems, const char *suffix)
 {
     theme_element_t *elem = elems->first;
     while (elem) {
         if (elem->extended) {
             mutable_image_t *img = (mutable_image_t *)elem->extended;
             if (img->cache && strcmp(img->cache->suffix, suffix) == 0)
-                return img;
+                return elem;
         }
         elem = elem->next;
     }
     return NULL;
 }
 
-// Get the appropriate mutable_image for an item
-// On the FAV page.. APP_MODE items use the apps cover element instead of the game cover
-static mutable_image_t *thmGetCoverForItem(mutable_image_t *defaultImg, struct menu_list *menu, struct submenu_list *item)
+// Get the appropriate theme_element for an item.
+// On the FAV page.. APP_MODE items use the apps element for correct position, dimensions and overlay.
+static theme_element_t *thmGetElemForItem(theme_element_t *defaultElem, struct menu_list *menu, struct submenu_list *item)
 {
     if (!item || !item->item.owner)
-        return defaultImg;
+        return defaultElem;
 
     item_list_t *menuList = (item_list_t *)menu->item->userdata;
     item_list_t *sourceList = (item_list_t *)item->item.owner;
 
     if (menuList->mode == FAV_MODE && sourceList->mode == APP_MODE) {
-        mutable_image_t *appsImg = thmFindImageBySuffix(&gTheme->appsMainElems, defaultImg->cache->suffix);
-        if (appsImg)
-            return appsImg;
+        mutable_image_t *img = (mutable_image_t *)defaultElem->extended;
+        if (img && img->cache) {
+            theme_element_t *appsElem = thmFindElemBySuffix(&gTheme->appsMainElems, img->cache->suffix);
+            if (appsElem)
+                return appsElem;
+        }
     }
-    return defaultImg;
+    return defaultElem;
 }
 
 // Draw a texture with optional overlay, reflection, and overlay offsets
@@ -595,7 +598,8 @@ static void drawGameImage(struct menu_list *menu, struct submenu_list *item, con
     mutable_image_t *gameImage = (mutable_image_t *)elem->extended;
     if (item) {
         item_list_t *sourceList = thmGetItemSource(menu, item);
-        mutable_image_t *img = thmGetCoverForItem(gameImage, menu, item);
+        theme_element_t *drawElem = thmGetElemForItem(elem, menu, item);
+        mutable_image_t *img = (mutable_image_t *)drawElem->extended;
 
         GSTEXTURE *texture = getGameImageTexture(img->cache, sourceList, &item->item);
         if (!texture || !texture->Mem) {
@@ -608,12 +612,13 @@ static void drawGameImage(struct menu_list *menu, struct submenu_list *item, con
             }
         }
 
-        int x = gWideScreen ? elem->wsX : elem->posX;
-        thmDrawTexture(texture, img, x, elem->posY, elem->aligned, elem->width, elem->height, elem->scaled, gDefaultCol, elem->reflection, 0, 0);
+        int x = gWideScreen ? drawElem->wsX : drawElem->posX;
+        thmDrawTexture(texture, img, x, drawElem->posY, drawElem->aligned, drawElem->width, drawElem->height, drawElem->scaled, gDefaultCol, drawElem->reflection, 0, 0);
 
     } else if (elem->type == ELEM_TYPE_BACKGROUND) {
         if (gameImage->defaultTexture)
-            rmDrawPixmap(&gameImage->defaultTexture->source, elem->posX, elem->posY, elem->aligned, elem->width, elem->height, elem->scaled, gDefaultCol, 0);
+            rmDrawPixmap(&gameImage->defaultTexture->source, elem->posX, elem->posY,
+                         elem->aligned, elem->width, elem->height, elem->scaled, gDefaultCol, 0);
         else
             guiDrawBGPlasma();
     }
@@ -1122,8 +1127,15 @@ static void drawCoverFlow(struct menu_list *menu, struct submenu_list *item, con
         if (covers[i].game == NULL)
             continue;
 
+        // Get the appropriate element for this item (handles APP_MODE on FAV page)
+        covers[i].cover = (mutable_image_t *)elem->extended;
+        theme_element_t *coverElem = thmGetElemForItem(elem, menu, covers[i].game);
+        mutable_image_t *img = (mutable_image_t *)coverElem->extended;
+        item_list_t *sourceList = thmGetItemSource(menu, covers[i].game);
+
+        int baseCoverHeight = (coverElem != elem && coverElem->height != DIM_UNDEF) ? coverElem->height : coverHeight;
         int currentCoverWidth = coverWidth;
-        int currentCoverHeight = coverHeight;
+        int currentCoverHeight = baseCoverHeight;
         int overlayOffsetY = 0;
         int overlayOffsetX = 0;
 
@@ -1144,10 +1156,6 @@ static void drawCoverFlow(struct menu_list *menu, struct submenu_list *item, con
             overlayOffsetY = currentScaling;
             overlayOffsetX = currentScaling * (gWideScreen ? (4.0f / 3.0f) : 1.0f) - (currentScaling * ((4.0f / 3.0f) - 1.0f) / 2.0f);
         }
-
-        covers[i].cover = (mutable_image_t *)elem->extended;
-        mutable_image_t *img = thmGetCoverForItem(covers[i].cover, menu, covers[i].game);
-        item_list_t *sourceList = thmGetItemSource(menu, covers[i].game);
 
         covers[i].texture = getGameImageTexture(img->cache, sourceList, &covers[i].game->item);
         if (!covers[i].texture || !covers[i].texture->Mem)
