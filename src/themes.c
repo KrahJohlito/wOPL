@@ -331,9 +331,9 @@ static void thmDrawTexture(GSTEXTURE *texture, mutable_image_t *img, int x, int 
     if (img->overlayTexture)
         rmDrawOverlayPixmap(&img->overlayTexture->source, x, y, aligned, w, h, scaled, color, texture,
                             img->overlayTexture->upperLeft_x, img->overlayTexture->upperLeft_y,
-                            img->overlayTexture->upperRight_x + offsetX,  img->overlayTexture->upperRight_y,
+                            img->overlayTexture->upperRight_x + offsetX, img->overlayTexture->upperRight_y,
                             img->overlayTexture->lowerLeft_x, img->overlayTexture->lowerLeft_y + offsetY,
-                            img->overlayTexture->lowerRight_x + offsetX,  img->overlayTexture->lowerRight_y + offsetY, reflection);
+                            img->overlayTexture->lowerRight_x + offsetX, img->overlayTexture->lowerRight_y + offsetY, reflection);
     else
         rmDrawPixmap(texture, x, y, aligned, w, h, scaled, color, reflection);
 }
