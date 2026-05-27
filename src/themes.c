@@ -295,10 +295,12 @@ static theme_element_t *thmFindElemBySuffix(theme_elems_t *elems, const char *su
 {
     theme_element_t *elem = elems->first;
     while (elem) {
-        if (elem->extended) {
-            mutable_image_t *img = (mutable_image_t *)elem->extended;
-            if (img->cache && strcmp(img->cache->suffix, suffix) == 0)
-                return elem;
+        if (elem->type == ELEM_TYPE_GAME_IMAGE || elem->type == ELEM_TYPE_COVERFLOW) {
+            if (elem->extended) {
+                mutable_image_t *img = (mutable_image_t *)elem->extended;
+                if (img->cache && strcmp(img->cache->suffix, suffix) == 0)
+                    return elem;
+            }
         }
         elem = elem->next;
     }
