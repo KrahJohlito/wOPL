@@ -452,40 +452,66 @@ void rmDrawOverlayPixmap(GSTEXTURE *overlay, int x, int y, short aligned, int w,
     if (!reflection)
         return;
 
-    float rowHeight = 1.0f;
     float totalHeight = quad.br.y - quad.ul.y;
     float alphaStart = 0x20;
-    float alphaEnd = 0x00;
 
-    for (float row = 0; row < totalHeight; row += rowHeight) {
-        float alpha;
-        if (row < totalHeight / 4.0f)
-            alpha = alphaStart - ((alphaStart - alphaEnd) * (row / (totalHeight / 4.0f)));
-        else
-            alpha = 0x00;
+    float ulX = quad.ul.x + ulx + fRenderXOff;
+    float ulY = quad.ul.y + uly + fRenderYOff;
+    float urX = quad.ul.x + urx + fRenderXOff;
+    float urY = quad.ul.y + ury + fRenderYOff;
+    float blX = quad.ul.x + blx + fRenderXOff;
+    float blY = quad.ul.y + bly + fRenderYOff;
+    float brX = quad.ul.x + brx + fRenderXOff;
+    float brY = quad.ul.y + bry + fRenderYOff;
 
+    int steps = (int)totalHeight;
+    if (steps < 1)
+        steps = 1;
+
+    for (int s = 0; s < steps; s++) {
+        float t0 = (float)s / (float)steps;
+        if (t0 >= 0.25f)
+            break;
+
+        float t1 = (float)(s + 1) / (float)steps;
+        float alpha = alphaStart * (1.0f - t0 / 0.25f);
         u64 reflectionColor = GS_SETREG_RGBAQ((color >> 24) & 0xFF, (color >> 16) & 0xFF, (color >> 8) & 0xFF, (u8)alpha, 0x00);
 
-        float texTop = ((totalHeight - row - rowHeight) / totalHeight) * inlay->Height;
-        float texBottom = ((totalHeight - row) / totalHeight) * inlay->Height;
+        float f0 = 1.0f - t0;
+        float f1 = 1.0f - t1;
+
+        float l0x = ulX + (blX - ulX) * f0;
+        float l0y = 2.0f * blY - (ulY + (blY - ulY) * f0);
+        float r0x = urX + (brX - urX) * f0;
+        float r0y = 2.0f * brY - (urY + (brY - urY) * f0);
+
+        float l1x = ulX + (blX - ulX) * f1;
+        float l1y = 2.0f * blY - (ulY + (blY - ulY) * f1);
+        float r1x = urX + (brX - urX) * f1;
+        float r1y = 2.0f * brY - (urY + (brY - urY) * f1);
+
+        float vTop = f0 * inlay->Height;
+        float vBot = f1 * inlay->Height;
+
+        gsKit_prim_quad_texture(gsGlobal, inlay,
+                                l0x, l0y, 0.0f, vTop,
+                                r0x, r0y, inlay->Width, vTop,
+                                l1x, l1y, 0.0f, vBot,
+                                r1x, r1y, inlay->Width, vBot,
+                                order, reflectionColor);
+        order++;
+    }
+
+    float rowHeight = 1.0f;
+    for (float row = 0; row < totalHeight / 4.0f; row += rowHeight) {
+        float alpha = alphaStart - (alphaStart * (row / (totalHeight / 4.0f)));
+        u64 reflectionColor = GS_SETREG_RGBAQ((color >> 24) & 0xFF, (color >> 16) & 0xFF, (color >> 8) & 0xFF, (u8)alpha, 0x00);
+
+        float texTop = ((totalHeight - row - rowHeight) / totalHeight) * overlay->Height;
+        float texBottom = ((totalHeight - row) / totalHeight) * overlay->Height;
 
         float screenTop = quad.br.y + fRenderYOff + row;
         float screenBottom = quad.br.y + fRenderYOff + row + rowHeight;
-
-        gsKit_prim_quad_texture(gsGlobal, inlay,
-                                quad.ul.x + ulx + fRenderXOff, screenTop,
-                                0.0f, texTop,
-                                quad.ul.x + urx + fRenderXOff, screenTop,
-                                inlay->Width, texTop,
-                                quad.ul.x + blx + fRenderXOff, screenBottom,
-                                0.0f, texBottom,
-                                quad.ul.x + brx + fRenderXOff, screenBottom,
-                                inlay->Width, texBottom,
-                                order, reflectionColor);
-        order++;
-
-        texTop = ((totalHeight - row - rowHeight) / totalHeight) * overlay->Height;
-        texBottom = ((totalHeight - row) / totalHeight) * overlay->Height;
 
         gsKit_prim_sprite_texture(gsGlobal, overlay,
                                   quad.ul.x + fRenderXOff, screenTop,
