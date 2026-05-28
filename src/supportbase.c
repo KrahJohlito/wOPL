@@ -15,9 +15,12 @@
 #endif
 #include "include/ps2cnf.h"
 #include "include/gui.h"
+#include "include/guigame.h"
 #include "include/bdmsupport.h"
 #include "include/hddsupport.h"
 #include "include/tar.h"
+#include "include/config_wopl.h"
+#include "include/config_migration.h" // DELETE_WITH_MIGRATION
 
 #define NEWLIB_PORT_AWARE
 #include <fileXio_rpc.h> // fileXioMount("iso:", ***), fileXioUmount("iso:")
@@ -911,23 +914,6 @@ int sbReadList(base_game_info_t **list, const char *prefix, int *fsize, int *gam
                     g->media = GameEntry.media;
                     g->format = GAME_FORMAT_USBLD;
                     g->sizeMB = 0;
-
-                    /* TODO: size calculation is very slow
-                    implmented some caching, or do not touch at all */
-
-                    // calculate total size for individual game
-                    /*int ulfd = 1;
-                    u8 part;
-                    unsigned int name_checksum = USBA_crc32(g->name);
-
-                    for (part = 0; part < g->parts && ulfd >= 0; part++) {
-                        snprintf(path, sizeof(path), "%sul.%08X.%s.%02x", prefix, name_checksum, g->startup, part);
-                        ulfd = openFile(path, O_RDONLY);
-                        if (ulfd >= 0) {
-                            g->sizeMB += (getFileSize(ulfd) >> 20);
-                            close(ulfd);
-                        }
-                    }*/
                 }
             }
         }
@@ -1035,16 +1021,15 @@ int sbProbeISO9660(const char *path, base_game_info_t *game, u32 layer1_offset)
 
 static const struct cdvdman_settings_common cdvdman_settings_common_sample = CDVDMAN_SETTINGS_DEFAULT_COMMON;
 
-int sbPrepare(base_game_info_t *game, config_set_t *configSet, int size_cdvdman, void **cdvdman_irx, int *patchindex)
+int sbPrepare(base_game_info_t *game, const per_game_cfg_t *pgcfg, int size_cdvdman, void **cdvdman_irx, int *patchindex)
 {
     int i;
     struct cdvdman_settings_common *settings;
 
-    int compatmask = 0;
-    configGetInt(configSet, CONFIG_ITEM_COMPAT, &compatmask);
+    int compatmask = pgcfg ? pgcfg->compat : 0;
 
     char gameid[5];
-    configGetDiscIDBinary(configSet, gameid);
+    dnas_to_binary(pgcfg ? pgcfg->dnas : NULL, gameid, sizeof(gameid));
 
     for (i = 0, settings = NULL; i < size_cdvdman; i += 4) {
         if (!memcmp((void *)((u8 *)cdvdman_irx + i), &cdvdman_settings_common_sample, sizeof(cdvdman_settings_common_sample))) {
@@ -1086,58 +1071,55 @@ int sbPrepare(base_game_info_t *game, config_set_t *configSet, int size_cdvdman,
     settings->fakemodule_flags = 0;
     settings->fakemodule_flags |= FAKE_MODULE_FLAG_CDVDFSV;
     settings->fakemodule_flags |= FAKE_MODULE_FLAG_CDVDSTM;
+
 #ifdef GSM
-    InitGSMConfig(configSet);
+    InitGSMConfig(pgcfg);
 #endif
 
 #ifdef CHEAT
-    InitCheatsConfig(configSet);
+    int cheat_enable = gGlobalGameCfg.cheat_enable;
+    int cheat_mode = gGlobalGameCfg.cheat_mode;
+    int cheat_image = gGlobalGameCfg.cheat_enable_image;
+
+    if (pgcfg && pgcfg->cheat_source == SETTINGS_PERGAME) {
+        cheat_enable = pgcfg->cheat_enable;
+        cheat_mode = pgcfg->cheat_mode;
+        cheat_image = pgcfg->cheat_enable_image;
+    }
+
+    InitCheatsConfig(cheat_enable, cheat_mode, cheat_image);
 #endif
 
-    config_set_t *configGame = configGetByType(CONFIG_GAME);
 
 #ifdef PADEMU
-    gPadEmuSource = 0;
-    gEnablePadEmu = 0;
-    gPadEmuSettings = 0;
-    gPadMacroSource = 0;
-    gPadMacroSettings = 0;
+    gEnablePadEmu = gGlobalGameCfg.pademu_enable;
+    gPadEmuSettings = gGlobalGameCfg.pademu_settings;
+    gPadMacroSettings = gGlobalGameCfg.padmacro_settings;
 
-    if (configGetInt(configSet, CONFIG_ITEM_PADEMUSOURCE, &gPadEmuSource)) {
-        configGetInt(configSet, CONFIG_ITEM_ENABLEPADEMU, &gEnablePadEmu);
-        configGetInt(configSet, CONFIG_ITEM_PADEMUSETTINGS, &gPadEmuSettings);
-    } else {
-        configGetInt(configGame, CONFIG_ITEM_ENABLEPADEMU, &gEnablePadEmu);
-        configGetInt(configGame, CONFIG_ITEM_PADEMUSETTINGS, &gPadEmuSettings);
+    if (pgcfg && pgcfg->pademu_source == SETTINGS_PERGAME) {
+        gEnablePadEmu = pgcfg->pademu_enable;
+        gPadEmuSettings = pgcfg->pademu_settings;
     }
 
-    if (configGetInt(configSet, CONFIG_ITEM_PADMACROSOURCE, &gPadMacroSource)) {
-        configGetInt(configSet, CONFIG_ITEM_PADMACROSETTINGS, &gPadMacroSettings);
-    } else {
-        configGetInt(configGame, CONFIG_ITEM_PADMACROSETTINGS, &gPadMacroSettings);
-    }
+    if (pgcfg && pgcfg->padmacro_source == SETTINGS_PERGAME)
+        gPadMacroSettings = pgcfg->padmacro_settings;
 
-    if (gEnablePadEmu) {
+    if (gEnablePadEmu)
         settings->fakemodule_flags |= FAKE_MODULE_FLAG_USBD;
-    }
 #endif
-    // sanitise the settings
-    gOSDLanguageSource = 0;
-    gOSDLanguageEnable = 0;
-    gOSDLanguageValue = 0;
-    gOSDTVAspectRatio = 0;
-    gOSDVideOutput = 0;
 
-    if (configGetInt(configSet, CONFIG_ITEM_OSD_SETTINGS_SOURCE, &gOSDLanguageSource)) {
-        configGetInt(configSet, CONFIG_ITEM_OSD_SETTINGS_ENABLE, &gOSDLanguageEnable);
-        configGetInt(configSet, CONFIG_ITEM_OSD_SETTINGS_LANGID, &gOSDLanguageValue);
-        configGetInt(configSet, CONFIG_ITEM_OSD_SETTINGS_TV_ASP, &gOSDTVAspectRatio);
-        configGetInt(configSet, CONFIG_ITEM_OSD_SETTINGS_VMODE, &gOSDVideOutput);
-    } else {
-        configGetInt(configGame, CONFIG_ITEM_OSD_SETTINGS_ENABLE, &gOSDLanguageEnable);
-        configGetInt(configGame, CONFIG_ITEM_OSD_SETTINGS_LANGID, &gOSDLanguageValue);
-        configGetInt(configGame, CONFIG_ITEM_OSD_SETTINGS_TV_ASP, &gOSDTVAspectRatio);
-        configGetInt(configGame, CONFIG_ITEM_OSD_SETTINGS_VMODE, &gOSDVideOutput);
+    gOSDLanguageSource = 0;
+    gOSDLanguageEnable = gGlobalGameCfg.osd_enable;
+    gOSDLanguageValue = gGlobalGameCfg.osd_langid;
+    gOSDTVAspectRatio = gGlobalGameCfg.osd_tv_aspect;
+    gOSDVideOutput = gGlobalGameCfg.osd_vmode;
+
+    if (pgcfg && pgcfg->osd_source == SETTINGS_PERGAME) {
+        gOSDLanguageSource = SETTINGS_PERGAME;
+        gOSDLanguageEnable = pgcfg->osd_enable;
+        gOSDLanguageValue = pgcfg->osd_langid;
+        gOSDTVAspectRatio = pgcfg->osd_tv_aspect;
+        gOSDVideOutput = pgcfg->osd_vmode;
     }
 
     *patchindex = i;
@@ -1241,73 +1223,113 @@ void sbRename(base_game_info_t **list, const char *prefix, const char *sep, int 
     }
 }
 
-config_set_t *sbPopulateConfig(base_game_info_t *game, const char *prefix, const char *sep)
+void sbPopulateConfig(base_game_info_t *game, const char *prefix, const char *sep, game_info_t *gi, per_game_cfg_t *pgcfg)
 {
-    char path[256];
+    char info_path[256], cfg_path[256];
     struct stat st;
 
-    snprintf(path, sizeof(path), "%sCFG%s%s.cfg", prefix, sep, game->startup);
-    config_set_t *config = configAlloc(0, NULL, path);
+    snprintf(info_path, sizeof(info_path), "%sCFG%s%s.info", prefix, sep, game->startup);
+    snprintf(cfg_path, sizeof(cfg_path), "%sCFG%s%s.cfg", prefix, sep, game->startup);
 
-    char filename[32];
-    snprintf(filename, sizeof(filename), "%s.cfg", game->startup);
+    if (gi) {
+        int info_loaded = wOPLGameInfoLoad(info_path, gi);
 
-    if (!configRead(config)) {
-        TarEntryBase *e = tarFind(TAR_KIND_CFG, filename);
-        if (e) {
-            void *buf = malloc(e->rawSize);
-            if (buf) {
-                if (tarRead(TAR_KIND_CFG, e, buf, e->rawSize) == e->rawSize) {
-                    configReadBuffer(config, buf, e->rawSize);
+        // DELETE_WITH_MIGRATION
+        if (!info_loaded) {
+            int migrated = cfgMigrateTARGameCfg(game->startup, gi, NULL);
+
+            // try reading display metadata from old standalone .cfg
+            if (!migrated)
+                migrated = cfgMigrateLegacyGameInfo(cfg_path, gi);
+
+            // persist migrated data as .info so this never runs again.. delete migration later
+            if (migrated)
+                wOPLGameInfoSave(info_path, gi);
+        }
+        // DELETE_WITH_MIGRATION
+
+        // fill for display.. don't save
+        if (!gi->title[0]) {
+            strncpy(gi->title, game->name, sizeof(gi->title) - 1);
+            gi->title[sizeof(gi->title) - 1] = '\0';
+        }
+
+        if (!gi->serial[0] && game->startup[0]) {
+            char *dst = gi->serial;
+            for (const char *s = game->startup;
+                 *s && (dst - gi->serial) < (int)sizeof(gi->serial) - 1; s++) {
+                if (*s == '_')
+                    *dst++ = '-';
+                else if (*s != '.')
+                    *dst++ = *s;
+            }
+            *dst = '\0';
+        }
+    }
+
+    if (pgcfg) {
+        int need_save = 0;
+
+        int cfg_loaded = wOPLPerGameLoad(cfg_path, pgcfg);
+
+        // DELETE_WITH_MIGRATION
+        if (!cfg_loaded) {
+            // no file.. try TAR
+            cfgMigrateTARGameCfg(game->startup, NULL, pgcfg);
+        } else if (cfg_loaded == 2) {
+            // legacy format was migrated.. resave immediately in libconfig format
+            // so cfgMigrateLegacyPerGame never runs for this game again
+            need_save = 1;
+        }
+        // DELETE_WITH_MIGRATION
+
+        // auto determine and cache format/media/size if not set
+        if (!pgcfg->format[0]) {
+            if (game->format == GAME_FORMAT_USBLD)
+                strcpy(pgcfg->format, "UL");
+            else if (!strcasecmp(game->extension, ".zso"))
+                strcpy(pgcfg->format, "ZSO");
+            else
+                strcpy(pgcfg->format, "ISO");
+            need_save = 1;
+        }
+
+        if (!pgcfg->media[0]) {
+            strcpy(pgcfg->media, game->media == SCECdPS2CD ? "CD" : "DVD");
+            need_save = 1;
+        }
+
+        if (!pgcfg->size_mb) {
+            if (game->sizeMB > 0) {
+                pgcfg->size_mb = game->sizeMB;
+            } else {
+                char gamepath[256];
+                if (game->format == GAME_FORMAT_ISO) {
+                    snprintf(gamepath, sizeof(gamepath), "%s%s%s%s%s%s", prefix, sep, game->media == SCECdPS2CD ? "CD" : "DVD", sep, game->name, game->extension);
+                    if (stat(gamepath, &st) == 0)
+                        pgcfg->size_mb = st.st_size >> 20;
+                } else if (game->format == GAME_FORMAT_OLD_ISO) {
+                    snprintf(gamepath, sizeof(gamepath), "%s%s%s%s%s.%s%s", prefix, sep, game->media == SCECdPS2CD ? "CD" : "DVD", sep, game->startup, game->name, game->extension);
+                    if (stat(gamepath, &st) == 0)
+                        pgcfg->size_mb = st.st_size >> 20;
                 }
-                free(buf);
             }
+            if (pgcfg->size_mb)
+                need_save = 1;
         }
+
+        if (need_save)
+            wOPLPerGameSave(cfg_path, pgcfg);
     }
+}
 
-    // Get game size if not already set
-    if (game->sizeMB == 0) {
-        char gamepath[256];
+int sbSaveConfig(base_game_info_t *game, const char *prefix, const char *sep, const per_game_cfg_t *cfg)
+{
+    char path[256];
 
-        if (game->format == GAME_FORMAT_ISO) {
-            snprintf(gamepath, sizeof(gamepath), "%s%s%s%s%s%s", prefix, sep, game->media == SCECdPS2CD ? "CD" : "DVD", sep, game->name, game->extension);
+    snprintf(path, sizeof(path), "%sCFG%s%s.cfg", prefix, sep, game->startup);
 
-            if (stat(gamepath, &st) == 0)
-                game->sizeMB = st.st_size >> 20;
-        } else if (game->format == GAME_FORMAT_OLD_ISO) {
-            snprintf(gamepath, sizeof(gamepath), "%s%s%s%s%s.%s%s", prefix, sep, game->media == SCECdPS2CD ? "CD" : "DVD", sep, game->startup, game->name, game->extension);
-
-            if (stat(gamepath, &st) == 0)
-                game->sizeMB = st.st_size >> 20;
-        } else if (game->format == GAME_FORMAT_USBLD) {
-            // Calculate total size for multi-part USBLD games
-            int part;
-            unsigned int name_checksum = USBA_crc32(game->name);
-
-            for (part = 0; part < game->parts; part++) {
-                snprintf(gamepath, sizeof(gamepath), "%sul.%08X.%s.%02x", prefix, name_checksum, game->startup, part);
-                if (stat(gamepath, &st) == 0)
-                    game->sizeMB += (st.st_size >> 20);
-            }
-        }
-    }
-
-    configSetStr(config, CONFIG_ITEM_NAME, game->name);
-    configSetInt(config, CONFIG_ITEM_SIZE, game->sizeMB);
-
-    if (game->format != GAME_FORMAT_USBLD) {
-        if (!strcmp(game->extension, ".iso"))
-            configSetStr(config, CONFIG_ITEM_FORMAT, "ISO");
-        else if (!strcmp(game->extension, ".zso"))
-            configSetStr(config, CONFIG_ITEM_FORMAT, "ZSO");
-    } else if (game->format == GAME_FORMAT_USBLD)
-        configSetStr(config, CONFIG_ITEM_FORMAT, "UL");
-
-    configSetStr(config, CONFIG_ITEM_MEDIA, game->media == SCECdPS2CD ? "CD" : "DVD");
-
-    configSetStr(config, CONFIG_ITEM_STARTUP, game->startup);
-
-    return config;
+    return wOPLPerGameSave(path, cfg);
 }
 
 static void sbCreateFoldersFromList(const char *path, const char **folders)
