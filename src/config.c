@@ -297,7 +297,7 @@ static int tryAlternateDevice(int types)
 
 void loadConfig()
 {
-    int value, themeID = -1, langID = -1;
+    int themeID = -1, langID = -1;
     const char *temp;
 
     // Skip CONFIG_OPL.. handled by wOPLLoad below
