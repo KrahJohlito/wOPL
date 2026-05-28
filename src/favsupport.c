@@ -10,6 +10,7 @@
 #include "include/themes.h"
 #include "include/favsupport.h"
 #include "include/common.h"
+#include "include/config_wopl.h"
 #include <malloc.h>
 #include <stdio.h>
 
