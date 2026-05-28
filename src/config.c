@@ -139,9 +139,9 @@ static int configKeyValidate(const char *key)
     return !strchr(key, '=');
 }
 
-static struct config_value_t *allocConfigItem(const char *key, const char *val)
+static struct config_kv_t *allocConfigItem(const char *key, const char *val)
 {
-    struct config_value_t *it = (struct config_value_t *)malloc(sizeof(struct config_value_t));
+    struct config_kv_t *it = (struct config_kv_t *)malloc(sizeof(struct config_kv_t));
     strncpy(it->key, key, sizeof(it->key));
     it->key[sizeof(it->key) - 1] = '\0';
     strncpy(it->val, val, sizeof(it->val));
@@ -163,9 +163,9 @@ static void addConfigValue(config_set_t *configSet, const char *key, const char 
     }
 }
 
-static struct config_value_t *getConfigItemForName(config_set_t *configSet, const char *name)
+static struct config_kv_t *getConfigItemForName(config_set_t *configSet, const char *name)
 {
-    struct config_value_t *val = configSet->head;
+    struct config_kv_t *val = configSet->head;
 
     while (val) {
         if (strncmp(val->key, name, sizeof(val->key)) == 0)
@@ -599,7 +599,7 @@ int configSetStr(config_set_t *configSet, const char *key, const char *value)
     if (!configKeyValidate(key))
         return 0;
 
-    struct config_value_t *it = getConfigItemForName(configSet, key);
+    struct config_kv_t *it = getConfigItemForName(configSet, key);
 
     if (it) {
         if (strncmp(it->val, value, sizeof(it->val)) != 0) {
@@ -623,7 +623,7 @@ int configGetStr(config_set_t *configSet, const char *key, const char **value)
     if (!configKeyValidate(key))
         return 0;
 
-    struct config_value_t *it = getConfigItemForName(configSet, key);
+    struct config_kv_t *it = getConfigItemForName(configSet, key);
 
     if (it) {
         *value = it->val;
@@ -686,8 +686,8 @@ int configRemoveKey(config_set_t *configSet, const char *key)
     if (!configKeyValidate(key))
         return 0;
 
-    struct config_value_t *val = configSet->head;
-    struct config_value_t *prev = NULL;
+    struct config_kv_t *val = configSet->head;
+    struct config_kv_t *prev = NULL;
 
     while (val) {
         if (strncmp(val->key, key, sizeof(val->key)) == 0) {
@@ -854,7 +854,7 @@ int configWrite(config_set_t *configSet)
             char line[512];
 
             bgmMute();
-            struct config_value_t *cur = configSet->head;
+            struct config_kv_t *cur = configSet->head;
             while (cur) {
                 if ((cur->key[0] != '\0') && (cur->key[0] != '#')) {
                     snprintf(line, sizeof(line), "%s=%s\r\n", cur->key, cur->val); // add windows CR+LF (0x0D 0x0A)
@@ -878,7 +878,7 @@ int configWrite(config_set_t *configSet)
 void configClear(config_set_t *configSet)
 {
     while (configSet->head) {
-        struct config_value_t *cur = configSet->head;
+        struct config_kv_t *cur = configSet->head;
         configSet->head = cur->next;
 
         free(cur);
