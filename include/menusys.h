@@ -1,8 +1,11 @@
 #ifndef __MENUSYS_H
 #define __MENUSYS_H
 
-#include "include/config.h"
 #include "include/dia.h"
+#include "include/iosupport.h"
+#include "include/config_wopl.h"
+
+#include <time.h>
 
 /// a single submenu item
 typedef struct submenu_item
@@ -112,8 +115,8 @@ void submenuSort(submenu_list_t **submenu);
 
 char *submenuItemGetText(submenu_item_t *it);
 char *menuItemGetText(menu_item_t *it);
-config_set_t *menuLoadConfig();
-config_set_t *gameMenuLoadConfig(struct UIItem *ui);
+per_game_cfg_t *menuLoadConfig();
+per_game_cfg_t *gameMenuLoadConfig(struct UIItem *ui);
 void menuSaveConfig();
 
 void menuRenderMain();
