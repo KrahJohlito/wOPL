@@ -42,7 +42,7 @@ static int favNeedsUpdate(item_list_t *itemList)
     FILE *file;
     int fileSize = 0;
 
-    snprintf(filename, sizeof(filename), "%sfavourites.bin", configGetDir());
+    snprintf(filename, sizeof(filename), "%sfavourites.bin", wOPLGetDir());
 
     file = fopen(filename, "rb");
     if (file == NULL)
@@ -210,7 +210,7 @@ void writeFavouritesFile(submenu_item_t *items, int size)
     int count = size / sizeof(submenu_item_t);
     int i;
 
-    snprintf(filename, sizeof(filename), "%sfavourites.bin", configGetDir());
+    snprintf(filename, sizeof(filename), "%sfavourites.bin", wOPLGetDir());
     file = fopen(filename, "wb");
     if (file != NULL) {
         for (i = 0; i < count; ++i) {
@@ -239,7 +239,7 @@ submenu_item_t *readFavouritesFile(int *out_size)
     submenu_item_t *items = NULL;
     int size, count = 0, i;
 
-    snprintf(filename, sizeof(filename), "%sfavourites.bin", configGetDir());
+    snprintf(filename, sizeof(filename), "%sfavourites.bin", wOPLGetDir());
     file = fopen(filename, "rb");
     if (file != NULL) {
         fseek(file, 0, SEEK_END);
