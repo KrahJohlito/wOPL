@@ -137,10 +137,10 @@ static int probe_config_path(char *dir_out, size_t dir_len, char *path_out, size
     // 1. MC
     int mc = sysCheckMC();
     if (mc >= 0) {
-        snprintf(dir,  sizeof(dir), "mc%d:wOPL/", mc & 1);
+        snprintf(dir, sizeof(dir), "mc%d:wOPL/", mc & 1);
         snprintf(path, sizeof(path), "%s%s", dir, WOPL_FILENAME);
         if (for_write || file_exists(path)) {
-            strncpy(dir_out, dir,  dir_len - 1);
+            strncpy(dir_out, dir, dir_len - 1);
             dir_out[dir_len - 1] = '\0';
 
             strncpy(path_out, path, path_len - 1);
@@ -185,11 +185,11 @@ static int probe_config_path(char *dir_out, size_t dir_len, char *path_out, size
 static void parse_display(config_t *cfg)
 {
     gWideScreen = lookup_bool(cfg, "display.widescreen", gWideScreen);
-    gVMode = lookup_int (cfg, "display.vmode", gVMode);
-    gXOff = lookup_int (cfg, "display.x_offset", gXOff);
-    gYOff = lookup_int (cfg, "display.y_offset", gYOff);
-    gOverscan = lookup_int (cfg, "display.overscan", gOverscan);
-    gScrollSpeed = lookup_int (cfg, "display.scroll_speed", gScrollSpeed);
+    gVMode = lookup_int(cfg, "display.vmode", gVMode);
+    gXOff = lookup_int(cfg, "display.x_offset", gXOff);
+    gYOff = lookup_int(cfg, "display.y_offset", gYOff);
+    gOverscan = lookup_int(cfg, "display.overscan", gOverscan);
+    gScrollSpeed = lookup_int(cfg, "display.scroll_speed", gScrollSpeed);
 
     const char *color;
     if ((color = lookup_str(cfg, "display.bg_color", NULL)))
@@ -215,8 +215,8 @@ static void parse_ui(config_t *cfg, int *out_theme_id, int *out_lang_id)
         *out_lang_id = lngFindGuiID(lang_name);
 
     gSelectButton = lookup_bool(cfg, "ui.swap_button", 0) ? KEY_CROSS : KEY_CIRCLE;
-    gXSensitivity = lookup_int (cfg, "ui.x_sensitivity", gXSensitivity);
-    gYSensitivity = lookup_int (cfg, "ui.y_sensitivity", gYSensitivity);
+    gXSensitivity = lookup_int(cfg, "ui.x_sensitivity", gXSensitivity);
+    gYSensitivity = lookup_int(cfg, "ui.y_sensitivity", gYSensitivity);
     gEnableNotifications = lookup_bool(cfg, "ui.notifications", gEnableNotifications);
     gDiscEnableArt = lookup_bool(cfg, "ui.disc_art", gDiscEnableArt);
 }
@@ -224,11 +224,11 @@ static void parse_ui(config_t *cfg, int *out_theme_id, int *out_lang_id)
 static void parse_audio(config_t *cfg)
 {
     gEnableSFX = lookup_bool(cfg, "audio.sfx", gEnableSFX);
-    gSFXVolume = lookup_int (cfg, "audio.sfx_volume", gSFXVolume);
+    gSFXVolume = lookup_int(cfg, "audio.sfx_volume", gSFXVolume);
     gEnableBootSND = lookup_bool(cfg, "audio.boot_sound", gEnableBootSND);
-    gBootSndVolume = lookup_int (cfg, "audio.boot_volume", gBootSndVolume);
+    gBootSndVolume = lookup_int(cfg, "audio.boot_volume", gBootSndVolume);
     gEnableBGM = lookup_bool(cfg, "audio.bgm", gEnableBGM);
-    gBGMVolume = lookup_int (cfg, "audio.bgm_volume", gBGMVolume);
+    gBGMVolume = lookup_int(cfg, "audio.bgm_volume", gBGMVolume);
 
     const char *path = lookup_str(cfg, "audio.bgm_path", NULL);
     if (path)
@@ -237,17 +237,17 @@ static void parse_audio(config_t *cfg)
 
 static void parse_startup(config_t *cfg)
 {
-    gDefaultDevice = lookup_int (cfg, "startup.default_device", gDefaultDevice);
+    gDefaultDevice = lookup_int(cfg, "startup.default_device", gDefaultDevice);
     gAutosort = lookup_bool(cfg, "startup.auto_sort", gAutosort);
     gAutoRefresh = lookup_bool(cfg, "startup.auto_refresh", gAutoRefresh);
     gRememberLastPlayed = lookup_bool(cfg, "startup.remember_last", gRememberLastPlayed);
     gAutoStartLastPlayed = lookup_bool(cfg, "startup.autostart_last", gAutoStartLastPlayed);
-    gBDMStartMode = lookup_int (cfg, "startup.bdm_start_mode", gBDMStartMode);
-    gHDDStartMode = lookup_int (cfg, "startup.hdd_start_mode", gHDDStartMode);
-    gETHStartMode = lookup_int (cfg, "startup.eth_start_mode", gETHStartMode);
-    gAPPStartMode = lookup_int (cfg, "startup.app_start_mode", gAPPStartMode);
-    gFAVStartMode = lookup_int (cfg, "startup.fav_start_mode", gFAVStartMode);
-    gMMCEStartMode = lookup_int (cfg, "startup.mmce_start_mode", gMMCEStartMode);
+    gBDMStartMode = lookup_int(cfg, "startup.bdm_start_mode", gBDMStartMode);
+    gHDDStartMode = lookup_int(cfg, "startup.hdd_start_mode", gHDDStartMode);
+    gETHStartMode = lookup_int(cfg, "startup.eth_start_mode", gETHStartMode);
+    gAPPStartMode = lookup_int(cfg, "startup.app_start_mode", gAPPStartMode);
+    gFAVStartMode = lookup_int(cfg, "startup.fav_start_mode", gFAVStartMode);
+    gMMCEStartMode = lookup_int(cfg, "startup.mmce_start_mode", gMMCEStartMode);
 
     const char *path = lookup_str(cfg, "startup.exit_path", NULL);
     if (path)
@@ -260,10 +260,10 @@ static void parse_devices(config_t *cfg)
     gEnableILK = lookup_bool(cfg, "devices.ilink_enabled", gEnableILK);
     gEnableMX4SIO = lookup_bool(cfg, "devices.mx4sio_enabled", gEnableMX4SIO);
     gEnableBdmHDD = lookup_bool(cfg, "devices.bdm_hdd_enabled", gEnableBdmHDD);
-    bdmCacheSize = lookup_int (cfg, "devices.bdm_cache", bdmCacheSize);
-    hddCacheSize = lookup_int (cfg, "devices.hdd_cache", hddCacheSize);
-    smbCacheSize = lookup_int (cfg, "devices.smb_cache", smbCacheSize);
-    gHDDSpindown = lookup_int (cfg, "devices.hdd_spindown", gHDDSpindown);
+    bdmCacheSize = lookup_int(cfg, "devices.bdm_cache", bdmCacheSize);
+    hddCacheSize = lookup_int(cfg, "devices.hdd_cache", hddCacheSize);
+    smbCacheSize = lookup_int(cfg, "devices.smb_cache", smbCacheSize);
+    gHDDSpindown = lookup_int(cfg, "devices.hdd_spindown", gHDDSpindown);
     gHDDGameListCache = lookup_bool(cfg, "devices.hdd_game_list_cache", gHDDGameListCache);
     gEnableWrite = lookup_bool(cfg, "devices.enable_write", gEnableWrite);
 }
@@ -283,9 +283,9 @@ static void parse_paths(config_t *cfg)
 
 static void parse_mmce(config_t *cfg)
 {
-    gMMCESlot = lookup_int (cfg, "mmce.slot", gMMCESlot);
-    gMMCEIGRSlot = lookup_int (cfg, "mmce.igr_slot", gMMCEIGRSlot);
-    gMMCEAckWaitCycles = lookup_int (cfg, "mmce.mmce_wait_cycles", gMMCEAckWaitCycles);
+    gMMCESlot = lookup_int(cfg, "mmce.slot", gMMCESlot);
+    gMMCEIGRSlot = lookup_int(cfg, "mmce.igr_slot", gMMCEIGRSlot);
+    gMMCEAckWaitCycles = lookup_int(cfg, "mmce.mmce_wait_cycles", gMMCEAckWaitCycles);
     gMMCEUseAlarms = lookup_bool(cfg, "mmce.use_alarms", gMMCEUseAlarms);
 }
 
@@ -437,7 +437,7 @@ static int migrate_legacy(const char *path, int *out_theme_id, int *out_lang_id)
     configGetColor(cfg, CONFIG_OPL_UI_TEXTCOLOR, gDefaultUITextColor);
     configGetColor(cfg, CONFIG_OPL_SEL_TEXTCOLOR, gDefaultSelTextColor);
     configGetColor(cfg, CONFIG_OPL_PLAS_BLEND_COLOR, gDefaultPlasmaBlendColor);
-    configGetInt(cfg, CONFIG_OPL_ENABLE_NOTIFICATIONS,&gEnableNotifications);
+    configGetInt(cfg, CONFIG_OPL_ENABLE_NOTIFICATIONS, &gEnableNotifications);
     configGetInt(cfg, CONFIG_OPL_ENABLE_DISCART, &gDiscEnableArt);
     configGetInt(cfg, CONFIG_OPL_WIDESCREEN, &gWideScreen);
     configGetInt(cfg, CONFIG_OPL_VMODE, &gVMode);
