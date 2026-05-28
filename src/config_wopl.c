@@ -10,6 +10,7 @@
 #include "include/lang.h"
 #include "include/pad.h"
 #include "include/sound.h"
+#include "include/lwnbd.h"
 
 #include <libconfig.h>
 #include <stdio.h>
@@ -22,9 +23,14 @@
 #include "include/debug.h"
 #endif
 
-static char settings_config_dir[128] = {0};
+static char config_dir[128] = {0};
 
 #define WOPL_FILENAME "conf_wopl.cfg"
+#define NET_FILENAME  "conf_network.cfg"
+
+// ---------------------------------------------------------------------------
+// Shared helpers
+// ---------------------------------------------------------------------------
 
 static void color_to_str(const unsigned char *color, char *out, size_t len)
 {
@@ -46,6 +52,18 @@ static void str_to_color(const char *str, unsigned char *color)
 
         color[i] = (unsigned char)((hi << 4) | lo);
     }
+}
+
+static void ip_to_str(const int *ip, char *out, size_t len)
+{
+    snprintf(out, len, "%d.%d.%d.%d", ip[0], ip[1], ip[2], ip[3]);
+}
+
+static void str_to_ip(const char *str, int *ip)
+{
+    ip[0] = ip[1] = ip[2] = ip[3] = 0;
+    if (str)
+        sscanf(str, "%d.%d.%d.%d", &ip[0], &ip[1], &ip[2], &ip[3]);
 }
 
 static int lookup_int(config_t *cfg, const char *path, int def)
@@ -110,6 +128,13 @@ static void set_color(config_setting_t *group, const char *name, const unsigned 
     set_str(group, name, buf);
 }
 
+static void set_ip(config_setting_t *group, const char *name, const int *ip)
+{
+    char buf[16];
+    ip_to_str(ip, buf, sizeof(buf));
+    set_str(group, name, buf);
+}
+
 static int file_exists(const char *path)
 {
     FILE *fd = fopen(path, "r");
@@ -129,7 +154,7 @@ static int ensure_mc_dir(const char *dir)
     return mkdir(dir, 0777) == 0 || errno == EEXIST;
 }
 
-static int probe_config_path(char *dir_out, size_t dir_len, char *path_out, size_t path_len, int for_write)
+static int probe_config_path(const char *filename, char *dir_out, size_t dir_len, char *path_out, size_t path_len, int for_write)
 {
     char dir[128];
     char path[256];
@@ -138,7 +163,7 @@ static int probe_config_path(char *dir_out, size_t dir_len, char *path_out, size
     int mc = sysCheckMC();
     if (mc >= 0) {
         snprintf(dir, sizeof(dir), "mc%d:wOPL/", mc & 1);
-        snprintf(path, sizeof(path), "%s%s", dir, WOPL_FILENAME);
+        snprintf(path, sizeof(path), "%s%s", dir, filename);
         if (for_write || file_exists(path)) {
             strncpy(dir_out, dir, dir_len - 1);
             dir_out[dir_len - 1] = '\0';
@@ -153,7 +178,7 @@ static int probe_config_path(char *dir_out, size_t dir_len, char *path_out, size
     // 2. BDM.. just 0-1 for now
     const char *mass_dirs[] = {"mass0:/", "mass1:/", NULL};
     for (int i = 0; mass_dirs[i]; i++) {
-        snprintf(path, sizeof(path), "%s%s", mass_dirs[i], WOPL_FILENAME);
+        snprintf(path, sizeof(path), "%s%s", mass_dirs[i], filename);
         if (for_write || file_exists(path)) {
             strncpy(dir_out, mass_dirs[i], dir_len - 1);
             dir_out[dir_len - 1] = '\0';
@@ -167,7 +192,7 @@ static int probe_config_path(char *dir_out, size_t dir_len, char *path_out, size
 
     // 3. HDD.. gHDDPrefix is a char*.. null-check before use.
     if (gHDDPrefix && gHDDPrefix[0]) {
-        snprintf(path, sizeof(path), "%s%s", gHDDPrefix, WOPL_FILENAME);
+        snprintf(path, sizeof(path), "%s%s", gHDDPrefix, filename);
         if (for_write || file_exists(path)) {
             strncpy(dir_out, gHDDPrefix, dir_len - 1);
             dir_out[dir_len - 1] = '\0';
@@ -181,6 +206,56 @@ static int probe_config_path(char *dir_out, size_t dir_len, char *path_out, size
 
     return 0;
 }
+
+static int do_save(const char *filename, void (*build)(config_setting_t *))
+{
+    char dir[128];
+    char path[256];
+
+    if (config_dir[0]) {
+        strncpy(dir, config_dir, 127);
+        dir[127] = '\0';
+        snprintf(path, sizeof(path), "%s%s", dir, filename);
+    } else {
+        if (!probe_config_path(filename, dir, sizeof(dir), path, sizeof(path), 1))
+            return 0;
+    }
+
+    if (!strncmp(dir, "mc", 2)) {
+        char mc_dir[128];
+        strncpy(mc_dir, dir, sizeof(mc_dir) - 1);
+        mc_dir[sizeof(mc_dir) - 1] = '\0';
+        size_t len = strlen(mc_dir);
+        if (len > 0 && mc_dir[len - 1] == '/')
+            mc_dir[len - 1] = '\0';
+        if (!ensure_mc_dir(mc_dir)) {
+            LOG("CONFIG: failed to create MC dir '%s'\n", mc_dir);
+            return 0;
+        }
+    }
+
+    config_t cfg;
+    config_init(&cfg);
+    config_setting_t *root = config_root_setting(&cfg);
+
+    build(root);
+
+    int ok = config_write_file(&cfg, path);
+    config_destroy(&cfg);
+
+    if (!ok) {
+        LOG("CONFIG: failed to write '%s'\n", path);
+        return 0;
+    }
+
+    strncpy(config_dir, dir, 127);
+    LOG("CONFIG: saved to '%s'\n", path);
+    return 1;
+}
+
+// ---------------------------------------------------------------------------
+// OPL config (conf_wopl.cfg)
+// ---------------------------------------------------------------------------
 
 static void parse_display(config_t *cfg)
 {
@@ -299,10 +374,11 @@ static void parse_debug(config_t *cfg)
 #endif
 }
 
-static void build_display(config_setting_t *root)
+static void build_opl(config_setting_t *root)
 {
-    config_setting_t *group = add_group(root, "display");
+    config_setting_t *group;
 
+    group = add_group(root, "display");
     set_bool(group, "widescreen", gWideScreen);
     set_int(group, "vmode", gVMode);
     set_int(group, "x_offset", gXOff);
@@ -314,12 +390,8 @@ static void build_display(config_setting_t *root)
     set_color(group, "ui_text_color", gDefaultUITextColor);
     set_color(group, "sel_text_color", gDefaultSelTextColor);
     set_color(group, "plasma_blend_color", gDefaultPlasmaBlendColor);
-}
 
-static void build_ui(config_setting_t *root)
-{
-    config_setting_t *group = add_group(root, "ui");
-
+    group = add_group(root, "ui");
     set_str(group, "theme", thmGetValue());
     set_str(group, "language", lngGetValue());
     set_bool(group, "swap_button", gSelectButton == KEY_CROSS);
@@ -327,12 +399,8 @@ static void build_ui(config_setting_t *root)
     set_int(group, "y_sensitivity", gYSensitivity);
     set_bool(group, "notifications", gEnableNotifications);
     set_bool(group, "disc_art", gDiscEnableArt);
-}
 
-static void build_audio(config_setting_t *root)
-{
-    config_setting_t *group = add_group(root, "audio");
-
+    group = add_group(root, "audio");
     set_bool(group, "sfx", gEnableSFX);
     set_int(group, "sfx_volume", gSFXVolume);
     set_bool(group, "boot_sound", gEnableBootSND);
@@ -340,12 +408,8 @@ static void build_audio(config_setting_t *root)
     set_bool(group, "bgm", gEnableBGM);
     set_int(group, "bgm_volume", gBGMVolume);
     set_str(group, "bgm_path", gDefaultBGMPath);
-}
 
-static void build_startup(config_setting_t *root)
-{
-    config_setting_t *group = add_group(root, "startup");
-
+    group = add_group(root, "startup");
     set_int(group, "default_device", gDefaultDevice);
     set_bool(group, "auto_sort", gAutosort);
     set_bool(group, "auto_refresh", gAutoRefresh);
@@ -358,12 +422,8 @@ static void build_startup(config_setting_t *root)
     set_int(group, "app_start_mode", gAPPStartMode);
     set_int(group, "fav_start_mode", gFAVStartMode);
     set_int(group, "mmce_start_mode", gMMCEStartMode);
-}
 
-static void build_devices(config_setting_t *root)
-{
-    config_setting_t *group = add_group(root, "devices");
-
+    group = add_group(root, "devices");
     set_bool(group, "usb_enabled", gEnableUSB);
     set_bool(group, "ilink_enabled", gEnableILK);
     set_bool(group, "mx4sio_enabled", gEnableMX4SIO);
@@ -374,31 +434,19 @@ static void build_devices(config_setting_t *root)
     set_int(group, "hdd_spindown", gHDDSpindown);
     set_bool(group, "hdd_game_list_cache", gHDDGameListCache);
     set_bool(group, "enable_write", gEnableWrite);
-}
 
-static void build_paths(config_setting_t *root)
-{
-    config_setting_t *group = add_group(root, "paths");
-
+    group = add_group(root, "paths");
     set_str(group, "bdm_prefix", gBDMPrefix);
     set_str(group, "eth_prefix", gETHPrefix);
     set_str(group, "mmce_prefix", gMMCEPrefix);
-}
 
-static void build_mmce(config_setting_t *root)
-{
-    config_setting_t *group = add_group(root, "mmce");
-
+    group = add_group(root, "mmce");
     set_int(group, "slot", gMMCESlot);
     set_int(group, "igr_slot", gMMCEIGRSlot);
     set_int(group, "mmce_wait_cycles", gMMCEAckWaitCycles);
     set_bool(group, "use_alarms", gMMCEUseAlarms);
-}
 
-static void build_debug(config_setting_t *root)
-{
-    config_setting_t *group = add_group(root, "debug");
-
+    group = add_group(root, "debug");
     set_bool(group, "enable_debug", gEnableDebug);
     set_bool(group, "bdm_debug", gBDMDebug);
     set_bool(group, "ps2_logo", gPS2Logo);
@@ -415,8 +463,7 @@ static void build_debug(config_setting_t *root)
 // values into globals, then wOPLSave() immediately rewrites them in
 // the new libconfig format.. phase out eventually
 // ---------------------------------------------------------------------------
-
-static int migrate_legacy(const char *path, int *out_theme_id, int *out_lang_id)
+static int migrate_legacy_opl(const char *path, int *out_theme_id, int *out_lang_id)
 {
     config_set_t legacy;
     config_set_t *cfg = configAlloc(CONFIG_OPL, &legacy, (char *)path);
@@ -507,7 +554,7 @@ int wOPLLoad(int *out_theme_id, int *out_lang_id)
     char dir[128];
     char path[256];
 
-    if (!probe_config_path(dir, sizeof(dir), path, sizeof(path), 0))
+    if (!probe_config_path(WOPL_FILENAME, dir, sizeof(dir), path, sizeof(path), 0))
         return 0;
 
     config_t cfg;
@@ -516,10 +563,10 @@ int wOPLLoad(int *out_theme_id, int *out_lang_id)
     if (!config_read_file(&cfg, path)) {
         config_destroy(&cfg);
         LOG("CONFIG_WOPL: libconfig parse failed for '%s', attempting legacy migration\n", path);
-        if (!migrate_legacy(path, out_theme_id, out_lang_id))
+        if (!migrate_legacy_opl(path, out_theme_id, out_lang_id))
             return 0;
 
-        strncpy(settings_config_dir, dir, sizeof(settings_config_dir) - 1);
+        strncpy(config_dir, dir, sizeof(config_dir) - 1);
         wOPLSave();
         LOG("CONFIG_WOPL: legacy config migrated to new format at '%s'\n", path);
         return 1;
@@ -536,67 +583,157 @@ int wOPLLoad(int *out_theme_id, int *out_lang_id)
 
     config_destroy(&cfg);
 
-    strncpy(settings_config_dir, dir, sizeof(settings_config_dir) - 1);
+    strncpy(config_dir, dir, sizeof(config_dir) - 1);
     LOG("CONFIG_WOPL: loaded from '%s'\n", path);
     return 1;
 }
 
 int wOPLSave(void)
 {
-    char dir[128];
-    char path[256];
-
-    if (settings_config_dir[0]) {
-        strncpy(dir, settings_config_dir, sizeof(dir) - 1);
-        dir[sizeof(dir) - 1] = '\0';
-        snprintf(path, sizeof(path), "%s%s", dir, WOPL_FILENAME);
-    } else {
-        if (!probe_config_path(dir, sizeof(dir), path, sizeof(path), 1))
-            return 0;
-    }
-
-    // Ensure MC directory exists before writing.
-    if (!strncmp(dir, "mc", 2)) {
-        char mc_dir[128];
-        strncpy(mc_dir, dir, sizeof(mc_dir) - 1);
-        mc_dir[sizeof(mc_dir) - 1] = '\0';
-        size_t len = strlen(mc_dir);
-        if (len > 0 && mc_dir[len - 1] == '/')
-            mc_dir[len - 1] = '\0';
-        if (!ensure_mc_dir(mc_dir)) {
-            LOG("CONFIG_WOPL: failed to create MC dir '%s'\n", mc_dir);
-            return 0;
-        }
-    }
-
-    // Build tree from scratch each save
-    config_t cfg;
-    config_init(&cfg);
-    config_setting_t *root = config_root_setting(&cfg);
-
-    build_display(root);
-    build_ui(root);
-    build_audio(root);
-    build_startup(root);
-    build_devices(root);
-    build_paths(root);
-    build_mmce(root);
-    build_debug(root);
-
-    int ok = config_write_file(&cfg, path);
-    config_destroy(&cfg);
-
-    if (!ok) {
-        LOG("CONFIG_WOPL: failed to write '%s'\n", path);
-        return 0;
-    }
-
-    strncpy(settings_config_dir, dir, sizeof(settings_config_dir) - 1);
-    LOG("CONFIG_WOPL: saved to '%s'\n", path);
-    return 1;
+    return do_save(WOPL_FILENAME, build_opl);
 }
 
 const char *wOPLGetDir(void)
 {
-    return settings_config_dir[0] ? settings_config_dir : NULL;
+    return config_dir[0] ? config_dir : NULL;
+}
+
+// ---------------------------------------------------------------------------
+// Network config (conf_network.cfg)
+// ---------------------------------------------------------------------------
+
+static void parse_net(config_t *cfg)
+{
+    const char *string;
+
+    gETHOpMode = lookup_int(cfg, "eth.link_mode", gETHOpMode);
+
+    ps2_ip_use_dhcp = lookup_bool(cfg, "ps2.dhcp", ps2_ip_use_dhcp);
+    if ((string = lookup_str(cfg, "ps2.ip", NULL)))
+        str_to_ip(string, ps2_ip);
+    if ((string = lookup_str(cfg, "ps2.netmask", NULL)))
+        str_to_ip(string, ps2_netmask);
+    if ((string = lookup_str(cfg, "ps2.gateway", NULL)))
+        str_to_ip(string, ps2_gateway);
+    if ((string = lookup_str(cfg, "ps2.dns", NULL)))
+        str_to_ip(string, ps2_dns);
+
+    gPCShareAddressIsNetBIOS = lookup_bool(cfg, "smb.use_netbios", gPCShareAddressIsNetBIOS);
+    if ((string = lookup_str(cfg, "smb.nb_address", NULL)))
+        strncpy(gPCShareNBAddress, string, sizeof(gPCShareNBAddress) - 1);
+    if ((string = lookup_str(cfg, "smb.ip", NULL)))
+        str_to_ip(string, pc_ip);
+
+    gPCPort = lookup_int(cfg, "smb.port", gPCPort);
+    if ((string = lookup_str(cfg, "smb.share", NULL)))
+        strncpy(gPCShareName, string, sizeof(gPCShareName) - 1);
+    if ((string = lookup_str(cfg, "smb.username", NULL)))
+        strncpy(gPCUserName, string, sizeof(gPCUserName) - 1);
+    if ((string = lookup_str(cfg, "smb.password", NULL)))
+        strncpy(gPCPassword, string, sizeof(gPCPassword) - 1);
+    if ((string = lookup_str(cfg, "nbd.export", NULL)))
+        strncpy(gExportName, string, sizeof(gExportName) - 1);
+}
+
+static void build_net(config_setting_t *root)
+{
+    config_setting_t *group;
+    char buf[16];
+
+    group = add_group(root, "eth");
+    set_int(group, "link_mode", gETHOpMode);
+
+    group = add_group(root, "ps2");
+    set_bool(group, "dhcp", ps2_ip_use_dhcp);
+    set_ip(group, "ip", ps2_ip);
+    set_ip(group, "netmask", ps2_netmask);
+    set_ip(group, "gateway", ps2_gateway);
+    set_ip(group, "dns", ps2_dns);
+
+    group = add_group(root, "smb");
+    set_bool(group, "use_netbios", gPCShareAddressIsNetBIOS);
+    set_str(group, "nb_address", gPCShareNBAddress);
+    ip_to_str(pc_ip, buf, sizeof(buf));
+    set_str(group, "ip", buf);
+    set_int(group, "port", gPCPort);
+    set_str(group, "share", gPCShareName);
+    set_str(group, "username", gPCUserName);
+    set_str(group, "password", gPCPassword);
+
+    group = add_group(root, "nbd");
+    set_str(group, "export", gExportName);
+}
+
+// legacy migration.. phase out eventually
+static int migrate_legacy_net(const char *path)
+{
+    config_set_t legacy;
+    config_set_t *cfg = configAlloc(CONFIG_NETWORK, &legacy, (char *)path);
+    if (!cfg)
+        return 0;
+
+    if (!configRead(cfg)) {
+        configClear(cfg);
+        return 0;
+    }
+
+    const char *temp;
+
+    configGetInt(cfg, CONFIG_NET_ETH_LINKM, &gETHOpMode);
+    configGetInt(cfg, CONFIG_NET_PS2_DHCP, &ps2_ip_use_dhcp);
+    configGetInt(cfg, CONFIG_NET_SMB_NBNS, &gPCShareAddressIsNetBIOS);
+    configGetStrCopy(cfg, CONFIG_NET_SMB_NB_ADDR, gPCShareNBAddress, sizeof(gPCShareNBAddress));
+    configGetInt(cfg, CONFIG_NET_SMB_PORT, &gPCPort);
+    configGetStrCopy(cfg, CONFIG_NET_SMB_SHARE, gPCShareName, sizeof(gPCShareName));
+    configGetStrCopy(cfg, CONFIG_NET_SMB_USER, gPCUserName, sizeof(gPCUserName));
+    configGetStrCopy(cfg, CONFIG_NET_SMB_PASSW, gPCPassword, sizeof(gPCPassword));
+    configGetStrCopy(cfg, CONFIG_NET_NBD_DEFAULT_EXPORT, gExportName, sizeof(gExportName));
+
+    if (configGetStr(cfg, CONFIG_NET_SMB_IP_ADDR, &temp))
+        sscanf(temp, "%d.%d.%d.%d", &pc_ip[0], &pc_ip[1], &pc_ip[2], &pc_ip[3]);
+    if (configGetStr(cfg, CONFIG_NET_PS2_IP, &temp))
+        sscanf(temp, "%d.%d.%d.%d", &ps2_ip[0], &ps2_ip[1], &ps2_ip[2], &ps2_ip[3]);
+    if (configGetStr(cfg, CONFIG_NET_PS2_NETM, &temp))
+        sscanf(temp, "%d.%d.%d.%d", &ps2_netmask[0], &ps2_netmask[1], &ps2_netmask[2], &ps2_netmask[3]);
+    if (configGetStr(cfg, CONFIG_NET_PS2_GATEW, &temp))
+        sscanf(temp, "%d.%d.%d.%d", &ps2_gateway[0], &ps2_gateway[1], &ps2_gateway[2], &ps2_gateway[3]);
+    if (configGetStr(cfg, CONFIG_NET_PS2_DNS, &temp))
+        sscanf(temp, "%d.%d.%d.%d", &ps2_dns[0], &ps2_dns[1], &ps2_dns[2], &ps2_dns[3]);
+
+    configClear(cfg);
+    return 1;
+}
+
+int wOPLNetLoad(void)
+{
+    if (!config_dir[0])
+        return 0;
+
+    char path[256];
+    snprintf(path, sizeof(path), "%s%s", config_dir, NET_FILENAME);
+
+    config_t cfg;
+    config_init(&cfg);
+
+    if (!config_read_file(&cfg, path)) {
+        config_destroy(&cfg);
+        LOG("CONFIG_NET: libconfig parse failed for '%s', attempting legacy migration\n", path);
+        if (!migrate_legacy_net(path))
+            return 0;
+
+        wOPLNetSave();
+        LOG("CONFIG_NET: legacy config migrated to new format at '%s'\n", path);
+        return 1;
+    }
+
+    parse_net(&cfg);
+    config_destroy(&cfg);
+
+    LOG("CONFIG_NET: loaded from '%s'\n", path);
+    return 1;
+}
+
+int wOPLNetSave(void)
+{
+    return do_save(NET_FILENAME, build_net);
 }

@@ -300,8 +300,8 @@ void loadConfig()
     int themeID = -1, langID = -1;
     const char *temp;
 
-    // Skip CONFIG_OPL.. handled by wOPLLoad below
-    int result = configReadMulti(lscstatus & ~CONFIG_OPL);
+    // Skip CONFIG_OPL & CONFIG_NETWORK.. handled by libconfig below
+    int result = configReadMulti(lscstatus & ~CONFIG_OPL & ~CONFIG_NETWORK);
 
     if (lscstatus & CONFIG_OPL) {
         if (wOPLLoad(&themeID, &langID))
@@ -315,39 +315,8 @@ void loadConfig()
     }
 
     if (lscstatus & CONFIG_NETWORK) {
-        if (!(result & CONFIG_NETWORK)) {
-            result = tryAlternateDevice(lscstatus);
-        }
-
-        if (result & CONFIG_NETWORK) {
-            config_set_t *configNet = configGetByType(CONFIG_NETWORK);
-
-            configGetInt(configNet, CONFIG_NET_ETH_LINKM, &gETHOpMode);
-
-            configGetInt(configNet, CONFIG_NET_PS2_DHCP, &ps2_ip_use_dhcp);
-            configGetInt(configNet, CONFIG_NET_SMB_NBNS, &gPCShareAddressIsNetBIOS);
-            configGetStrCopy(configNet, CONFIG_NET_SMB_NB_ADDR, gPCShareNBAddress, sizeof(gPCShareNBAddress));
-
-            if (configGetStr(configNet, CONFIG_NET_SMB_IP_ADDR, &temp))
-                sscanf(temp, "%d.%d.%d.%d", &pc_ip[0], &pc_ip[1], &pc_ip[2], &pc_ip[3]);
-
-            configGetInt(configNet, CONFIG_NET_SMB_PORT, &gPCPort);
-
-            configGetStrCopy(configNet, CONFIG_NET_SMB_SHARE, gPCShareName, sizeof(gPCShareName));
-            configGetStrCopy(configNet, CONFIG_NET_SMB_USER, gPCUserName, sizeof(gPCUserName));
-            configGetStrCopy(configNet, CONFIG_NET_SMB_PASSW, gPCPassword, sizeof(gPCPassword));
-
-            if (configGetStr(configNet, CONFIG_NET_PS2_IP, &temp))
-                sscanf(temp, "%d.%d.%d.%d", &ps2_ip[0], &ps2_ip[1], &ps2_ip[2], &ps2_ip[3]);
-            if (configGetStr(configNet, CONFIG_NET_PS2_NETM, &temp))
-                sscanf(temp, "%d.%d.%d.%d", &ps2_netmask[0], &ps2_netmask[1], &ps2_netmask[2], &ps2_netmask[3]);
-            if (configGetStr(configNet, CONFIG_NET_PS2_GATEW, &temp))
-                sscanf(temp, "%d.%d.%d.%d", &ps2_gateway[0], &ps2_gateway[1], &ps2_gateway[2], &ps2_gateway[3]);
-            if (configGetStr(configNet, CONFIG_NET_PS2_DNS, &temp))
-                sscanf(temp, "%d.%d.%d.%d", &ps2_dns[0], &ps2_dns[1], &ps2_dns[2], &ps2_dns[3]);
-
-            configGetStrCopy(configNet, CONFIG_NET_NBD_DEFAULT_EXPORT, gExportName, sizeof(gExportName));
-        }
+        if (wOPLNetLoad())
+            result |= CONFIG_NETWORK;
     }
 
     configApply(themeID, langID, 0);
@@ -434,34 +403,13 @@ static int trySaveAlternateDevice(int types)
 static void saveConfig()
 {
     char temp[256];
-    int woplResult = 0;
+    int woplResult = 0, netResult = 0;
 
     if (lscstatus & CONFIG_OPL)
         woplResult = wOPLSave();
 
-    if (lscstatus & CONFIG_NETWORK) {
-        config_set_t *configNet = configGetByType(CONFIG_NETWORK);
-
-        snprintf(temp, sizeof(temp), "%d.%d.%d.%d", ps2_ip[0], ps2_ip[1], ps2_ip[2], ps2_ip[3]);
-        configSetStr(configNet, CONFIG_NET_PS2_IP, temp);
-        snprintf(temp, sizeof(temp), "%d.%d.%d.%d", ps2_netmask[0], ps2_netmask[1], ps2_netmask[2], ps2_netmask[3]);
-        configSetStr(configNet, CONFIG_NET_PS2_NETM, temp);
-        snprintf(temp, sizeof(temp), "%d.%d.%d.%d", ps2_gateway[0], ps2_gateway[1], ps2_gateway[2], ps2_gateway[3]);
-        configSetStr(configNet, CONFIG_NET_PS2_GATEW, temp);
-        snprintf(temp, sizeof(temp), "%d.%d.%d.%d", ps2_dns[0], ps2_dns[1], ps2_dns[2], ps2_dns[3]);
-        configSetStr(configNet, CONFIG_NET_PS2_DNS, temp);
-
-        configSetInt(configNet, CONFIG_NET_ETH_LINKM, gETHOpMode);
-        configSetInt(configNet, CONFIG_NET_PS2_DHCP, ps2_ip_use_dhcp);
-        configSetInt(configNet, CONFIG_NET_SMB_NBNS, gPCShareAddressIsNetBIOS);
-        configSetStr(configNet, CONFIG_NET_SMB_NB_ADDR, gPCShareNBAddress);
-        snprintf(temp, sizeof(temp), "%d.%d.%d.%d", pc_ip[0], pc_ip[1], pc_ip[2], pc_ip[3]);
-        configSetStr(configNet, CONFIG_NET_SMB_IP_ADDR, temp);
-        configSetInt(configNet, CONFIG_NET_SMB_PORT, gPCPort);
-        configSetStr(configNet, CONFIG_NET_SMB_SHARE, gPCShareName);
-        configSetStr(configNet, CONFIG_NET_SMB_USER, gPCUserName);
-        configSetStr(configNet, CONFIG_NET_SMB_PASSW, gPCPassword);
-    }
+    if (lscstatus & CONFIG_NETWORK)
+        netResult = wOPLNetSave();
 
     char *path = configGetDir();
     if (!strncmp(path, "mc", 2)) {
@@ -469,14 +417,15 @@ static void saveConfig()
         configPrepareNotifications(gBaseMCDir);
     }
 
-    // Exclude CONFIG_OPL.. handled by wOPLSave above.. need to transition all eventually
-    lscret = configWriteMulti(lscstatus & ~CONFIG_OPL);
-    if (lscret == 0 && (lscstatus & ~CONFIG_OPL))
-        lscret = trySaveAlternateDevice(lscstatus & ~CONFIG_OPL);
+    // Exclude CONFIG_OPL and CONFIG_NETWORK.. handled by libconfig above.. need to transition all eventually
+    lscret = configWriteMulti(lscstatus & ~CONFIG_OPL & ~CONFIG_NETWORK);
+    if (lscret == 0 && (lscstatus & ~CONFIG_OPL & ~CONFIG_NETWORK))
+        lscret = trySaveAlternateDevice(lscstatus & ~CONFIG_OPL & ~CONFIG_NETWORK);
 
-    // Fold wOPL result into lscret so UI notifications are correct
     if (lscstatus & CONFIG_OPL)
         lscret += woplResult;
+    if (lscstatus & CONFIG_NETWORK)
+        lscret += netResult;
 
     lscstatus = 0;
 }
