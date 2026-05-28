@@ -6,6 +6,7 @@
 
 #include "include/common.h"
 #include "include/config.h"
+#include "include/config_wopl.h"
 #include "include/util.h"
 #include "include/ioman.h"
 #include "include/sound.h"
@@ -138,9 +139,9 @@ static int configKeyValidate(const char *key)
     return !strchr(key, '=');
 }
 
-static struct config_value_t *allocConfigItem(const char *key, const char *val)
+static struct config_kv_t *allocConfigItem(const char *key, const char *val)
 {
-    struct config_value_t *it = (struct config_value_t *)malloc(sizeof(struct config_value_t));
+    struct config_kv_t *it = (struct config_kv_t *)malloc(sizeof(struct config_kv_t));
     strncpy(it->key, key, sizeof(it->key));
     it->key[sizeof(it->key) - 1] = '\0';
     strncpy(it->val, val, sizeof(it->val));
@@ -162,9 +163,9 @@ static void addConfigValue(config_set_t *configSet, const char *key, const char 
     }
 }
 
-static struct config_value_t *getConfigItemForName(config_set_t *configSet, const char *name)
+static struct config_kv_t *getConfigItemForName(config_set_t *configSet, const char *name)
 {
-    struct config_value_t *val = configSet->head;
+    struct config_kv_t *val = configSet->head;
 
     while (val) {
         if (strncmp(val->key, name, sizeof(val->key)) == 0)
@@ -296,94 +297,20 @@ static int tryAlternateDevice(int types)
 
 void loadConfig()
 {
-    int value, themeID = -1, langID = -1;
+    int themeID = -1, langID = -1;
     const char *temp;
-    int result = configReadMulti(lscstatus);
+
+    // Skip CONFIG_OPL.. handled by wOPLLoad below
+    int result = configReadMulti(lscstatus & ~CONFIG_OPL);
 
     if (lscstatus & CONFIG_OPL) {
-        if (!(result & CONFIG_OPL)) {
-            result = tryAlternateDevice(lscstatus);
-        }
+        if (wOPLLoad(&themeID, &langID))
+            result |= CONFIG_OPL;
 
-        if (result & CONFIG_OPL) {
-            config_set_t *configOPL = configGetByType(CONFIG_OPL);
-
-            configGetInt(configOPL, CONFIG_OPL_SCROLLING, &gScrollSpeed);
-            configGetColor(configOPL, CONFIG_OPL_BGCOLOR, gDefaultBgColor);
-            configGetColor(configOPL, CONFIG_OPL_TEXTCOLOR, gDefaultTextColor);
-            configGetColor(configOPL, CONFIG_OPL_UI_TEXTCOLOR, gDefaultUITextColor);
-            configGetColor(configOPL, CONFIG_OPL_SEL_TEXTCOLOR, gDefaultSelTextColor);
-            configGetColor(configOPL, CONFIG_OPL_PLAS_BLEND_COLOR, gDefaultPlasmaBlendColor);
-            configGetInt(configOPL, CONFIG_OPL_ENABLE_NOTIFICATIONS, &gEnableNotifications);
-            configGetInt(configOPL, CONFIG_OPL_ENABLE_DISCART, &gDiscEnableArt);
-            configGetInt(configOPL, CONFIG_OPL_WIDESCREEN, &gWideScreen);
-
-            if (!(getKeyPressed(KEY_TRIANGLE) && getKeyPressed(KEY_CROSS))) {
-                configGetInt(configOPL, CONFIG_OPL_VMODE, &gVMode);
-            } else {
-                LOG("--- Select held at boot - setting Video Mode to Auto ---\n");
-                gVMode = 0;
-                configSetInt(configOPL, CONFIG_OPL_VMODE, gVMode);
-            }
-
-            configGetInt(configOPL, CONFIG_OPL_XOFF, &gXOff);
-            configGetInt(configOPL, CONFIG_OPL_YOFF, &gYOff);
-            configGetInt(configOPL, CONFIG_OPL_OVERSCAN, &gOverscan);
-
-            configGetInt(configOPL, CONFIG_OPL_BDM_CACHE, &bdmCacheSize);
-            configGetInt(configOPL, CONFIG_OPL_HDD_CACHE, &hddCacheSize);
-            configGetInt(configOPL, CONFIG_OPL_SMB_CACHE, &smbCacheSize);
-
-            if (configGetStr(configOPL, CONFIG_OPL_THEME, &temp))
-                themeID = thmFindGuiID(temp);
-
-            if (configGetStr(configOPL, CONFIG_OPL_LANGUAGE, &temp))
-                langID = lngFindGuiID(temp);
-
-            if (configGetInt(configOPL, CONFIG_OPL_SWAP_SEL_BUTTON, &value))
-                gSelectButton = value == 0 ? KEY_CIRCLE : KEY_CROSS;
-
-            configGetInt(configOPL, CONFIG_OPL_XSENSITIVITY, &gXSensitivity);
-            configGetInt(configOPL, CONFIG_OPL_YSENSITIVITY, &gYSensitivity);
-            configGetInt(configOPL, CONFIG_OPL_DISABLE_DEBUG, &gEnableDebug);
-            configGetInt(configOPL, CONFIG_OPL_BDM_DEBUG, &gBDMDebug);
-            configGetInt(configOPL, CONFIG_OPL_PS2LOGO, &gPS2Logo);
-            configGetInt(configOPL, CONFIG_OPL_HDD_GAME_LIST_CACHE, &gHDDGameListCache);
-            configGetStrCopy(configOPL, CONFIG_OPL_EXIT_PATH, gExitPath, sizeof(gExitPath));
-            configGetInt(configOPL, CONFIG_OPL_AUTO_SORT, &gAutosort);
-            configGetInt(configOPL, CONFIG_OPL_AUTO_REFRESH, &gAutoRefresh);
-            configGetInt(configOPL, CONFIG_OPL_DEFAULT_DEVICE, &gDefaultDevice);
-            configGetInt(configOPL, CONFIG_OPL_ENABLE_WRITE, &gEnableWrite);
-            configGetInt(configOPL, CONFIG_OPL_HDD_SPINDOWN, &gHDDSpindown);
-            configGetStrCopy(configOPL, CONFIG_OPL_MMCE_PREFIX, gMMCEPrefix, sizeof(gMMCEPrefix));
-            configGetStrCopy(configOPL, CONFIG_OPL_BDM_PREFIX, gBDMPrefix, sizeof(gBDMPrefix));
-            configGetStrCopy(configOPL, CONFIG_OPL_ETH_PREFIX, gETHPrefix, sizeof(gETHPrefix));
-            configGetInt(configOPL, CONFIG_OPL_REMEMBER_LAST, &gRememberLastPlayed);
-            configGetInt(configOPL, CONFIG_OPL_AUTOSTART_LAST, &gAutoStartLastPlayed);
-            configGetInt(configOPL, CONFIG_OPL_BDM_MODE, &gBDMStartMode);
-            configGetInt(configOPL, CONFIG_OPL_HDD_MODE, &gHDDStartMode);
-            configGetInt(configOPL, CONFIG_OPL_ETH_MODE, &gETHStartMode);
-            configGetInt(configOPL, CONFIG_OPL_APP_MODE, &gAPPStartMode);
-            configGetInt(configOPL, CONFIG_OPL_FAV_MODE, &gFAVStartMode);
-            configGetInt(configOPL, CONFIG_OPL_MMCE_MODE, &gMMCEStartMode);
-            configGetInt(configOPL, CONFIG_OPL_MMCE_SLOT, &gMMCESlot);
-            configGetInt(configOPL, CONFIG_OPL_MMCEIGR_SLOT, &gMMCEIGRSlot);
-#ifdef __DEBUG
-            configGetInt(configOPL, CONFIG_OPL_MMCE_GAMEID, &gMMCEEnableGameID);
-#endif
-            configGetInt(configOPL, CONFIG_OPL_MMCE_WAIT_CYCLES, &gMMCEAckWaitCycles);
-            configGetInt(configOPL, CONFIG_OPL_MMCE_USE_ALARMS, &gMMCEUseAlarms);
-            configGetInt(configOPL, CONFIG_OPL_ENABLE_USB, &gEnableUSB);
-            configGetInt(configOPL, CONFIG_OPL_ENABLE_ILINK, &gEnableILK);
-            configGetInt(configOPL, CONFIG_OPL_ENABLE_MX4SIO, &gEnableMX4SIO);
-            configGetInt(configOPL, CONFIG_OPL_ENABLE_BDMHDD, &gEnableBdmHDD);
-            configGetInt(configOPL, CONFIG_OPL_SFX, &gEnableSFX);
-            configGetInt(configOPL, CONFIG_OPL_BOOT_SND, &gEnableBootSND);
-            configGetInt(configOPL, CONFIG_OPL_BGM, &gEnableBGM);
-            configGetInt(configOPL, CONFIG_OPL_SFX_VOLUME, &gSFXVolume);
-            configGetInt(configOPL, CONFIG_OPL_BOOT_SND_VOLUME, &gBootSndVolume);
-            configGetInt(configOPL, CONFIG_OPL_BGM_VOLUME, &gBGMVolume);
-            configGetStrCopy(configOPL, CONFIG_OPL_DEFAULT_BGM_PATH, gDefaultBGMPath, sizeof(gDefaultBGMPath));
+        // vmode boot override
+        if (getKeyPressed(KEY_TRIANGLE) && getKeyPressed(KEY_CROSS)) {
+            LOG("--- Triangle+Cross held at boot - setting Video Mode to Auto ---\n");
+            gVMode = 0;
         }
     }
 
@@ -507,71 +434,10 @@ static int trySaveAlternateDevice(int types)
 static void saveConfig()
 {
     char temp[256];
+    int woplResult = 0;
 
-    if (lscstatus & CONFIG_OPL) {
-        config_set_t *configOPL = configGetByType(CONFIG_OPL);
-        configSetInt(configOPL, CONFIG_OPL_SCROLLING, gScrollSpeed);
-        configSetStr(configOPL, CONFIG_OPL_THEME, thmGetValue());
-        configSetStr(configOPL, CONFIG_OPL_LANGUAGE, lngGetValue());
-        configSetColor(configOPL, CONFIG_OPL_BGCOLOR, gDefaultBgColor);
-        configSetColor(configOPL, CONFIG_OPL_TEXTCOLOR, gDefaultTextColor);
-        configSetColor(configOPL, CONFIG_OPL_UI_TEXTCOLOR, gDefaultUITextColor);
-        configSetColor(configOPL, CONFIG_OPL_SEL_TEXTCOLOR, gDefaultSelTextColor);
-        configSetColor(configOPL, CONFIG_OPL_PLAS_BLEND_COLOR, gDefaultPlasmaBlendColor);
-        configSetInt(configOPL, CONFIG_OPL_ENABLE_NOTIFICATIONS, gEnableNotifications);
-        configSetInt(configOPL, CONFIG_OPL_ENABLE_DISCART, gDiscEnableArt);
-        configSetInt(configOPL, CONFIG_OPL_WIDESCREEN, gWideScreen);
-        configSetInt(configOPL, CONFIG_OPL_VMODE, gVMode);
-        configSetInt(configOPL, CONFIG_OPL_XOFF, gXOff);
-        configSetInt(configOPL, CONFIG_OPL_YOFF, gYOff);
-        configSetInt(configOPL, CONFIG_OPL_OVERSCAN, gOverscan);
-        configSetInt(configOPL, CONFIG_OPL_DISABLE_DEBUG, gEnableDebug);
-        configSetInt(configOPL, CONFIG_OPL_BDM_DEBUG, gBDMDebug);
-        configSetInt(configOPL, CONFIG_OPL_PS2LOGO, gPS2Logo);
-        configSetInt(configOPL, CONFIG_OPL_HDD_GAME_LIST_CACHE, gHDDGameListCache);
-        configSetStr(configOPL, CONFIG_OPL_EXIT_PATH, gExitPath);
-        configSetInt(configOPL, CONFIG_OPL_AUTO_SORT, gAutosort);
-        configSetInt(configOPL, CONFIG_OPL_AUTO_REFRESH, gAutoRefresh);
-        configSetInt(configOPL, CONFIG_OPL_DEFAULT_DEVICE, gDefaultDevice);
-        configSetInt(configOPL, CONFIG_OPL_ENABLE_WRITE, gEnableWrite);
-        configSetInt(configOPL, CONFIG_OPL_HDD_SPINDOWN, gHDDSpindown);
-        configSetStr(configOPL, CONFIG_OPL_MMCE_PREFIX, gMMCEPrefix);
-        configSetStr(configOPL, CONFIG_OPL_BDM_PREFIX, gBDMPrefix);
-        configSetStr(configOPL, CONFIG_OPL_ETH_PREFIX, gETHPrefix);
-        configSetInt(configOPL, CONFIG_OPL_REMEMBER_LAST, gRememberLastPlayed);
-        configSetInt(configOPL, CONFIG_OPL_AUTOSTART_LAST, gAutoStartLastPlayed);
-        configSetInt(configOPL, CONFIG_OPL_BDM_MODE, gBDMStartMode);
-        configSetInt(configOPL, CONFIG_OPL_HDD_MODE, gHDDStartMode);
-        configSetInt(configOPL, CONFIG_OPL_ETH_MODE, gETHStartMode);
-        configSetInt(configOPL, CONFIG_OPL_APP_MODE, gAPPStartMode);
-        configSetInt(configOPL, CONFIG_OPL_FAV_MODE, gFAVStartMode);
-        configSetInt(configOPL, CONFIG_OPL_MMCE_MODE, gMMCEStartMode);
-        configSetInt(configOPL, CONFIG_OPL_MMCE_SLOT, gMMCESlot);
-        configSetInt(configOPL, CONFIG_OPL_MMCEIGR_SLOT, gMMCEIGRSlot);
-#ifdef __DEBUG
-        configSetInt(configOPL, CONFIG_OPL_MMCE_GAMEID, gMMCEEnableGameID);
-#endif
-        configSetInt(configOPL, CONFIG_OPL_MMCE_WAIT_CYCLES, gMMCEAckWaitCycles);
-        configSetInt(configOPL, CONFIG_OPL_MMCE_USE_ALARMS, gMMCEUseAlarms);
-        configSetInt(configOPL, CONFIG_OPL_BDM_CACHE, bdmCacheSize);
-        configSetInt(configOPL, CONFIG_OPL_HDD_CACHE, hddCacheSize);
-        configSetInt(configOPL, CONFIG_OPL_SMB_CACHE, smbCacheSize);
-        configSetInt(configOPL, CONFIG_OPL_ENABLE_USB, gEnableUSB);
-        configSetInt(configOPL, CONFIG_OPL_ENABLE_ILINK, gEnableILK);
-        configSetInt(configOPL, CONFIG_OPL_ENABLE_MX4SIO, gEnableMX4SIO);
-        configSetInt(configOPL, CONFIG_OPL_ENABLE_BDMHDD, gEnableBdmHDD);
-        configSetInt(configOPL, CONFIG_OPL_SFX, gEnableSFX);
-        configSetInt(configOPL, CONFIG_OPL_BOOT_SND, gEnableBootSND);
-        configSetInt(configOPL, CONFIG_OPL_BGM, gEnableBGM);
-        configSetInt(configOPL, CONFIG_OPL_SFX_VOLUME, gSFXVolume);
-        configSetInt(configOPL, CONFIG_OPL_BOOT_SND_VOLUME, gBootSndVolume);
-        configSetInt(configOPL, CONFIG_OPL_BGM_VOLUME, gBGMVolume);
-        configSetStr(configOPL, CONFIG_OPL_DEFAULT_BGM_PATH, gDefaultBGMPath);
-        configSetInt(configOPL, CONFIG_OPL_XSENSITIVITY, gXSensitivity);
-        configSetInt(configOPL, CONFIG_OPL_YSENSITIVITY, gYSensitivity);
-
-        configSetInt(configOPL, CONFIG_OPL_SWAP_SEL_BUTTON, gSelectButton == KEY_CIRCLE ? 0 : 1);
-    }
+    if (lscstatus & CONFIG_OPL)
+        woplResult = wOPLSave();
 
     if (lscstatus & CONFIG_NETWORK) {
         config_set_t *configNet = configGetByType(CONFIG_NETWORK);
@@ -603,9 +469,15 @@ static void saveConfig()
         configPrepareNotifications(gBaseMCDir);
     }
 
-    lscret = configWriteMulti(lscstatus);
-    if (lscret == 0)
-        lscret = trySaveAlternateDevice(lscstatus);
+    // Exclude CONFIG_OPL.. handled by wOPLSave above.. need to transition all eventually
+    lscret = configWriteMulti(lscstatus & ~CONFIG_OPL);
+    if (lscret == 0 && (lscstatus & ~CONFIG_OPL))
+        lscret = trySaveAlternateDevice(lscstatus & ~CONFIG_OPL);
+
+    // Fold wOPL result into lscret so UI notifications are correct
+    if (lscstatus & CONFIG_OPL)
+        lscret += woplResult;
+
     lscstatus = 0;
 }
 
@@ -727,7 +599,7 @@ int configSetStr(config_set_t *configSet, const char *key, const char *value)
     if (!configKeyValidate(key))
         return 0;
 
-    struct config_value_t *it = getConfigItemForName(configSet, key);
+    struct config_kv_t *it = getConfigItemForName(configSet, key);
 
     if (it) {
         if (strncmp(it->val, value, sizeof(it->val)) != 0) {
@@ -751,7 +623,7 @@ int configGetStr(config_set_t *configSet, const char *key, const char **value)
     if (!configKeyValidate(key))
         return 0;
 
-    struct config_value_t *it = getConfigItemForName(configSet, key);
+    struct config_kv_t *it = getConfigItemForName(configSet, key);
 
     if (it) {
         *value = it->val;
@@ -814,8 +686,8 @@ int configRemoveKey(config_set_t *configSet, const char *key)
     if (!configKeyValidate(key))
         return 0;
 
-    struct config_value_t *val = configSet->head;
-    struct config_value_t *prev = NULL;
+    struct config_kv_t *val = configSet->head;
+    struct config_kv_t *prev = NULL;
 
     while (val) {
         if (strncmp(val->key, key, sizeof(val->key)) == 0) {
@@ -982,7 +854,7 @@ int configWrite(config_set_t *configSet)
             char line[512];
 
             bgmMute();
-            struct config_value_t *cur = configSet->head;
+            struct config_kv_t *cur = configSet->head;
             while (cur) {
                 if ((cur->key[0] != '\0') && (cur->key[0] != '#')) {
                     snprintf(line, sizeof(line), "%s=%s\r\n", cur->key, cur->val); // add windows CR+LF (0x0D 0x0A)
@@ -1006,7 +878,7 @@ int configWrite(config_set_t *configSet)
 void configClear(config_set_t *configSet)
 {
     while (configSet->head) {
-        struct config_value_t *cur = configSet->head;
+        struct config_kv_t *cur = configSet->head;
         configSet->head = cur->next;
 
         free(cur);

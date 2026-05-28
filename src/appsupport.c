@@ -70,9 +70,9 @@ static config_set_t *oplGetLegacyAppsConfig(void);
 static config_set_t *oplGetLegacyAppsInfo(char *name);
 static int oplPath2Mode(const char *path);
 
-static struct config_value_t *appGetConfigValue(int id)
+static struct config_kv_t *appGetConfigValue(int id)
 {
-    struct config_value_t *cur = configApps->head;
+    struct config_kv_t *cur = configApps->head;
 
     while (id--) {
         cur = cur->next;
@@ -174,7 +174,7 @@ static int appNeedsUpdate(item_list_t *itemList)
 
 static int addAppsLegacyList(struct app_info_linked **appsLinkedList)
 {
-    struct config_value_t *cur;
+    struct config_kv_t *cur;
     struct app_info_linked *app;
     int count;
 
@@ -350,7 +350,7 @@ static int appGetItemNameLength(item_list_t *itemList, int id)
 static char *appGetItemStartup(item_list_t *itemList, int id)
 {
     if (appsList[id].legacy) {
-        struct config_value_t *cur = appGetConfigValue(id);
+        struct config_kv_t *cur = appGetConfigValue(id);
         return appGetELFName(cur->val);
     } else {
         return appsList[id].boot;
@@ -360,7 +360,7 @@ static char *appGetItemStartup(item_list_t *itemList, int id)
 static void appDeleteItem(item_list_t *itemList, int id)
 {
     if (appsList[id].legacy) {
-        struct config_value_t *cur = appGetConfigValue(id);
+        struct config_kv_t *cur = appGetConfigValue(id);
         unlink(cur->val);
         cur->key[0] = '\0';
         configApps->modified = 1;
@@ -377,7 +377,7 @@ static void appRenameItem(item_list_t *itemList, int id, char *newName)
     char value[256];
 
     if (appsList[id].legacy) {
-        struct config_value_t *cur = appGetConfigValue(id);
+        struct config_kv_t *cur = appGetConfigValue(id);
 
         strncpy(value, cur->val, sizeof(value));
         configRemoveKey(configApps, cur->key);
@@ -468,7 +468,7 @@ static config_set_t *appGetConfig(item_list_t *itemList, int id)
     char tmp[8];
 
     if (appsList[id].legacy) {
-        struct config_value_t *cur = appGetConfigValue(id);
+        struct config_kv_t *cur = appGetConfigValue(id);
         config = oplGetLegacyAppsInfo(appGetELFName(cur->val));
         configRead(config);
 
