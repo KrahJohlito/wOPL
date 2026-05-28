@@ -26,6 +26,7 @@
 #include "include/guigame.h"
 #include "include/tetris.h"
 #include "include/common.h"
+#include "include/config_wopl.h"
 #include <malloc.h>
 #include <math.h>
 #include <kernel.h>
