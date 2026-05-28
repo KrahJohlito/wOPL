@@ -26,6 +26,7 @@
 #include "include/guigame.h"
 #include "include/tetris.h"
 #include "include/common.h"
+#include "include/config_wopl.h"
 #include <malloc.h>
 #include <math.h>
 #include <kernel.h>
@@ -318,7 +319,7 @@ static void guiShowNotifications(void)
         }
 
         if (showCfgPopup) {
-            snprintf(notification, sizeof(notification), _l(_STR_CFG_NOTIFICATION), configGetDir());
+            snprintf(notification, sizeof(notification), _l(_STR_CFG_NOTIFICATION), wOPLGetDir());
             if ((col_pos = strchr(notification, ':')) != NULL)
                 *(col_pos + 1) = '\0';
 

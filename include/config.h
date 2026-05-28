@@ -158,20 +158,19 @@ enum CONFIG_INDEX {
 #define CONFIG_KEY_NAME_LEN  32
 #define CONFIG_KEY_VALUE_LEN 256
 
-struct config_value_t
+struct config_kv_t
 {
     // Including the NULL terminator
     char key[CONFIG_KEY_NAME_LEN];
     char val[CONFIG_KEY_VALUE_LEN];
-
-    struct config_value_t *next;
+    struct config_kv_t *next;
 };
 
 typedef struct
 {
     int type;
-    struct config_value_t *head;
-    struct config_value_t *tail;
+    struct config_kv_t *head;
+    struct config_kv_t *tail;
     char *filename;
     int modified;
     u32 uid;
