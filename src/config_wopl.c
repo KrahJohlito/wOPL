@@ -24,9 +24,11 @@
 #endif
 
 static char config_dir[128] = {0};
+static char last_played[256] = {0};
 
 #define WOPL_FILENAME "conf_wopl.cfg"
 #define NET_FILENAME  "conf_network.cfg"
+#define LAST_FILENAME "conf_last.cfg"
 
 // ---------------------------------------------------------------------------
 // Shared helpers
@@ -736,4 +738,60 @@ int wOPLNetLoad(void)
 int wOPLNetSave(void)
 {
     return do_save(NET_FILENAME, build_net);
+}
+
+// No legacy migration.. pointless
+int wOPLLastLoad(void)
+{
+    if (!config_dir[0])
+        return 0;
+
+    char path[256];
+    snprintf(path, sizeof(path), "%s%s", config_dir, LAST_FILENAME);
+
+    config_t cfg;
+    config_init(&cfg);
+
+    if (!config_read_file(&cfg, path)) {
+        config_destroy(&cfg);
+        return 0;
+    }
+
+    const char *string = lookup_str(&cfg, "last_played", NULL);
+    if (string)
+        strncpy(last_played, string, sizeof(last_played) - 1);
+
+    config_destroy(&cfg);
+
+    return 1;
+}
+
+int wOPLLastSave(const char *startup)
+{
+    if (!config_dir[0] || !startup)
+        return 0;
+
+    char path[256];
+    snprintf(path, sizeof(path), "%s%s", config_dir, LAST_FILENAME);
+
+    config_t cfg;
+    config_init(&cfg);
+    config_setting_t *root = config_root_setting(&cfg);
+
+    config_setting_t *setting = config_setting_add(root, "last_played", CONFIG_TYPE_STRING);
+    if (setting)
+        config_setting_set_string(setting, startup);
+
+    int ok = config_write_file(&cfg, path);
+    config_destroy(&cfg);
+
+    if (ok)
+        strncpy(last_played, startup, sizeof(last_played) - 1);
+
+    return ok;
+}
+
+const char *wOPLLastGet(void)
+{
+    return last_played[0] ? last_played : NULL;
 }
