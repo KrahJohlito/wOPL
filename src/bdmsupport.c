@@ -177,6 +177,7 @@ void bdmLoadModules(void)
     sysLoadModuleBuffer(&bdmevent_irx, size_bdmevent_irx, 0, NULL);
     SifAddCmdHandler(0, &bdmEventHandler, NULL);
 
+    bdmCoreLoaded = 1;
     LOG("BDMSUPPORT Modules loaded\n");
 }
 
