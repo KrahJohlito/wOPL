@@ -44,6 +44,7 @@ typedef struct
     vmc_spec_t specs; /* Card specifications */
 } bdm_vmc_infos_t;
 
+static int bdmCoreLoaded = 0;
 static int usbModLoaded = 0;
 static int iLinkModLoaded = 0;
 static int mx4sioModLoaded = 0;
@@ -111,6 +112,7 @@ static void bdmEventHandler(void *packet, void *opt)
 
 static void bdmLoadBlockDeviceModules(void)
 {
+    bdmLoadModules();
     WaitSema(bdmLoadModuleLock);
 
     if (gEnableUSB && !usbModLoaded) {
@@ -155,6 +157,9 @@ static void bdmLoadBlockDeviceModules(void)
 
 void bdmLoadModules(void)
 {
+    if (bdmCoreLoaded)
+        return;
+
     LOG("BDMSUPPORT LoadModules\n");
 
     // Load Block Device Manager (BDM)
@@ -172,6 +177,7 @@ void bdmLoadModules(void)
     sysLoadModuleBuffer(&bdmevent_irx, size_bdmevent_irx, 0, NULL);
     SifAddCmdHandler(0, &bdmEventHandler, NULL);
 
+    bdmCoreLoaded = 1;
     LOG("BDMSUPPORT Modules loaded\n");
 }
 
