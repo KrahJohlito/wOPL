@@ -44,7 +44,7 @@ typedef struct
     vmc_spec_t specs; /* Card specifications */
 } bdm_vmc_infos_t;
 
-static int iUSBModLoaded = 0;
+static int usbModLoaded = 0;
 static int iLinkModLoaded = 0;
 static int mx4sioModLoaded = 0;
 static int hddModLoaded = 0;
@@ -113,12 +113,15 @@ static void bdmLoadBlockDeviceModules(void)
 {
     WaitSema(bdmLoadModuleLock);
 
-    if (gEnableUSB && !iUSBModLoaded) {
+    if (gEnableUSB && !usbModLoaded) {
         // Load USB Block Device drivers
+        LOG("[USBD]:\n");
+        sysLoadModuleBuffer(&usbd_irx, size_usbd_irx, 0, NULL);
+
         LOG("[USBMASS_BD]:\n");
         sysLoadModuleBuffer(&usbmass_bd_irx, size_usbmass_bd_irx, 0, NULL);
 
-        iUSBModLoaded = 1;
+        usbModLoaded = 1;
     }
 
     if (gEnableILK && !iLinkModLoaded) {
@@ -182,7 +185,6 @@ static void bdmInit(item_list_t *itemList)
     pDeviceData->bdmModifiedDVDPrev = 0;
     pDeviceData->bdmGameCount = 0;
     pDeviceData->bdmGames = NULL;
-    bdmLoadModules();
     configGetInt(configGetByType(CONFIG_OPL), "usb_frames_delay", &itemList->delay);
     itemList->enabled = 1;
 }

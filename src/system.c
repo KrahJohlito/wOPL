@@ -293,8 +293,8 @@ void sysReset()
     LOG("[POWEROFF]:\n");
     sysLoadModuleBuffer(&poweroff_irx, size_poweroff_irx, 0, NULL);
 
-    LOG("[USBD]:\n");
-    sysLoadModuleBuffer(&usbd_irx, size_usbd_irx, 0, NULL);
+    if (gEnableUSB || gEnableILK || gEnableMX4SIO || gEnableBdmHDD)
+        bdmLoadModules();
 
     LOG("[ISOFS]:\n");
     sysLoadModuleBuffer(&isofs_irx, size_isofs_irx, 0, NULL);
