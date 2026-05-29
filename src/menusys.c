@@ -670,6 +670,16 @@ void submenuSort(submenu_list_t **submenu)
     *submenu = head;
 }
 
+void menuSyncPagestartToCurrent(void)
+{
+    menu_list_t *cur = menu;
+    while (cur) {
+        if (cur->item->current != NULL)
+            cur->item->pagestart = cur->item->current;
+        cur = cur->next;
+    }
+}
+
 static void menuNextH()
 {
     struct menu_list *next = selected_item->next;

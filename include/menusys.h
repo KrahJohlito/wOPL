@@ -139,4 +139,6 @@ void menuDeferredUpdate(void *data);
 
 void menuUpdateHook();
 
+void menuSyncPagestartToCurrent(void);
+
 #endif

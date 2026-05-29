@@ -1108,6 +1108,9 @@ void configApply(int themeID, int langID, int skipDeviceRefresh)
 
     // theme must be set after color, and lng after theme
     changed = thmSetGuiValue(themeID, changed);
+    if (changed && gTheme->coverflow != NULL)
+        menuSyncPagestartToCurrent();
+
     int langChanged = lngSetGuiValue(langID);
 
     guiUpdateScreenScale();
