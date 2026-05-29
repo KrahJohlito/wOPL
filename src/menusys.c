@@ -18,6 +18,7 @@
 #include "include/sound.h"
 #include "include/system.h"
 #include "include/themes.h"
+#include "include/config_wopl.h"
 #include <assert.h>
 
 #include <kernel.h>
@@ -1436,8 +1437,10 @@ static void updateMenuFromGameList(opl_io_module_t *mdl)
     menuClearGameList(mdl);
 
     const char *temp = NULL;
-    if (gRememberLastPlayed)
-        configGetStr(configGetByType(CONFIG_LAST), "last_played", &temp);
+    if (gRememberLastPlayed) {
+        wOPLLastLoad();
+        temp = wOPLLastGet();
+    }
 
     // refresh device icon and text (for bdm)
     mdl->menuItem.icon_id = mdl->support->itemIconId(mdl->support);

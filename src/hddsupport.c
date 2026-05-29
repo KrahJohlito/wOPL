@@ -1,3 +1,4 @@
+#include "include/config_wopl.h"
 #include "include/common.h"
 #include "include/lang.h"
 #include "include/gui.h"
@@ -1012,10 +1013,8 @@ void hddLaunchGame(item_list_t *itemList, int id, config_set_t *configSet)
         }
     }
 
-    if (gRememberLastPlayed) {
-        configSetStr(configGetByType(CONFIG_LAST), "last_played", game->startup);
-        configSave(CONFIG_LAST, 0);
-    }
+    if (gRememberLastPlayed)
+        wOPLLastSave(game->startup);
 
     char gid[5];
     configGetDiscIDBinary(configSet, gid);

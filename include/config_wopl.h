@@ -8,4 +8,8 @@ const char *wOPLGetDir(void);
 int wOPLNetLoad(void);
 int wOPLNetSave(void);
 
+int wOPLLastLoad(void);
+int wOPLLastSave(const char *startup);
+const char *wOPLLastGet(void);
+
 #endif
