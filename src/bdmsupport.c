@@ -158,7 +158,7 @@ static void bdmLoadBlockDeviceModules(void)
 void bdmLoadModules(void)
 {
     if (bdmCoreLoaded)
-        return
+        return;
 
     LOG("BDMSUPPORT LoadModules\n");
 
