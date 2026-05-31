@@ -148,6 +148,11 @@ extern theme_t *gTheme;
 
 extern int gDiscEnableArt;
 
+extern int gCoverflowCount;
+extern int gCoverflowCenterScale;
+extern int gCoverflowAnimSpeed;
+extern int gCoverflowDimCovers;
+
 void thmInit(void);
 void thmReinit(const char *path);
 void thmReloadScreenExtents(void);
