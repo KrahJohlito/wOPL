@@ -669,6 +669,7 @@ reselect_video_mode:
     diaSetInt(diaUIConfig, UICFG_XOFF, gXOff);
     diaSetInt(diaUIConfig, UICFG_YOFF, gYOff);
     diaSetInt(diaUIConfig, UICFG_OVERSCAN, gOverscan);
+    diaSetVisible(diaUIConfig, UICFG_COVERFLOW_BUTTON, gTheme->coverflow != NULL);
     guiUIUpdater(1);
 
     int ret = diaExecuteDialog(diaUIConfig, -1, 1, guiUIUpdater);
@@ -690,6 +691,9 @@ reselect_video_mode:
         diaGetInt(diaUIConfig, UICFG_XOFF, &gXOff);
         diaGetInt(diaUIConfig, UICFG_YOFF, &gYOff);
         diaGetInt(diaUIConfig, UICFG_OVERSCAN, &gOverscan);
+
+        if (ret == UICFG_COVERFLOW_BUTTON)
+            guiShowCoverflowConfig();
 
         if (ret == UICFG_RESETCOL)
             setDefaultColors();
@@ -934,6 +938,24 @@ void guiShowControllerConfig(void)
         }
 #endif
         configApply(-1, -1, 1);
+    }
+}
+
+void guiShowCoverflowConfig(void)
+{
+    int ret;
+
+    const char *coverCounts[] = {"3", "5", NULL};
+
+    diaSetEnum(diaCoverflowConfig, CFG_COVERFLOW_COUNT, coverCounts);
+
+    diaSetInt(diaCoverflowConfig, CFG_COVERFLOW_COUNT, (gCoverflowCount == 5) ? 1 : 0);
+
+    ret = diaExecuteDialog(diaCoverflowConfig, -1, 1, NULL);
+    if (ret) {
+        int id;
+        diaGetInt(diaCoverflowConfig, CFG_COVERFLOW_COUNT, &id);
+        gCoverflowCount = (id == 1) ? 5 : 3;
     }
 }
 

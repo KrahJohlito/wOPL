@@ -344,6 +344,9 @@ struct UIItem diaUIConfig[] = {
     {UI_ENUM, UICFG_THEME, 1, 1, -1, 0, 0, {.intvalue = {0, 0}}},
     {UI_BREAK},
 
+    {UI_BUTTON, COVERFLOW_BUTTON, 1, 1, -1, 0, 0, {.label = {"Coverflow Settings", -1}}},
+    {UI_BREAK},
+
     {UI_LABEL, 0, 1, 1, -1, -40, 0, {.label = {NULL, _STR_LANGUAGE}}},
     {UI_SPACER},
     {UI_ENUM, UICFG_LANG, 1, 1, -1, 0, 0, {.intvalue = {0, 0}}},
@@ -413,6 +416,23 @@ struct UIItem diaUIConfig[] = {
     {UI_LABEL, 0, 1, 1, -1, -40, 0, {.label = {NULL, _STR_WIDE_SCREEN}}},
     {UI_SPACER},
     {UI_BOOL, UICFG_WIDESCREEN, 1, 1, -1, 0, 0, {.intvalue = {0, 0}}},
+    {UI_BREAK},
+
+    // buttons
+    {UI_OK, 0, 1, 1, -1, 0, 0, {.label = {NULL, _STR_OK}}},
+    {UI_BREAK},
+
+    // end of dialog
+    {UI_TERMINATOR}};
+
+// Coverflow Settings Menu
+struct UIItem diaCoverflowConfig[] = {
+    {UI_HEADER, 0, 1, 1, -1, 0, 0, {.label = {"Coverflow Settings", -1}}},
+    {UI_SPLITTER},
+
+    {UI_LABEL, 0, 1, 1, -1, -40, 0, {.label = {"Cover Count", -1}}},
+    {UI_SPACER},
+    {UI_ENUM, CFG_COVERFLOW_COUNT, 1, 1, -1, 0, 0, {.intvalue = {0, 0}}},
     {UI_BREAK},
 
     // buttons
