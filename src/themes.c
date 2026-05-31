@@ -18,10 +18,9 @@
 #include <dirent.h>
 #include <time.h>
 
-#define MENU_POS_V      50
-#define HINT_HEIGHT     32
-#define DECORATOR_SIZE  20
-#define COVERFLOW_COUNT 3
+#define MENU_POS_V     50
+#define HINT_HEIGHT    32
+#define DECORATOR_SIZE 20
 
 extern const char theme_list_cfg;
 extern u16 size_theme_list_cfg;
@@ -1041,6 +1040,8 @@ static void drawInfoHintText(struct menu_list *menu, struct submenu_list *item, 
 static int isAnimating = 0;        // Animation flag
 static int animationDirection = 0; // -1 for right (next), 1 for left (prev)
 static clock_t animationStartTime = 0;
+
+int gCoverflowCount = 3;
 #define COVERFLOW_ANIM_DURATION_MS 200
 
 void thmTriggerCoverflowAnim(int direction)
@@ -1055,18 +1056,30 @@ static void drawCoverFlow(struct menu_list *menu, struct submenu_list *item, con
     if (item == NULL)
         return;
 
+    int coverCount = gCoverflowCount;
+    int centerIndex = coverCount / 2;
+
     int coverSpacing = 0;
     int coverHeight = elem->height;
     int coverWidth = gWideScreen ? rmWideScale(elem->width) : elem->width;
-    int totalCoversWidth = COVERFLOW_COUNT * coverWidth;
+
+    // Scale down covers if they don't fit on screen
+    int coverYOffset = 0;
+    int maxCoverWidth = (screenWidth - (coverCount - 1) * 10) / coverCount;
+    if (coverWidth > maxCoverWidth) {
+        int origHeight = coverHeight;
+        coverHeight = (coverHeight * maxCoverWidth) / coverWidth;
+        coverWidth = maxCoverWidth;
+        coverYOffset = (origHeight - coverHeight) / 2;
+    }
+
+    int totalCoversWidth = coverCount * coverWidth;
     int totalRemainingSpace = screenWidth - totalCoversWidth;
 
-    if (totalRemainingSpace >= 0) {
-        coverSpacing = totalRemainingSpace / 4; // Divide by 4 to distribute the space equally (2 spaces between covers + 2 on the sides)
-        // If coverSpacing ends up negative set it to a minimum value
-        if (coverSpacing < 0)
-            coverSpacing = 0;
-    }
+    coverSpacing = totalRemainingSpace / (coverCount + 1); // Divide by covercount to distribute the space equally (4 spaces for 3 covers.. 6 spaces for 5)
+    // If coverSpacing ends up negative set it to a minimum value
+    if (coverSpacing < 0)
+        coverSpacing = 0;
 
     if (gWideScreen)
         coverSpacing = rmWideScale(coverSpacing);
@@ -1074,28 +1087,45 @@ static void drawCoverFlow(struct menu_list *menu, struct submenu_list *item, con
     int coverDistance = coverWidth + coverSpacing;
     int basePosX = (coverSpacing << 1) + (coverWidth >> 1);
 
-    // Wrap left, if no prev.. use last item in the submenu list
-    submenu_list_t *leftItem = item->prev;
-    if (leftItem == NULL && menu->item->last != NULL && menu->item->last != item)
-        leftItem = menu->item->last;
-
-    // Wrap right, if no next.. use first item in the submeny list
-    submenu_list_t *rightItem = item->next;
-    if (rightItem == NULL) {
-        rightItem = menu->item->submenu; // head of the submenu list
-        if (rightItem == item)           // only 1 item.. dont show same item twice
-            rightItem = NULL;
-    }
-
     struct
     {
         submenu_list_t *game;
         mutable_image_t *cover;
         GSTEXTURE *texture;
-    } covers[COVERFLOW_COUNT] = {
-        {leftItem, NULL, NULL},
-        {item, NULL, NULL},
-        {rightItem, NULL, NULL}};
+    } covers[5];
+
+    int ci;
+    for (ci = 0; ci < coverCount; ci++) {
+        covers[ci].game = NULL;
+        covers[ci].cover = NULL;
+        covers[ci].texture = NULL;
+    }
+
+    covers[centerIndex].game = item;
+
+    // Populate left, walk backwards from center
+    submenu_list_t *cur = item;
+    for (ci = centerIndex - 1; ci >= 0; ci--) {
+        submenu_list_t *prev = cur->prev;
+        if (prev == NULL && menu->item->last != NULL)
+            prev = menu->item->last;
+        if (prev == NULL || prev == item)
+            break;
+        covers[ci].game = prev;
+        cur = prev;
+    }
+
+    // Populate right, walk forwards from center
+    cur = item;
+    for (ci = centerIndex + 1; ci < coverCount; ci++) {
+        submenu_list_t *next = cur->next;
+        if (next == NULL)
+            next = menu->item->submenu;
+        if (next == NULL || next == item)
+            break;
+        covers[ci].game = next;
+        cur = next;
+    }
 
     float eased = 1.0f;
     float animOffset = 0.0f;
@@ -1119,9 +1149,9 @@ static void drawCoverFlow(struct menu_list *menu, struct submenu_list *item, con
     int scaling = 30;
     // direction=-1 (next): covers[2] is visually at center at t=0
     // direction=1 (prev): covers[0] is visually at center at t=0
-    int leavingIndex = (animationDirection > 0) ? 2 : 0;
+    int leavingIndex = (animationDirection > 0) ? (coverCount - 1) : 0;
 
-    for (int i = 0; i < COVERFLOW_COUNT; i++) {
+    for (int i = 0; i < coverCount; i++) {
         int renderPosX = posX;
         posX += coverDistance;
 
@@ -1142,7 +1172,7 @@ static void drawCoverFlow(struct menu_list *menu, struct submenu_list *item, con
 
         // Interpolate scaling.. center cover grows in.. leaving cover shrinks out
         int currentScaling = 0;
-        if (i == 1) {
+        if (i == centerIndex) {
             // New selection.. grows into center as animation progresses
             float growFactor = isAnimating ? eased : 1.0f;
             currentScaling = (int)(scaling * growFactor);
