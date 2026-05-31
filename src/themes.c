@@ -18,9 +18,9 @@
 #include <dirent.h>
 #include <time.h>
 
-#define MENU_POS_V      50
-#define HINT_HEIGHT     32
-#define DECORATOR_SIZE  20
+#define MENU_POS_V     50
+#define HINT_HEIGHT    32
+#define DECORATOR_SIZE 20
 
 extern const char theme_list_cfg;
 extern u16 size_theme_list_cfg;
