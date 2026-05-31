@@ -1064,7 +1064,7 @@ static void drawCoverFlow(struct menu_list *menu, struct submenu_list *item, con
     int coverWidth = gWideScreen ? rmWideScale(elem->width) : elem->width;
 
     // Scale down covers if they don't fit on screen
-    int maxCoverWidth = screenWidth / (coverCount + 1);
+    int maxCoverWidth = (screenWidth - (coverCount - 1) * 10) / coverCount;
     if (coverWidth > maxCoverWidth) {
         coverHeight = (coverHeight * maxCoverWidth) / coverWidth;
         coverWidth = maxCoverWidth;
@@ -1191,7 +1191,7 @@ static void drawCoverFlow(struct menu_list *menu, struct submenu_list *item, con
         if (!covers[i].texture || !covers[i].texture->Mem)
             covers[i].texture = img->defaultTexture ? &img->defaultTexture->source : thmGetTexture(COVER_DEFAULT);
 
-        thmDrawTexture(covers[i].texture, img, renderPosX, coverElem->posY, ALIGN_CENTER, currentCoverWidth, currentCoverHeight, SCALING_NONE, gDefaultCol, elem->reflection, overlayOffsetX, overlayOffsetY);
+        thmDrawTexture(covers[i].texture, img, renderPosX, coverElem->posY, ALIGN_CENTER, currentCoverWidth, currentCoverHeight, SCALING_RATIO, gDefaultCol, elem->reflection, overlayOffsetX, overlayOffsetY);
     }
 }
 
