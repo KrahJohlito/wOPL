@@ -215,6 +215,8 @@ static void setDefaults(void)
     gYOff = 0;
     gOverscan = 0;
 
+    gCoverflowCount = 3;
+
     setDefaultColors();
 
     // Last Played Auto Start
