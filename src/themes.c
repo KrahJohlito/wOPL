@@ -1064,21 +1064,22 @@ static void drawCoverFlow(struct menu_list *menu, struct submenu_list *item, con
     int coverWidth = gWideScreen ? rmWideScale(elem->width) : elem->width;
 
     // Scale down covers if they don't fit on screen
+    int coverYOffset = 0;
     int maxCoverWidth = (screenWidth - (coverCount - 1) * 10) / coverCount;
     if (coverWidth > maxCoverWidth) {
+        int origHeight = coverHeight;
         coverHeight = (coverHeight * maxCoverWidth) / coverWidth;
         coverWidth = maxCoverWidth;
+        coverYOffset = (origHeight - coverHeight) / 2;
     }
 
     int totalCoversWidth = coverCount * coverWidth;
     int totalRemainingSpace = screenWidth - totalCoversWidth;
 
-    if (totalRemainingSpace >= 0) {
-        coverSpacing = totalRemainingSpace / (coverCount + 1); // Divide by covercount to distribute the space equally (4 spaces for 3 covers.. 6 spaces for 5)
-        // If coverSpacing ends up negative set it to a minimum value
-        if (coverSpacing < 0)
-            coverSpacing = 0;
-    }
+    coverSpacing = totalRemainingSpace / (coverCount + 1); // Divide by covercount to distribute the space equally (4 spaces for 3 covers.. 6 spaces for 5)
+    // If coverSpacing ends up negative set it to a minimum value
+    if (coverSpacing < 0)
+        coverSpacing = 0;
 
     if (gWideScreen)
         coverSpacing = rmWideScale(coverSpacing);
@@ -1191,7 +1192,7 @@ static void drawCoverFlow(struct menu_list *menu, struct submenu_list *item, con
         if (!covers[i].texture || !covers[i].texture->Mem)
             covers[i].texture = img->defaultTexture ? &img->defaultTexture->source : thmGetTexture(COVER_DEFAULT);
 
-        thmDrawTexture(covers[i].texture, img, renderPosX, coverElem->posY, ALIGN_CENTER, currentCoverWidth, currentCoverHeight, SCALING_RATIO, gDefaultCol, elem->reflection, overlayOffsetX, overlayOffsetY);
+        thmDrawTexture(covers[i].texture, img, renderPosX, coverElem->posY, ALIGN_CENTER, currentCoverWidth, currentCoverHeight, SCALING_NONE, gDefaultCol, elem->reflection, overlayOffsetX, overlayOffsetY);
     }
 }
 
