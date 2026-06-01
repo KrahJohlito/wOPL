@@ -1159,9 +1159,9 @@ static void drawCoverFlow(struct menu_list *menu, struct submenu_list *item, con
     int posX = basePosX + (int)animOffset;
 
     int scaling = gCoverflowCenterScale;
-    // direction=-1 (next): covers[2] is visually at center at t=0
-    // direction=1 (prev): covers[0] is visually at center at t=0
-    int leavingIndex = (animationDirection > 0) ? (coverCount - 1) : 0;
+    // direction=-1 (next): covers[centerIndex - 1] is visually at center at t=0
+    // direction=1 (prev): covers[centerIndex + 1] is visually at center at t=0
+    int leavingIndex = (animationDirection > 0) ? (centerIndex + 1) : (centerIndex - 1);
 
     for (int i = 0; i < coverCount; i++) {
         int renderPosX = posX;
