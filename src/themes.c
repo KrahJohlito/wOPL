@@ -1071,7 +1071,10 @@ static void drawCoverFlow(struct menu_list *menu, struct submenu_list *item, con
     int origCoverWidth = coverWidth;
 
     int coverYOffset = 0;
-    int maxCoverWidth = (screenWidth - (coverCount - 1) * 10) / coverCount;
+    int minCoverSpacing = (coverCount > 3) ? 20 : 10;
+
+    int maxCoverWidth = (screenWidth - ((coverCount + 1) * minCoverSpacing)) / coverCount;
+
     if (coverWidth > maxCoverWidth) {
         int origHeight = coverHeight;
         coverHeight = (coverHeight * maxCoverWidth) / coverWidth;
@@ -1080,16 +1083,16 @@ static void drawCoverFlow(struct menu_list *menu, struct submenu_list *item, con
     }
 
     float coverScaleRatio = (origCoverWidth > 0) ? (float)coverWidth / (float)origCoverWidth : 1.0f;
+
     int totalCoversWidth = coverCount * coverWidth;
     int totalRemainingSpace = screenWidth - totalCoversWidth;
 
-    coverSpacing = totalRemainingSpace / (coverCount + 1); // Divide by covercount to distribute the space equally (4 spaces for 3 covers.. 6 spaces for 5)
-    // If coverSpacing ends up negative set it to a minimum value
-    if (coverSpacing < 0)
-        coverSpacing = 0;
+    coverSpacing = totalRemainingSpace / (coverCount + 1);
+    if (coverSpacing < minCoverSpacing)
+        coverSpacing = minCoverSpacing;
 
     int coverDistance = coverWidth + coverSpacing;
-    int basePosX = (screenWidth >> 1) - (centerIndex * coverDistance);
+    int basePosX = coverSpacing + (coverWidth >> 1);
 
     struct
     {
