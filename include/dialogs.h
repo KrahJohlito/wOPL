@@ -213,7 +213,9 @@ enum UI_ITEMS {
 
 enum COVERFLOW_CFG_IDs {
     CFG_COVERFLOW_COUNT = 1,
-    // Add more..
+    CFG_COVERFLOW_SCALE,
+    CFG_COVERFLOW_ANIM,
+    CFG_COVERFLOW_DIM,
 };
 
 #define COMPAT_NOEXIT       0x70000000
