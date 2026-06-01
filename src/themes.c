@@ -329,15 +329,19 @@ static theme_element_t *thmGetElemForItem(theme_element_t *defaultElem, struct m
 
 // Draw a texture with optional overlay, reflection, and overlay offsets
 // offsetX/offsetY are for animated scaling (coverflow).. 0 for normal use
-static void thmDrawTexture(GSTEXTURE *texture, mutable_image_t *img, int x, int y, short aligned, int w, int h, short scaled,
-                           u64 color, int reflection, int offsetX, int offsetY)
+// scaleFactor is for overlay/inlay scaling (coverflow).. 1.0f for normal use
+static void thmDrawTexture(GSTEXTURE *texture, mutable_image_t *img, int x, int y, short aligned, int w, int h, short scaled, u64 color, int reflection, int offsetX, int offsetY, float scaleFactor)
 {
     if (img->overlayTexture)
         rmDrawOverlayPixmap(&img->overlayTexture->source, x, y, aligned, w, h, scaled, color, texture,
-                            img->overlayTexture->upperLeft_x, img->overlayTexture->upperLeft_y,
-                            img->overlayTexture->upperRight_x + offsetX, img->overlayTexture->upperRight_y,
-                            img->overlayTexture->lowerLeft_x, img->overlayTexture->lowerLeft_y + offsetY,
-                            img->overlayTexture->lowerRight_x + offsetX, img->overlayTexture->lowerRight_y + offsetY, reflection);
+                            (int)(img->overlayTexture->upperLeft_x * scaleFactor),
+                            (int)(img->overlayTexture->upperLeft_y * scaleFactor),
+                            (int)(img->overlayTexture->upperRight_x * scaleFactor) + offsetX,
+                            (int)(img->overlayTexture->upperRight_y * scaleFactor),
+                            (int)(img->overlayTexture->lowerLeft_x * scaleFactor),
+                            (int)(img->overlayTexture->lowerLeft_y * scaleFactor) + offsetY,
+                            (int)(img->overlayTexture->lowerRight_x * scaleFactor) + offsetX,
+                            (int)(img->overlayTexture->lowerRight_y * scaleFactor) + offsetY, reflection);
     else
         rmDrawPixmap(texture, x, y, aligned, w, h, scaled, color, reflection);
 }
@@ -570,7 +574,7 @@ static void drawStaticImage(struct menu_list *menu, struct submenu_list *item, c
         return;
 
     mutable_image_t *staticImage = (mutable_image_t *)elem->extended;
-    thmDrawTexture(&staticImage->defaultTexture->source, staticImage, elem->posX, elem->posY, elem->aligned, elem->width, elem->height, elem->scaled, gDefaultCol, 0, 0, 0);
+    thmDrawTexture(&staticImage->defaultTexture->source, staticImage, elem->posX, elem->posY, elem->aligned, elem->width, elem->height, elem->scaled, gDefaultCol, 0, 0, 0, 1.0f);
 }
 
 static void initStaticImage(const char *themePath, config_set_t *themeConfig, theme_t *theme, theme_element_t *elem, const char *name, const char *imageName)
@@ -614,7 +618,7 @@ static void drawGameImage(struct menu_list *menu, struct submenu_list *item, con
         }
 
         int x = gWideScreen ? drawElem->wsX : drawElem->posX;
-        thmDrawTexture(texture, img, x, drawElem->posY, drawElem->aligned, drawElem->width, drawElem->height, drawElem->scaled, gDefaultCol, drawElem->reflection, 0, 0);
+        thmDrawTexture(texture, img, x, drawElem->posY, drawElem->aligned, drawElem->width, drawElem->height, drawElem->scaled, gDefaultCol, drawElem->reflection, 0, 0, 1.0f);
 
     } else if (elem->type == ELEM_TYPE_BACKGROUND) {
         if (gameImage->defaultTexture)
@@ -669,7 +673,7 @@ static void drawAttributeImage(struct menu_list *menu, struct submenu_list *item
                 int posZ = 0;
                 GSTEXTURE *texture = cacheGetTexture(attributeImage->cache, menu->item->userdata, &posZ, &attributeImage->currentUid, attributeImage->currentValue);
                 if (texture && texture->Mem) {
-                    thmDrawTexture(texture, attributeImage, elem->posX, elem->posY, elem->aligned, elem->width, elem->height, elem->scaled, gDefaultCol, 0, 0, 0);
+                    thmDrawTexture(texture, attributeImage, elem->posX, elem->posY, elem->aligned, elem->width, elem->height, elem->scaled, gDefaultCol, 0, 0, 0, 1.0f);
                     return;
                 }
             }
@@ -1064,8 +1068,8 @@ static void drawCoverFlow(struct menu_list *menu, struct submenu_list *item, con
     int coverSpacing = 0;
     int coverHeight = elem->height;
     int coverWidth = gWideScreen ? rmWideScale(elem->width) : elem->width;
+    int origCoverWidth = coverWidth;
 
-    // Scale down covers if they don't fit on screen
     int coverYOffset = 0;
     int maxCoverWidth = (screenWidth - (coverCount - 1) * 10) / coverCount;
     if (coverWidth > maxCoverWidth) {
@@ -1074,6 +1078,8 @@ static void drawCoverFlow(struct menu_list *menu, struct submenu_list *item, con
         coverWidth = maxCoverWidth;
         coverYOffset = (origHeight - coverHeight) / 2;
     }
+
+    float coverScaleRatio = (origCoverWidth > 0) ? (float)coverWidth / (float)origCoverWidth : 1.0f;
 
     int totalCoversWidth = coverCount * coverWidth;
     int totalRemainingSpace = screenWidth - totalCoversWidth;
@@ -1202,7 +1208,7 @@ static void drawCoverFlow(struct menu_list *menu, struct submenu_list *item, con
         if (gCoverflowDimCovers && i != centerIndex)
             coverColor = GS_SETREG_RGBA(0x80, 0x80, 0x80, 0x40);
 
-        thmDrawTexture(covers[i].texture, img, renderPosX, coverElem->posY, ALIGN_CENTER, currentCoverWidth, currentCoverHeight, SCALING_NONE, coverColor, elem->reflection, overlayOffsetX, overlayOffsetY);
+        thmDrawTexture(covers[i].texture, img, renderPosX, coverElem->posY + coverYOffset, ALIGN_CENTER, currentCoverWidth, currentCoverHeight, SCALING_NONE, coverColor, elem->reflection, overlayOffsetX, overlayOffsetY, coverScaleRatio);
     }
 }
 
