@@ -1072,6 +1072,13 @@ static void drawCoverFlow(struct menu_list *menu, struct submenu_list *item, con
 
     int coverYOffset = 0;
     int maxCoverWidth = (screenWidth - (coverCount - 1) * 10) / coverCount;
+
+    // Also make sure center scale wont overlap other covers
+    int minSpacing = gCoverflowCenterScale / 2 + 1;
+    int maxCoverWidthNoOverlap = (screenWidth - (coverCount + 1) * minSpacing) / coverCount;
+    if (maxCoverWidthNoOverlap < maxCoverWidth)
+        maxCoverWidth = maxCoverWidthNoOverlap;
+
     if (coverWidth > maxCoverWidth) {
         int origHeight = coverHeight;
         coverHeight = (coverHeight * maxCoverWidth) / coverWidth;
@@ -1093,8 +1100,7 @@ static void drawCoverFlow(struct menu_list *menu, struct submenu_list *item, con
         coverSpacing = rmWideScale(coverSpacing);
 
     int coverDistance = coverWidth + coverSpacing;
-    int totalGroupWidth = (coverCount - 1) * coverDistance + coverWidth;
-    int basePosX = (screenWidth - totalGroupWidth) / 2 + (coverWidth >> 1);
+    int basePosX = (coverSpacing << 1) + (coverWidth >> 1);
 
     struct
     {
