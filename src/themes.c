@@ -1065,7 +1065,7 @@ static void drawCoverFlow(struct menu_list *menu, struct submenu_list *item, con
     int coverCount = gCoverflowCount;
     int centerIndex = coverCount / 2;
 
-    int coverSpacing = 0;
+    int coverSpacing = 10;
     int coverHeight = elem->height;
     int coverWidth = gWideScreen ? rmWideScale(elem->width) : elem->width;
     int origCoverWidth = coverWidth;
@@ -1080,25 +1080,14 @@ static void drawCoverFlow(struct menu_list *menu, struct submenu_list *item, con
     }
 
     float coverScaleRatio = (origCoverWidth > 0) ? (float)coverWidth / (float)origCoverWidth : 1.0f;
-
-    int totalCoversWidth = coverCount * coverWidth;
-    int totalRemainingSpace = screenWidth - totalCoversWidth;
-
-    coverSpacing = totalRemainingSpace / (coverCount + 1); // Divide by covercount to distribute the space equally (4 spaces for 3 covers.. 6 spaces for 5)
-    // If coverSpacing ends up negative set it to a minimum value
-    if (coverSpacing < 0)
+    int totalGroupWidth = coverCount * coverWidth + (coverCount - 1) * coverSpacing;
+    if (totalGroupWidth > screenWidth) {
         coverSpacing = 0;
-
-    if (gWideScreen)
-        coverSpacing = rmWideScale(coverSpacing);
+        totalGroupWidth = coverCount * coverWidth;
+    }
 
     int coverDistance = coverWidth + coverSpacing;
-    int basePosX;
-    if (gWideScreen) {
-        int totalGroupWidth = (coverCount - 1) * coverDistance + coverWidth;
-        basePosX = (screenWidth - totalGroupWidth) / 2 + (coverWidth >> 1);
-    } else
-        basePosX = (coverSpacing << 1) + (coverWidth >> 1);
+    int basePosX = ((screenWidth - totalGroupWidth) / 2) + (coverWidth >> 1);
 
     struct
     {
