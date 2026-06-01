@@ -1099,6 +1099,7 @@ static void drawCoverFlow(struct menu_list *menu, struct submenu_list *item, con
         basePosX = (screenWidth - totalGroupWidth) / 2 + (coverWidth >> 1);
     } else
         basePosX = (coverSpacing << 1) + (coverWidth >> 1);
+    basePosX += coverSpacing >> 1;
 
     struct
     {
