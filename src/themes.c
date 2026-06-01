@@ -1095,8 +1095,9 @@ static void drawCoverFlow(struct menu_list *menu, struct submenu_list *item, con
     int coverDistance = coverWidth + coverSpacing;
     int basePosX;
     if (gWideScreen) {
-        int totalGroupWidth = (coverCount - 1) * coverDistance + coverWidth;
-        basePosX = (screenWidth - totalGroupWidth) / 2 + (coverWidth >> 1);
+        int wideCoverWidth = rmWideScale(coverWidth);
+        int totalGroupWidth = (coverCount - 1) * coverDistance + wideCoverWidth;
+        basePosX = (screenWidth - totalGroupWidth) / 2 + (wideCoverWidth >> 1);
     } else
         basePosX = (coverSpacing << 1) + (coverWidth >> 1);
 
@@ -1201,7 +1202,7 @@ static void drawCoverFlow(struct menu_list *menu, struct submenu_list *item, con
         if (currentScaling > 0) {
             currentCoverWidth += currentScaling;
             currentCoverHeight += currentScaling;
-            overlayOffsetY = currentScaling;
+            overlayOffsetY = currentScaling - coverYOffset;
             overlayOffsetX = currentScaling * (gWideScreen ? (4.0f / 3.0f) : 1.0f) - (currentScaling * ((4.0f / 3.0f) - 1.0f) / 2.0f);
         }
 
