@@ -1202,7 +1202,7 @@ static void drawCoverFlow(struct menu_list *menu, struct submenu_list *item, con
         if (currentScaling > 0) {
             currentCoverWidth += currentScaling;
             currentCoverHeight += currentScaling;
-            overlayOffsetY = currentScaling - coverYOffset;
+            overlayOffsetY = currentScaling;
             overlayOffsetX = currentScaling * (gWideScreen ? (4.0f / 3.0f) : 1.0f) - (currentScaling * ((4.0f / 3.0f) - 1.0f) / 2.0f);
         }
 
@@ -1214,7 +1214,7 @@ static void drawCoverFlow(struct menu_list *menu, struct submenu_list *item, con
         if (gCoverflowDimCovers && i != centerIndex)
             coverColor = GS_SETREG_RGBA(0x80, 0x80, 0x80, 0x40);
 
-        thmDrawTexture(covers[i].texture, img, renderPosX, coverElem->posY + coverYOffset, ALIGN_CENTER, currentCoverWidth, currentCoverHeight, SCALING_NONE, coverColor, elem->reflection, overlayOffsetX, overlayOffsetY, coverScaleRatio);
+        thmDrawTexture(covers[i].texture, img, renderPosX, coverElem->posY + coverYOffset - (currentScaling / 2), ALIGN_CENTER, currentCoverWidth, currentCoverHeight, SCALING_NONE, coverColor, elem->reflection, overlayOffsetX, overlayOffsetY, coverScaleRatio);
     }
 }
 
