@@ -1080,14 +1080,21 @@ static void drawCoverFlow(struct menu_list *menu, struct submenu_list *item, con
     }
 
     float coverScaleRatio = (origCoverWidth > 0) ? (float)coverWidth / (float)origCoverWidth : 1.0f;
-    int totalGroupWidth = coverCount * coverWidth + (coverCount - 1) * coverSpacing;
-    if (totalGroupWidth > screenWidth) {
+    int totalCoversWidth = coverCount * coverWidth;
+    int totalRemainingSpace = screenWidth - totalCoversWidth;
+
+    coverSpacing = totalRemainingSpace / (coverCount + 1);
+    // If coverSpacing ends up negative set it to a minimum value
+    if (coverSpacing < 0)
         coverSpacing = 0;
-        totalGroupWidth = coverCount * coverWidth;
-    }
 
     int coverDistance = coverWidth + coverSpacing;
-    int basePosX = ((screenWidth - totalGroupWidth) / 2) + (coverWidth >> 1);
+    int basePosX;
+    if (gWideScreen) {
+        int totalGroupWidth = coverCount * coverWidth + (coverCount - 1) * coverSpacing;
+        basePosX = ((screenWidth - totalGroupWidth) / 2) + (coverWidth >> 1);
+    } else
+        basePosX = (coverSpacing << 1) + (coverWidth >> 1);
 
     struct
     {
