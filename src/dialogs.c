@@ -343,8 +343,8 @@ struct UIItem diaUIConfig[] = {
     {UI_SPACER},
     {UI_ENUM, UICFG_THEME, 1, 1, -1, 0, 0, {.intvalue = {0, 0}}},
     {UI_BREAK},
-
-    {UI_BUTTON, UICFG_COVERFLOW_BUTTON, 1, 1, -1, -40, 0, {.label = {"Coverflow Settings", -1}}},
+    {UI_SPACER},
+    {UI_BUTTON, UICFG_COVERFLOW_BUTTON, 1, 1, -1, 0, 0, {.label = {"Coverflow Settings", -1}}},
     {UI_BREAK},
 
     {UI_LABEL, 0, 1, 1, -1, -40, 0, {.label = {NULL, _STR_LANGUAGE}}},
