@@ -1042,7 +1042,9 @@ static int animationDirection = 0; // -1 for right (next), 1 for left (prev)
 static clock_t animationStartTime = 0;
 
 int gCoverflowCount = 3;
-#define COVERFLOW_ANIM_DURATION_MS 200
+int gCoverflowCenterScale = 30;
+int gCoverflowAnimSpeed = 200;
+int gCoverflowDimCovers = 0;
 
 void thmTriggerCoverflowAnim(int direction)
 {
@@ -1130,23 +1132,27 @@ static void drawCoverFlow(struct menu_list *menu, struct submenu_list *item, con
     float eased = 1.0f;
     float animOffset = 0.0f;
     if (isAnimating) {
-        clock_t elapsed = clock() - animationStartTime;
-        float t = (float)elapsed / ((float)COVERFLOW_ANIM_DURATION_MS * CLOCKS_PER_SEC / 1000);
-
-        if (t >= 1.0f) {
-            t = 1.0f;
+        if (gCoverflowAnimSpeed <= 0) {
             isAnimating = 0;
-            animationStartTime = 0;
-        }
+        } else {
+            clock_t elapsed = clock() - animationStartTime;
+            float t = (float)elapsed / ((float)gCoverflowAnimSpeed * CLOCKS_PER_SEC / 1000);
 
-        float inv = 1.0f - t;
-        eased = 1.0f - inv * inv * inv;
-        animOffset = (float)animationDirection * (float)coverDistance * (eased - 1.0f);
+            if (t >= 1.0f) {
+                t = 1.0f;
+                isAnimating = 0;
+                animationStartTime = 0;
+            }
+
+            float inv = 1.0f - t;
+            eased = 1.0f - inv * inv * inv;
+            animOffset = (float)animationDirection * (float)coverDistance * (eased - 1.0f);
+        }
     }
 
     int posX = basePosX + (int)animOffset;
 
-    int scaling = 30;
+    int scaling = gCoverflowCenterScale;
     // direction=-1 (next): covers[2] is visually at center at t=0
     // direction=1 (prev): covers[0] is visually at center at t=0
     int leavingIndex = (animationDirection > 0) ? (coverCount - 1) : 0;
@@ -1192,7 +1198,11 @@ static void drawCoverFlow(struct menu_list *menu, struct submenu_list *item, con
         if (!covers[i].texture || !covers[i].texture->Mem)
             covers[i].texture = img->defaultTexture ? &img->defaultTexture->source : thmGetTexture(COVER_DEFAULT);
 
-        thmDrawTexture(covers[i].texture, img, renderPosX, coverElem->posY, ALIGN_CENTER, currentCoverWidth, currentCoverHeight, SCALING_NONE, gDefaultCol, elem->reflection, overlayOffsetX, overlayOffsetY);
+        u64 coverColor = gDefaultCol;
+        if (gCoverflowDimCovers && i != centerIndex)
+            coverColor = GS_SETREG_RGBA(0x80, 0x80, 0x80, 0x40);
+
+        thmDrawTexture(covers[i].texture, img, renderPosX, coverElem->posY, ALIGN_CENTER, currentCoverWidth, currentCoverHeight, SCALING_NONE, coverColor, elem->reflection, overlayOffsetX, overlayOffsetY);
     }
 }
 

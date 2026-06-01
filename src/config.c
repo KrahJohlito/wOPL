@@ -388,6 +388,10 @@ void loadConfig()
             configGetInt(configOPL, CONFIG_OPL_COVERFLOW_COUNT, &gCoverflowCount);
             if (gCoverflowCount != 3 && gCoverflowCount != 5)
                 gCoverflowCount = 3;
+
+            configGetInt(configOPL, CONFIG_OPL_COVERFLOW_SCALE, &gCoverflowCenterScale);
+            configGetInt(configOPL, CONFIG_OPL_COVERFLOW_ANIM, &gCoverflowAnimSpeed);
+            configGetInt(configOPL, CONFIG_OPL_COVERFLOW_DIM, &gCoverflowDimCovers);
         }
     }
 
@@ -583,7 +587,11 @@ static void saveConfig()
         configSetInt(configOPL, CONFIG_OPL_YSENSITIVITY, gYSensitivity);
 
         configSetInt(configOPL, CONFIG_OPL_SWAP_SEL_BUTTON, gSelectButton == KEY_CIRCLE ? 0 : 1);
+
         configSetInt(configOPL, CONFIG_OPL_COVERFLOW_COUNT, gCoverflowCount);
+        configSetInt(configOPL, CONFIG_OPL_COVERFLOW_SCALE, gCoverflowCenterScale);
+        configSetInt(configOPL, CONFIG_OPL_COVERFLOW_ANIM, gCoverflowAnimSpeed);
+        configSetInt(configOPL, CONFIG_OPL_COVERFLOW_DIM, gCoverflowDimCovers);
     }
 
     if (lscstatus & CONFIG_NETWORK) {

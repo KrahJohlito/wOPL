@@ -216,6 +216,9 @@ static void setDefaults(void)
     gOverscan = 0;
 
     gCoverflowCount = 3;
+    gCoverflowCenterScale = 30;
+    gCoverflowAnimSpeed = 200;
+    gCoverflowDimCovers = 0;
 
     setDefaultColors();
 
