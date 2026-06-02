@@ -1583,6 +1583,7 @@ static void thmLoad(const char *themePath, int themeID)
     newT->loadingIcon = NULL;
     newT->loadingIconCount = LOAD7_ICON - LOAD1_ICON + 1;
     newT->coverflow = NULL;
+    newT->coverflowCoverOffset = 0;
 
     config_set_t *themeConfig = NULL;
     if (!themePath && themeID == 0) {
@@ -1734,9 +1735,7 @@ static void thmLoad(const char *themePath, int themeID)
     } else
         texLoadInternal(&newT->textures[SETTINGS_BG], SETTINGS_BG);
 
-    newT->coverflowCoverOffset = 0;
     configGetInt(themeConfig, "coverflow_cover_offset", &newT->coverflowCoverOffset);
-
 
     configFree(themeConfig);
     gTheme = newT;

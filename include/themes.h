@@ -138,7 +138,7 @@ typedef struct theme
     int fonts[THM_MAX_FONTS]; //!< Storage of font handles for removal once not needed
 
     theme_element_t *coverflow;
-    int coverflowCoverOffset;
+    int coverflowCoverOffset; // used to compensate for asymmetric overlay transparency, in texture pixels (half the transparent padding). e.g. overlay 256px wide with 29px right padding = 14 (29/2)
 } theme_t;
 
 extern theme_t *gTheme;
