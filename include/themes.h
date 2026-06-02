@@ -138,6 +138,7 @@ typedef struct theme
     int fonts[THM_MAX_FONTS]; //!< Storage of font handles for removal once not needed
 
     theme_element_t *coverflow;
+    int coverflowCoverOffset;
 } theme_t;
 
 extern theme_t *gTheme;

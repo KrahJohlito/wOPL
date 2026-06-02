@@ -1097,12 +1097,9 @@ static void drawCoverFlow(struct menu_list *menu, struct submenu_list *item, con
     int scaledCoverSpacing = rmScaleX(coverSpacing);
     int scaledCoverDistance = scaledCoverWidth + scaledCoverSpacing;
     int totalGroupWidth = (coverCount - 1) * scaledCoverDistance + scaledCoverWidth;
-    int basePosX = rmUnScaleX((screenWidth - totalGroupWidth) / 2) + (coverWidth >> 1);
+    int basePosX = (screenWidth - totalGroupWidth) / 2 + (coverWidth >> 1) + (coverWidth * gTheme->coverflowCoverOffset / 256);
 
     LOG("CF: screenWidth=%d coverWidth=%d coverSpacing=%d coverDistance=%d totalGroupWidth=%d basePosX=%d ws=%d covers=%d\n", screenWidth, coverWidth, coverSpacing, coverDistance, totalGroupWidth, basePosX, gWideScreen, coverCount);
-    int dbgW, dbgH;
-    rmGetScreenExtentsNative(&dbgW, &dbgH);
-    LOG("CF: iDisplayWidth=%d iDisplayHeight=%d\n", dbgW, dbgH);
 
     struct
     {
@@ -1736,6 +1733,9 @@ static void thmLoad(const char *themePath, int themeID)
         }
     } else
         texLoadInternal(&newT->textures[SETTINGS_BG], SETTINGS_BG);
+
+    newT->coverflowCoverOffset = 0;
+    configGetInt(themeConfig, "coverflow_cover_offset", &newT->coverflowCoverOffset);
 
 
     configFree(themeConfig);
