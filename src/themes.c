@@ -1181,7 +1181,10 @@ static void drawCoverFlow(struct menu_list *menu, struct submenu_list *item, con
         mutable_image_t *img = (mutable_image_t *)coverElem->extended;
         item_list_t *sourceList = thmGetItemSource(menu, covers[i].game);
 
-        int baseCoverHeight = (coverElem != elem && coverElem->height != DIM_UNDEF) ? coverElem->height : coverHeight;
+        int baseCoverHeight = coverHeight;
+        if (coverElem != elem && coverElem->height != DIM_UNDEF)
+            baseCoverHeight = (int)(coverElem->height * coverScaleRatio);
+
         int currentCoverWidth = coverWidth;
         int currentCoverHeight = baseCoverHeight;
         int overlayOffsetY = 0;
@@ -1213,7 +1216,9 @@ static void drawCoverFlow(struct menu_list *menu, struct submenu_list *item, con
         if (gCoverflowDimCovers && i != centerIndex)
             coverColor = GS_SETREG_RGBA(0x80, 0x80, 0x80, 0x40);
 
-        thmDrawTexture(covers[i].texture, img, renderPosX, coverElem->posY + coverYOffset, ALIGN_CENTER, currentCoverWidth, currentCoverHeight, SCALING_NONE, coverColor, elem->reflection, overlayOffsetX, overlayOffsetY, coverScaleRatio);
+        int thisCoverYOffset = (coverElem != elem && coverElem->height != DIM_UNDEF) ? (coverElem->height - baseCoverHeight) / 2 : coverYOffset;
+
+        thmDrawTexture(covers[i].texture, img, renderPosX, coverElem->posY + thisCoverYOffset, ALIGN_CENTER, currentCoverWidth, currentCoverHeight, SCALING_NONE, coverColor, elem->reflection, overlayOffsetX, overlayOffsetY, coverScaleRatio);
     }
 }
 
