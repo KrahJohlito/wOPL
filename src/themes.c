@@ -1093,10 +1093,7 @@ static void drawCoverFlow(struct menu_list *menu, struct submenu_list *item, con
         coverSpacing = rmWideScale(coverSpacing);
 
     int coverDistance = coverWidth + coverSpacing;
-    int scaledCoverWidth = rmScaleX(coverWidth);
-    int scaledCoverSpacing = rmScaleX(coverSpacing);
-    int scaledCoverDistance = scaledCoverWidth + scaledCoverSpacing;
-    int totalGroupWidth = (coverCount - 1) * scaledCoverDistance + scaledCoverWidth;
+    int totalGroupWidth = (coverCount - 1) * coverDistance + coverWidth;
     int basePosX = (screenWidth - totalGroupWidth) / 2 + (coverWidth >> 1) + (coverWidth * gTheme->coverflowCoverOffset / 256);
 
     struct
