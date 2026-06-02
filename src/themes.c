@@ -1093,9 +1093,8 @@ static void drawCoverFlow(struct menu_list *menu, struct submenu_list *item, con
         coverSpacing = rmWideScale(coverSpacing);
 
     int coverDistance = coverWidth + coverSpacing;
-    int layoutCoverWidth = gWideScreen ? rmWideScale(coverWidth) : coverWidth;
-    int totalGroupWidth = (coverCount - 1) * coverDistance + layoutCoverWidth;
-    int basePosX = (screenWidth - totalGroupWidth) / 2 + (layoutCoverWidth >> 1) + (coverSpacing >> 1);
+    int totalGroupWidth = (coverCount - 1) * coverDistance + coverWidth;
+    int basePosX = (screenWidth - totalGroupWidth) / 2 + (coverWidth >> 1);
 
     struct
     {
