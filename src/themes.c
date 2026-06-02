@@ -1100,6 +1100,9 @@ static void drawCoverFlow(struct menu_list *menu, struct submenu_list *item, con
     int basePosX = rmUnScaleX((screenWidth - totalGroupWidth) / 2) + (coverWidth >> 1);
 
     LOG("CF: screenWidth=%d coverWidth=%d coverSpacing=%d coverDistance=%d totalGroupWidth=%d basePosX=%d ws=%d covers=%d\n", screenWidth, coverWidth, coverSpacing, coverDistance, totalGroupWidth, basePosX, gWideScreen, coverCount);
+    int dbgW, dbgH;
+    rmGetScreenExtentsNative(&dbgW, &dbgH);
+    LOG("CF: iDisplayWidth=%d iDisplayHeight=%d\n", dbgW, dbgH);
 
     struct
     {
