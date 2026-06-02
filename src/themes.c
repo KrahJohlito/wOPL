@@ -1099,8 +1099,6 @@ static void drawCoverFlow(struct menu_list *menu, struct submenu_list *item, con
     int totalGroupWidth = (coverCount - 1) * scaledCoverDistance + scaledCoverWidth;
     int basePosX = (screenWidth - totalGroupWidth) / 2 + (coverWidth >> 1) + (coverWidth * gTheme->coverflowCoverOffset / 256);
 
-    LOG("CF: screenWidth=%d coverWidth=%d coverSpacing=%d coverDistance=%d totalGroupWidth=%d basePosX=%d ws=%d covers=%d\n", screenWidth, coverWidth, coverSpacing, coverDistance, totalGroupWidth, basePosX, gWideScreen, coverCount);
-
     struct
     {
         submenu_list_t *game;
@@ -1163,8 +1161,8 @@ static void drawCoverFlow(struct menu_list *menu, struct submenu_list *item, con
     }
 
     int posX = basePosX + (int)animOffset;
-
     int scaling = gCoverflowCenterScale;
+
     // direction=-1 (next): covers[centerIndex - 1] is visually at center at t=0
     // direction=1 (prev): covers[centerIndex + 1] is visually at center at t=0
     int leavingIndex = (animationDirection > 0) ? (centerIndex + 1) : (centerIndex - 1);
