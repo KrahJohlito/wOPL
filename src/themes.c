@@ -1096,6 +1096,8 @@ static void drawCoverFlow(struct menu_list *menu, struct submenu_list *item, con
     int totalGroupWidth = (coverCount - 1) * coverDistance + coverWidth;
     int basePosX = (screenWidth - totalGroupWidth) / 2 + (coverWidth >> 1);
 
+    LOG("CF: screenWidth=%d coverWidth=%d coverSpacing=%d coverDistance=%d totalGroupWidth=%d basePosX=%d\n", screenWidth, coverWidth, coverSpacing, coverDistance, totalGroupWidth, basePosX);
+
     struct
     {
         submenu_list_t *game;
