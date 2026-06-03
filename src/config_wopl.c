@@ -402,8 +402,8 @@ static void build_opl(config_setting_t *root)
     set_color(group, "plasma_blend_color", gDefaultPlasmaBlendColor);
 
     group = add_group(root, "ui");
-    set_str(group, "theme", thmGetValue());
-    set_str(group, "language", lngGetValue());
+    set_str(group, "theme", "");
+    set_str(group, "language", "");
     set_bool(group, "swap_button", gSelectButton == KEY_CROSS);
     set_int(group, "x_sensitivity", gXSensitivity);
     set_int(group, "y_sensitivity", gYSensitivity);
