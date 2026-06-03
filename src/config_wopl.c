@@ -560,6 +560,13 @@ static int migrate_legacy_opl(const char *path, int *out_theme_id, int *out_lang
 #ifdef __DEBUG
     configGetInt(cfg, CONFIG_OPL_MMCE_GAMEID, &gMMCEEnableGameID);
 #endif
+    configGetInt(configOPL, CONFIG_OPL_COVERFLOW_COUNT, &gCoverflowCount);
+    if (gCoverflowCount != 3 && gCoverflowCount != 5)
+        gCoverflowCount = 3;
+
+    configGetInt(configOPL, CONFIG_OPL_COVERFLOW_SCALE, &gCoverflowCenterScale);
+    configGetInt(configOPL, CONFIG_OPL_COVERFLOW_ANIM, &gCoverflowAnimSpeed);
+    configGetInt(configOPL, CONFIG_OPL_COVERFLOW_DIM, &gCoverflowDimCovers);
 
     configClear(cfg);
     return 1;
@@ -576,9 +583,9 @@ int wOPLLoad(int *out_theme_id, int *out_lang_id)
     config_t cfg;
     config_init(&cfg);
 
-    if (!config_read_file(&cfg, path)) {
+    if (!config_read_file(&cfg, path) || config_lookup(&cfg, "display") == NULL) {
         config_destroy(&cfg);
-        LOG("CONFIG_WOPL: libconfig parse failed for '%s', attempting legacy migration\n", path);
+        LOG("CONFIG_WOPL: old format detected at '%s', attempting legacy migration\n", path);
         if (!migrate_legacy_opl(path, out_theme_id, out_lang_id))
             return 0;
 
@@ -732,7 +739,7 @@ int wOPLNetLoad(void)
     config_t cfg;
     config_init(&cfg);
 
-    if (!config_read_file(&cfg, path)) {
+    if (!config_read_file(&cfg, path) || config_lookup(&cfg, "ps2") == NULL) {
         config_destroy(&cfg);
         LOG("CONFIG_NET: libconfig parse failed for '%s', attempting legacy migration\n", path);
         if (!migrate_legacy_net(path))
