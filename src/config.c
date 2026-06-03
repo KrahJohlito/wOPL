@@ -413,11 +413,13 @@ static void saveConfig()
     char temp[256];
     int woplResult = 0, netResult = 0;
 
-    if (lscstatus & CONFIG_OPL)
-        woplResult = wOPLSave();
+
 
     if (lscstatus & CONFIG_NETWORK)
         netResult = wOPLNetSave();
+    
+        if (lscstatus & CONFIG_OPL)
+        woplResult = wOPLSave();
 
     char *path = configGetDir();
     if (!strncmp(path, "mc", 2)) {
