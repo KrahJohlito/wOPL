@@ -612,10 +612,7 @@ int wOPLLoad(int *out_theme_id, int *out_lang_id)
     return 1;
 }
 
-int wOPLSave(void)
-{
-    return do_save(WOPL_FILENAME, build_net);
-}
+
 
 const char *wOPLGetDir(void)
 {
@@ -816,4 +813,9 @@ int wOPLLastSave(const char *startup)
 const char *wOPLLastGet(void)
 {
     return last_played[0] ? last_played : NULL;
+}
+
+int wOPLSave(void)
+{
+    return do_save(WOPL_FILENAME, build_net);
 }
