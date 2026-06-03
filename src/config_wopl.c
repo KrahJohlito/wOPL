@@ -560,13 +560,13 @@ static int migrate_legacy_opl(const char *path, int *out_theme_id, int *out_lang
 #ifdef __DEBUG
     configGetInt(cfg, CONFIG_OPL_MMCE_GAMEID, &gMMCEEnableGameID);
 #endif
-    configGetInt(configOPL, CONFIG_OPL_COVERFLOW_COUNT, &gCoverflowCount);
+    configGetInt(cfg, CONFIG_OPL_COVERFLOW_COUNT, &gCoverflowCount);
     if (gCoverflowCount != 3 && gCoverflowCount != 5)
         gCoverflowCount = 3;
 
-    configGetInt(configOPL, CONFIG_OPL_COVERFLOW_SCALE, &gCoverflowCenterScale);
-    configGetInt(configOPL, CONFIG_OPL_COVERFLOW_ANIM, &gCoverflowAnimSpeed);
-    configGetInt(configOPL, CONFIG_OPL_COVERFLOW_DIM, &gCoverflowDimCovers);
+    configGetInt(cfg, CONFIG_OPL_COVERFLOW_SCALE, &gCoverflowCenterScale);
+    configGetInt(cfg, CONFIG_OPL_COVERFLOW_ANIM, &gCoverflowAnimSpeed);
+    configGetInt(cfg, CONFIG_OPL_COVERFLOW_DIM, &gCoverflowDimCovers);
 
     configClear(cfg);
     return 1;
