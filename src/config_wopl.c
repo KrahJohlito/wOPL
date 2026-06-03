@@ -590,7 +590,7 @@ int wOPLLoad(int *out_theme_id, int *out_lang_id)
             return 0;
 
         strncpy(config_dir, dir, sizeof(config_dir) - 1);
-        wOPLSave();
+        // user needs to manually save to complete migration
         LOG("CONFIG_WOPL: legacy config migrated to new format at '%s'\n", path);
         return 1;
     }
@@ -745,7 +745,7 @@ int wOPLNetLoad(void)
         if (!migrate_legacy_net(path))
             return 0;
 
-        wOPLNetSave();
+        // user needs to manually save to complete migration
         LOG("CONFIG_NET: legacy config migrated to new format at '%s'\n", path);
         return 1;
     }
