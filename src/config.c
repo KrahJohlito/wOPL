@@ -848,6 +848,7 @@ void configClear(config_set_t *configSet)
 
 int configReadMulti(int types)
 {
+    types &= ~CONFIG_OPL & ~CONFIG_NETWORK;
     int result = 0, index;
 
     for (index = 0; index < CONFIG_INDEX_COUNT; index++) {
@@ -870,6 +871,7 @@ int configReadMulti(int types)
 
 int configWriteMulti(int types)
 {
+    types &= ~CONFIG_OPL & ~CONFIG_NETWORK;
     int result = 0, index;
 
     for (index = 0; index < CONFIG_INDEX_COUNT; index++) {
