@@ -242,7 +242,15 @@ static int do_save(const char *filename, void (*build)(config_setting_t *))
 
     build(root);
 
-    int ok = config_write_file(&cfg, path);
+    FILE *fd = fopen(path, "w");
+    int ok = 0;
+    if (fd) {
+        config_write(&cfg, fd);
+        fflush(fd);
+        fclose(fd);
+        ok = 1;
+    }
+
     config_destroy(&cfg);
 
     if (!ok) {
