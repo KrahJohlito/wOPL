@@ -26,8 +26,12 @@
 static char config_dir[128] = {0};
 static char last_played[256] = {0};
 
-#define WOPL_FILENAME "conf_wopl.cfg"
-#define NET_FILENAME  "conf_network.cfg"
+#define WOPL_FILENAME     "wopl_settings.cfg"
+#define WOPL_FILENAME_OLD "conf_wopl.cfg"
+
+#define NET_FILENAME     "wopl_network.cfg"
+#define NET_FILENAME_OLD "conf_network.cfg"
+
 #define LAST_FILENAME "conf_last.cfg"
 
 // ---------------------------------------------------------------------------
@@ -376,6 +380,14 @@ static void parse_debug(config_t *cfg)
 #endif
 }
 
+static void parse_coverflow(config_t *cfg)
+{
+    gCoverflowCount = lookup_int(cfg, "coverflow.count", gCoverflowCount);
+    gCoverflowCenterScale = lookup_int(cfg, "coverflow.center_scale", gCoverflowCenterScale);
+    gCoverflowAnimSpeed = lookup_int(cfg, "coverflow.anim_speed", gCoverflowAnimSpeed);
+    gCoverflowDimCovers = lookup_int(cfg, "coverflow.dim_covers", gCoverflowDimCovers);
+}
+
 static void build_opl(config_setting_t *root)
 {
     config_setting_t *group;
@@ -455,6 +467,12 @@ static void build_opl(config_setting_t *root)
 #ifdef __DEBUG
     set_bool(group, "mmce_gameid", gMMCEEnableGameID);
 #endif
+
+    group = add_group(root, "coverflow");
+    set_int(group, "count", gCoverflowCount);
+    set_int(group, "center_scale", gCoverflowCenterScale);
+    set_int(group, "anim_speed", gCoverflowAnimSpeed);
+    set_int(group, "dim_covers", gCoverflowDimCovers);
 }
 
 // ---------------------------------------------------------------------------
@@ -546,48 +564,77 @@ static int migrate_legacy_opl(const char *path, int *out_theme_id, int *out_lang
 #ifdef __DEBUG
     configGetInt(cfg, CONFIG_OPL_MMCE_GAMEID, &gMMCEEnableGameID);
 #endif
+    configGetInt(cfg, CONFIG_OPL_COVERFLOW_COUNT, &gCoverflowCount);
+    if (gCoverflowCount != 3 && gCoverflowCount != 5)
+        gCoverflowCount = 3;
+
+    configGetInt(cfg, CONFIG_OPL_COVERFLOW_SCALE, &gCoverflowCenterScale);
+    configGetInt(cfg, CONFIG_OPL_COVERFLOW_ANIM, &gCoverflowAnimSpeed);
+    configGetInt(cfg, CONFIG_OPL_COVERFLOW_DIM, &gCoverflowDimCovers);
 
     configClear(cfg);
     return 1;
+}
+
+static void parse_opl_cfg(config_t *cfg, int *out_theme_id, int *out_lang_id)
+{
+    parse_display(cfg);
+    parse_ui(cfg, out_theme_id, out_lang_id);
+    parse_audio(cfg);
+    parse_startup(cfg);
+    parse_devices(cfg);
+    parse_paths(cfg);
+    parse_mmce(cfg);
+    parse_debug(cfg);
+    parse_coverflow(cfg);
 }
 
 int wOPLLoad(int *out_theme_id, int *out_lang_id)
 {
     char dir[128];
     char path[256];
-
-    if (!probe_config_path(WOPL_FILENAME, dir, sizeof(dir), path, sizeof(path), 0))
-        return 0;
-
     config_t cfg;
-    config_init(&cfg);
 
-    if (!config_read_file(&cfg, path)) {
+    // 1. Try new filename
+    if (probe_config_path(WOPL_FILENAME, dir, sizeof(dir), path, sizeof(path), 0)) {
+        config_init(&cfg);
+        if (config_read_file(&cfg, path)) {
+            parse_opl_cfg(&cfg, out_theme_id, out_lang_id);
+            config_destroy(&cfg);
+            strncpy(config_dir, dir, sizeof(config_dir) - 1);
+            LOG("CONFIG_WOPL: loaded from '%s'\n", path);
+            return 1;
+        }
         config_destroy(&cfg);
-        LOG("CONFIG_WOPL: libconfig parse failed for '%s', attempting legacy migration\n", path);
-        if (!migrate_legacy_opl(path, out_theme_id, out_lang_id))
+    }
+
+    // 2. Try old filename.. migrate to new filename and delete old
+    if (probe_config_path(WOPL_FILENAME_OLD, dir, sizeof(dir), path, sizeof(path), 0)) {
+        int ok = 0;
+        config_init(&cfg);
+        if (config_read_file(&cfg, path) && config_lookup(&cfg, "display") != NULL) {
+            parse_opl_cfg(&cfg, out_theme_id, out_lang_id);
+            ok = 1;
+        }
+        config_destroy(&cfg);
+
+        if (!ok) {
+            LOG("CONFIG_WOPL: old format detected, attempting legacy migration\n");
+            ok = migrate_legacy_opl(path, out_theme_id, out_lang_id);
+        }
+
+        if (!ok)
             return 0;
 
         strncpy(config_dir, dir, sizeof(config_dir) - 1);
-        wOPLSave();
-        LOG("CONFIG_WOPL: legacy config migrated to new format at '%s'\n", path);
+        if (wOPLSave()) {
+            remove(path);
+            LOG("CONFIG_WOPL: migrated to '%s'\n", WOPL_FILENAME);
+        }
         return 1;
     }
 
-    parse_display(&cfg);
-    parse_ui(&cfg, out_theme_id, out_lang_id);
-    parse_audio(&cfg);
-    parse_startup(&cfg);
-    parse_devices(&cfg);
-    parse_paths(&cfg);
-    parse_mmce(&cfg);
-    parse_debug(&cfg);
-
-    config_destroy(&cfg);
-
-    strncpy(config_dir, dir, sizeof(config_dir) - 1);
-    LOG("CONFIG_WOPL: loaded from '%s'\n", path);
-    return 1;
+    return 0;
 }
 
 int wOPLSave(void)
@@ -712,26 +759,42 @@ int wOPLNetLoad(void)
         return 0;
 
     char path[256];
-    snprintf(path, sizeof(path), "%s%s", config_dir, NET_FILENAME);
-
+    char old_path[256];
     config_t cfg;
+
+    // 1. Try new filename
+    snprintf(path, sizeof(path), "%s%s", config_dir, NET_FILENAME);
     config_init(&cfg);
-
-    if (!config_read_file(&cfg, path)) {
+    if (config_read_file(&cfg, path)) {
+        parse_net(&cfg);
         config_destroy(&cfg);
-        LOG("CONFIG_NET: libconfig parse failed for '%s', attempting legacy migration\n", path);
-        if (!migrate_legacy_net(path))
-            return 0;
-
-        wOPLNetSave();
-        LOG("CONFIG_NET: legacy config migrated to new format at '%s'\n", path);
+        LOG("CONFIG_NET: loaded from '%s'\n", path);
         return 1;
     }
-
-    parse_net(&cfg);
     config_destroy(&cfg);
 
-    LOG("CONFIG_NET: loaded from '%s'\n", path);
+    // 2. Try old filename.. migrate to new filename and delete old
+    snprintf(old_path, sizeof(old_path), "%s%s", config_dir, NET_FILENAME_OLD);
+    config_init(&cfg);
+    int ok = 0;
+    if (config_read_file(&cfg, old_path) && config_lookup(&cfg, "ps2") != NULL) {
+        parse_net(&cfg);
+        ok = 1;
+    }
+    config_destroy(&cfg);
+
+    if (!ok) {
+        LOG("CONFIG_NET: old format detected, attempting legacy migration\n");
+        ok = migrate_legacy_net(old_path);
+    }
+
+    if (!ok)
+        return 0;
+
+    if (wOPLNetSave()) {
+        remove(old_path);
+        LOG("CONFIG_NET: migrated to '%s'\n", NET_FILENAME);
+    }
     return 1;
 }
 
