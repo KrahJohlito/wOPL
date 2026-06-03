@@ -376,6 +376,14 @@ static void parse_debug(config_t *cfg)
 #endif
 }
 
+static void parse_coverflow(config_t *cfg)
+{
+    gCoverflowCount = lookup_int(cfg, "coverflow.count", gCoverflowCount);
+    gCoverflowCenterScale = lookup_int(cfg, "coverflow.center_scale", gCoverflowCenterScale);
+    gCoverflowAnimSpeed = lookup_int(cfg, "coverflow.anim_speed", gCoverflowAnimSpeed);
+    gCoverflowDimCovers = lookup_int(cfg, "coverflow.dim_covers", gCoverflowDimCovers);
+}
+
 static void build_opl(config_setting_t *root)
 {
     config_setting_t *group;
@@ -455,6 +463,12 @@ static void build_opl(config_setting_t *root)
 #ifdef __DEBUG
     set_bool(group, "mmce_gameid", gMMCEEnableGameID);
 #endif
+
+    group = add_group(root, "coverflow");
+    set_int(group, "count", gCoverflowCount);
+    set_int(group, "center_scale", gCoverflowCenterScale);
+    set_int(group, "anim_speed", gCoverflowAnimSpeed);
+    set_int(group, "dim_covers", gCoverflowDimCovers);
 }
 
 // ---------------------------------------------------------------------------
@@ -582,6 +596,7 @@ int wOPLLoad(int *out_theme_id, int *out_lang_id)
     parse_paths(&cfg);
     parse_mmce(&cfg);
     parse_debug(&cfg);
+    parse_coverflow(&cfg);
 
     config_destroy(&cfg);
 
