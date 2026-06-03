@@ -242,7 +242,6 @@ static int do_save(const char *filename, void (*build)(config_setting_t *))
 
     build(root);
 
-    remove(path);
     int ok = config_write_file(&cfg, path);
     config_destroy(&cfg);
 
@@ -615,7 +614,7 @@ int wOPLLoad(int *out_theme_id, int *out_lang_id)
 
 int wOPLSave(void)
 {
-    return do_save(WOPL_FILENAME, build_opl);
+    return do_save(WOPL_FILENAME, build_net);
 }
 
 const char *wOPLGetDir(void)
