@@ -1,4 +1,3 @@
-#include "include/config_wopl.h"
 #include "include/common.h"
 #include "include/lang.h"
 #include "include/gui.h"
@@ -15,6 +14,7 @@
 #include "include/cheatman.h"
 #endif
 #include "modules/iopcore/common/cdvd_config.h"
+#include "include/config_wopl.h"
 #include <stdio.h>
 #include <ps2smb.h>
 #include <ps2ips.h>
@@ -605,7 +605,7 @@ static void ethRenameGame(item_list_t *itemList, int id, char *newName)
     ethULSizePrev = -2;
 }
 
-static void ethLaunchGame(item_list_t *itemList, int id, config_set_t *configSet)
+static void ethLaunchGame(item_list_t *itemList, int id, per_game_cfg_t *pgcfg)
 {
     int i, compatmask;
     int EnablePS2Logo = 0;
@@ -635,7 +635,8 @@ static void ethLaunchGame(item_list_t *itemList, int id, config_set_t *configSet
 
     for (vmc_id = 0; vmc_id < 2; vmc_id++) {
         memset(&smb_vmc_infos, 0, sizeof(smb_vmc_infos_t));
-        configGetVMC(configSet, vmc_name, sizeof(vmc_name), vmc_id);
+        strncpy(vmc_name, vmc_id == 0 ? pgcfg->vmc1 : pgcfg->vmc2, sizeof(vmc_name) - 1);
+        vmc_name[sizeof(vmc_name) - 1] = '\0';
         if (vmc_name[0]) {
             if (sysCheckVMC(ethPrefix, "\\", vmc_name, 0, &vmc_superblock) > 0) {
                 smb_vmc_infos.flags = vmc_superblock.mc_flag & 0xFF;
@@ -670,7 +671,7 @@ static void ethLaunchGame(item_list_t *itemList, int id, config_set_t *configSet
     if (gRememberLastPlayed)
         wOPLLastSave(game->startup);
 
-    compatmask = sbPrepare(game, configSet, size_smb_cdvdman_irx, smb_cdvdman_irx, &i);
+    compatmask = sbPrepare(game, pgcfg, size_smb_cdvdman_irx, smb_cdvdman_irx, &i);
 #ifdef CHEAT
     if ((result = sbLoadCheats(ethPrefix, game->startup)) < 0) {
         switch (result) {
@@ -740,8 +741,11 @@ static void ethLaunchGame(item_list_t *itemList, int id, config_set_t *configSet
     }
     settings->common.layer1_start = layer1_start;
 
-    if (configGetStrCopy(configSet, CONFIG_ITEM_ALTSTARTUP, filename, sizeof(filename)) == 0)
+    if (pgcfg->alt_startup[0])
+        strncpy(filename, pgcfg->alt_startup, sizeof(filename) - 1);
+    else
         strcpy(filename, game->startup);
+
     deinit(NO_EXCEPTION, ETH_MODE); // CAREFUL: deinit will call ethCleanUp, so ethGames/game will be freed
 
     settings->common.fakemodule_flags |= FAKE_MODULE_FLAG_DEV9;
@@ -753,9 +757,19 @@ static void ethLaunchGame(item_list_t *itemList, int id, config_set_t *configSet
     sysLaunchLoaderElf(filename, "ETH_MODE", size_smb_cdvdman_irx, smb_cdvdman_irx, size_mcemu_irx, smb_mcemu_irx, EnablePS2Logo, compatmask);
 }
 
-static config_set_t *ethGetConfig(item_list_t *itemList, int id)
+static void ethGetInfo(item_list_t *itemList, int id, game_info_t *gi)
 {
-    return sbPopulateConfig(&ethGames[id], ethPrefix, "\\");
+    sbPopulateConfig(&ethGames[id], ethPrefix, "\\", gi, NULL);
+}
+
+static void ethGetPgCfg(item_list_t *itemList, int id, per_game_cfg_t *cfg)
+{
+    sbPopulateConfig(&ethGames[id], ethPrefix, "\\", NULL, cfg);
+}
+
+static int ethSavePgCfg(item_list_t *itemList, int id, const per_game_cfg_t *cfg)
+{
+    return sbSaveConfig(&ethGames[id], ethPrefix, "\\", cfg);
 }
 
 static int ethGetImage(item_list_t *itemList, char *folder, int isRelative, char *value, char *suffix, GSTEXTURE *resultTex, short psm)
@@ -837,7 +851,7 @@ static char *ethGetPrefix(item_list_t *itemList)
 static item_list_t ethGameList = {
     ETH_MODE, 1, 0, 0, MENU_MIN_INACTIVE_FRAMES, ETH_MODE_UPDATE_DELAY, NULL, NULL, &ethGetTextId, &ethGetPrefix, &ethInit, &ethNeedsUpdate,
     &ethUpdateGameList, &ethGetGameCount, &ethGetGame, &ethGetGameName, &ethGetGameNameLength, &ethGetGameStartup, &ethDeleteGame, &ethRenameGame,
-    &ethLaunchGame, &ethGetConfig, &ethGetImage, &ethGetArchivedImage, &ethCleanUp, &ethShutdown, &ethCheckVMC, &ethGetIconId};
+    &ethLaunchGame, &ethGetInfo, &ethGetPgCfg, &ethSavePgCfg, &ethGetImage, &ethGetArchivedImage, &ethCleanUp, &ethShutdown, &ethCheckVMC, &ethGetIconId};
 
 static int ethReadNetConfig(void)
 {
