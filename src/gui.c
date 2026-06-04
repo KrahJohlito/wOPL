@@ -1840,7 +1840,7 @@ int guiConfirmVideoMode(void)
     return terminate - 1;
 }
 
-int guiGameShowRemoveSettings(config_set_t *configSet, config_set_t *configGame)
+int guiGameShowRemoveSettings(per_game_cfg_t *pgcfg)
 {
     int terminate = 0;
     char message[256];
@@ -1882,14 +1882,14 @@ int guiGameShowRemoveSettings(config_set_t *configSet, config_set_t *configGame)
         sfxPlay(SFX_CANCEL);
         return 0;
     } else if (terminate == 2) {
-        guiGameRemoveSettings(configSet);
+        guiGameRemoveSettings(pgcfg);
         snprintf(message, sizeof(message), _l(_STR_GAME_SETTINGS_REMOVED), _l(_STR_PERGAME_SETTINGS));
     } else if (terminate == 3) {
-        guiGameRemoveGlobalSettings(configGame);
+        guiGameRemoveGlobalSettings();
         snprintf(message, sizeof(message), _l(_STR_GAME_SETTINGS_REMOVED), _l(_STR_GLOBAL_SETTINGS));
     } else if (terminate == 4) {
-        guiGameRemoveSettings(configSet);
-        guiGameRemoveGlobalSettings(configGame);
+        guiGameRemoveSettings(pgcfg);
+        guiGameRemoveGlobalSettings();
         snprintf(message, sizeof(message), _l(_STR_GAME_SETTINGS_REMOVED), _l(_STR_ALL_SETTINGS));
     }
     sfxPlay(SFX_CONFIRM);
