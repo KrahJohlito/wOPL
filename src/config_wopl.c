@@ -1,4 +1,3 @@
-#include "include/config_wopl.h"
 #include "include/common.h"
 #include "include/config.h"
 #include "include/ioman.h"
@@ -11,6 +10,8 @@
 #include "include/pad.h"
 #include "include/sound.h"
 #include "include/lwnbd.h"
+#include "include/supportbase.h"
+#include "include/config_wopl.h"
 
 #include <libconfig.h>
 #include <stdio.h>
@@ -23,8 +24,18 @@
 #include "include/debug.h"
 #endif
 
+#ifdef GSM
+#include "include/pggsm.h"
+#endif
+
+#ifdef CHEAT
+#include "include/cheatman.h"
+#endif
+
 static char config_dir[128] = {0};
 static char last_played[256] = {0};
+
+global_game_cfg_t gGlobalGameCfg = {0};
 
 #define WOPL_FILENAME     "wopl_settings.cfg"
 #define WOPL_FILENAME_OLD "conf_wopl.cfg"
@@ -32,11 +43,69 @@ static char last_played[256] = {0};
 #define NET_FILENAME     "wopl_network.cfg"
 #define NET_FILENAME_OLD "conf_network.cfg"
 
-#define LAST_FILENAME "conf_last.cfg"
+#define GAME_FILENAME     "wopl_global_game.cfg"
+#define GAME_FILENAME_OLD "conf_game.cfg"
+
+#define LAST_FILENAME "wopl_last_played.cfg"
 
 // ---------------------------------------------------------------------------
 // Shared helpers
 // ---------------------------------------------------------------------------
+
+// Only log actual syntax/parse errors, not missing files (FILE_IO is normal.. no cfg yet)
+static void log_config_error(const char *path, const config_t *cfg)
+{
+    if (config_error_type(cfg) != CONFIG_ERR_PARSE)
+        return;
+
+    LOG("libconfig parse error: '%s' line %d: %s\n", path, config_error_line(cfg), config_error_text(cfg));
+
+    // Derive log directory from config_dir if set.. else from the file's own path
+    char log_dir[256];
+    if (config_dir[0]) {
+        strncpy(log_dir, config_dir, sizeof(log_dir) - 1);
+        log_dir[sizeof(log_dir) - 1] = '\0';
+    } else {
+        strncpy(log_dir, path, sizeof(log_dir) - 1);
+        log_dir[sizeof(log_dir) - 1] = '\0';
+        char *sep = strrchr(log_dir, '/');
+        if (!sep)
+            sep = strrchr(log_dir, '\\');
+        if (sep)
+            *(sep + 1) = '\0';
+        else
+            log_dir[0] = '\0';
+    }
+
+    if (log_dir[0] == '\0')
+        return;
+
+    char log_path[256];
+    snprintf(log_path, sizeof(log_path), "%sconfig_errors.log", log_dir);
+
+    FILE *f = fopen(log_path, "a");
+    if (!f)
+        return;
+
+    fprintf(f, "[%s] line %d: %s\n", path, config_error_line(cfg), config_error_text(cfg));
+
+    fclose(f);
+}
+
+void dnas_to_binary(const char *dnas, char *out, int out_size)
+{
+    memset(out, 0, out_size);
+    if (!dnas || !dnas[0])
+        return;
+    const char *s = dnas;
+    for (int i = 0; i < out_size && s[0] && s[1]; i++, s += 2) {
+        int hi = s[0] >= 'a' ? s[0] - 'a' + 10 : s[0] >= 'A' ? s[0] - 'A' + 10 :
+                                                               s[0] - '0';
+        int lo = s[1] >= 'a' ? s[1] - 'a' + 10 : s[1] >= 'A' ? s[1] - 'A' + 10 :
+                                                               s[1] - '0';
+        out[i] = (hi << 4) | lo;
+    }
+}
 
 static void color_to_str(const unsigned char *color, char *out, size_t len)
 {
@@ -595,6 +664,11 @@ int wOPLLoad(int *out_theme_id, int *out_lang_id)
     char path[256];
     config_t cfg;
 
+    if (out_theme_id)
+        *out_theme_id = 0;
+    if (out_lang_id)
+        *out_lang_id = 0;
+
     // 1. Try new filename
     if (probe_config_path(WOPL_FILENAME, dir, sizeof(dir), path, sizeof(path), 0)) {
         config_init(&cfg);
@@ -803,6 +877,10 @@ int wOPLNetSave(void)
     return do_save(NET_FILENAME, build_net);
 }
 
+// ---------------------------------------------------------------------------
+// Last config (conf_last.cfg)
+// ---------------------------------------------------------------------------
+
 // No legacy migration.. pointless
 int wOPLLastLoad(void)
 {
@@ -857,4 +935,427 @@ int wOPLLastSave(const char *startup)
 const char *wOPLLastGet(void)
 {
     return last_played[0] ? last_played : NULL;
+}
+
+// ---------------------------------------------------------------------------
+// Global Game config (conf_game.cfg)
+// ---------------------------------------------------------------------------
+
+static void parse_global_game(config_t *cfg)
+{
+    int val;
+#ifdef GSM
+    if (config_lookup_int(cfg, "gsm.enable", &val))
+        gGlobalGameCfg.gsm_enable = val;
+    if (config_lookup_int(cfg, "gsm.vmode", &val))
+        gGlobalGameCfg.gsm_vmode = val;
+    if (config_lookup_int(cfg, "gsm.x_offset", &val))
+        gGlobalGameCfg.gsm_xoffset = val;
+    if (config_lookup_int(cfg, "gsm.y_offset", &val))
+        gGlobalGameCfg.gsm_yoffset = val;
+    if (config_lookup_int(cfg, "gsm.field_fix", &val))
+        gGlobalGameCfg.gsm_fieldfix = val;
+#endif
+#ifdef CHEAT
+    if (config_lookup_int(cfg, "cheat.enable", &val))
+        gGlobalGameCfg.cheat_enable = val;
+    if (config_lookup_int(cfg, "cheat.mode", &val))
+        gGlobalGameCfg.cheat_mode = val;
+    if (config_lookup_int(cfg, "cheat.enable_image", &val))
+        gGlobalGameCfg.cheat_enable_image = val;
+#endif
+#ifdef PADEMU
+    if (config_lookup_int(cfg, "pademu.enable", &val))
+        gGlobalGameCfg.pademu_enable = val;
+    if (config_lookup_int(cfg, "pademu.settings", &val))
+        gGlobalGameCfg.pademu_settings = val;
+    if (config_lookup_int(cfg, "padmacro.settings", &val))
+        gGlobalGameCfg.padmacro_settings = val;
+#endif
+    if (config_lookup_int(cfg, "osd.enable", &val))
+        gGlobalGameCfg.osd_enable = val;
+    if (config_lookup_int(cfg, "osd.lang_id", &val))
+        gGlobalGameCfg.osd_langid = val;
+    if (config_lookup_int(cfg, "osd.tv_aspect", &val))
+        gGlobalGameCfg.osd_tv_aspect = val;
+    if (config_lookup_int(cfg, "osd.vmode", &val))
+        gGlobalGameCfg.osd_vmode = val;
+}
+
+static void build_global_game(config_setting_t *root)
+{
+    config_setting_t *group;
+#ifdef GSM
+    group = add_group(root, "gsm");
+    set_int(group, "enable", gGlobalGameCfg.gsm_enable);
+    set_int(group, "vmode", gGlobalGameCfg.gsm_vmode);
+    set_int(group, "x_offset", gGlobalGameCfg.gsm_xoffset);
+    set_int(group, "y_offset", gGlobalGameCfg.gsm_yoffset);
+    set_int(group, "field_fix", gGlobalGameCfg.gsm_fieldfix);
+#endif
+#ifdef CHEAT
+    group = add_group(root, "cheat");
+    set_int(group, "enable", gGlobalGameCfg.cheat_enable);
+    set_int(group, "mode", gGlobalGameCfg.cheat_mode);
+    set_int(group, "enable_image", gGlobalGameCfg.cheat_enable_image);
+#endif
+#ifdef PADEMU
+    group = add_group(root, "pademu");
+    set_int(group, "enable", gGlobalGameCfg.pademu_enable);
+    set_int(group, "settings", gGlobalGameCfg.pademu_settings);
+    group = add_group(root, "padmacro");
+    set_int(group, "settings", gGlobalGameCfg.padmacro_settings);
+#endif
+    group = add_group(root, "osd");
+    set_int(group, "enable", gGlobalGameCfg.osd_enable);
+    set_int(group, "lang_id", gGlobalGameCfg.osd_langid);
+    set_int(group, "tv_aspect", gGlobalGameCfg.osd_tv_aspect);
+    set_int(group, "vmode", gGlobalGameCfg.osd_vmode);
+}
+
+int wOPLGlobalGameLoad(void)
+{
+    if (!config_dir[0])
+        return 0;
+
+    char path[256];
+    config_t cfg;
+
+    snprintf(path, sizeof(path), "%s%s", config_dir, GAME_FILENAME);
+    config_init(&cfg);
+    if (config_read_file(&cfg, path)) {
+        parse_global_game(&cfg);
+        config_destroy(&cfg);
+        LOG("CONFIG_GAME: loaded from '%s'\n", path);
+        return 1;
+    }
+    config_destroy(&cfg);
+
+    // MIGRATION: old key=value format
+    snprintf(path, sizeof(path), "%s%s", config_dir, GAME_FILENAME_OLD);
+    if (file_exists(path)) {
+        config_set_t tmp;
+        config_set_t *old = configAlloc(CONFIG_GAME, &tmp, path);
+        if (old && configRead(old)) {
+#ifdef GSM
+            configGetInt(old, CONFIG_ITEM_ENABLEGSM, &gGlobalGameCfg.gsm_enable);
+            configGetInt(old, CONFIG_ITEM_GSMVMODE, &gGlobalGameCfg.gsm_vmode);
+            configGetInt(old, CONFIG_ITEM_GSMXOFFSET, &gGlobalGameCfg.gsm_xoffset);
+            configGetInt(old, CONFIG_ITEM_GSMYOFFSET, &gGlobalGameCfg.gsm_yoffset);
+            configGetInt(old, CONFIG_ITEM_GSMFIELDFIX, &gGlobalGameCfg.gsm_fieldfix);
+#endif
+#ifdef CHEAT
+            configGetInt(old, CONFIG_ITEM_ENABLECHEAT, &gGlobalGameCfg.cheat_enable);
+            configGetInt(old, CONFIG_ITEM_CHEATMODE, &gGlobalGameCfg.cheat_mode);
+            configGetInt(old, CONFIG_ITEM_ENABLEIMAGE, &gGlobalGameCfg.cheat_enable_image);
+#endif
+#ifdef PADEMU
+            configGetInt(old, CONFIG_ITEM_ENABLEPADEMU, &gGlobalGameCfg.pademu_enable);
+            configGetInt(old, CONFIG_ITEM_PADEMUSETTINGS, &gGlobalGameCfg.pademu_settings);
+            configGetInt(old, CONFIG_ITEM_PADMACROSETTINGS, &gGlobalGameCfg.padmacro_settings);
+#endif
+            configGetInt(old, CONFIG_ITEM_OSD_SETTINGS_ENABLE, &gGlobalGameCfg.osd_enable);
+            configGetInt(old, CONFIG_ITEM_OSD_SETTINGS_LANGID, &gGlobalGameCfg.osd_langid);
+            configGetInt(old, CONFIG_ITEM_OSD_SETTINGS_TV_ASP, &gGlobalGameCfg.osd_tv_aspect);
+            configGetInt(old, CONFIG_ITEM_OSD_SETTINGS_VMODE, &gGlobalGameCfg.osd_vmode);
+            configClear(old);
+
+            LOG("CONFIG_GAME: migrated from legacy '%s'\n", path);
+            return 1;
+        }
+
+        if (old)
+            configClear(old);
+    }
+
+    return 0;
+}
+
+int wOPLGlobalGameSave(void)
+{
+    return do_save(GAME_FILENAME, build_global_game);
+}
+
+// ---------------------------------------------------------------------------
+// Per Game config (SLES1234.cfg)
+// ---------------------------------------------------------------------------
+
+static void init_per_game_cfg(per_game_cfg_t *cfg)
+{
+    memset(cfg, 0, sizeof(*cfg));
+    cfg->dma = 7; // 7 = not set, use device default
+}
+
+static void parse_per_game(config_t *cfg, per_game_cfg_t *pg)
+{
+    int val;
+    const char *str;
+
+    if (config_lookup_int(cfg, "size_mb", &val))
+        pg->size_mb = val;
+    if (config_lookup_int(cfg, "compat", &val))
+        pg->compat = val;
+    if (config_lookup_int(cfg, "dma", &val))
+        pg->dma = val;
+    if (config_lookup_int(cfg, "core_loader", &val))
+        pg->core_loader = val;
+    if (config_lookup_int(cfg, "config_source", &val))
+        pg->config_source = val;
+    if (config_lookup_string(cfg, "dnas", &str))
+        strncpy(pg->dnas, str, sizeof(pg->dnas) - 1);
+    if (config_lookup_string(cfg, "alt_startup", &str))
+        strncpy(pg->alt_startup, str, sizeof(pg->alt_startup) - 1);
+    if (config_lookup_string(cfg, "vmc1", &str))
+        strncpy(pg->vmc1, str, sizeof(pg->vmc1) - 1);
+    if (config_lookup_string(cfg, "vmc2", &str))
+        strncpy(pg->vmc2, str, sizeof(pg->vmc2) - 1);
+#ifdef GSM
+    if (config_lookup_int(cfg, "gsm.source", &val))
+        pg->gsm_source = val;
+    if (config_lookup_int(cfg, "gsm.enable", &val))
+        pg->gsm_enable = val;
+    if (config_lookup_int(cfg, "gsm.vmode", &val))
+        pg->gsm_vmode = val;
+    if (config_lookup_int(cfg, "gsm.x_offset", &val))
+        pg->gsm_xoffset = val;
+    if (config_lookup_int(cfg, "gsm.y_offset", &val))
+        pg->gsm_yoffset = val;
+    if (config_lookup_int(cfg, "gsm.field_fix", &val))
+        pg->gsm_fieldfix = val;
+#endif
+#ifdef CHEAT
+    if (config_lookup_int(cfg, "cheat.source", &val))
+        pg->cheat_source = val;
+    if (config_lookup_int(cfg, "cheat.enable", &val))
+        pg->cheat_enable = val;
+    if (config_lookup_int(cfg, "cheat.mode", &val))
+        pg->cheat_mode = val;
+    if (config_lookup_int(cfg, "cheat.enable_image", &val))
+        pg->cheat_enable_image = val;
+#endif
+#ifdef PADEMU
+    if (config_lookup_int(cfg, "pademu.source", &val))
+        pg->pademu_source = val;
+    if (config_lookup_int(cfg, "pademu.enable", &val))
+        pg->pademu_enable = val;
+    if (config_lookup_int(cfg, "pademu.settings", &val))
+        pg->pademu_settings = val;
+    if (config_lookup_int(cfg, "padmacro.source", &val))
+        pg->padmacro_source = val;
+    if (config_lookup_int(cfg, "padmacro.settings", &val))
+        pg->padmacro_settings = val;
+#endif
+    if (config_lookup_int(cfg, "osd.source", &val))
+        pg->osd_source = val;
+    if (config_lookup_int(cfg, "osd.enable", &val))
+        pg->osd_enable = val;
+    if (config_lookup_int(cfg, "osd.lang_id", &val))
+        pg->osd_langid = val;
+    if (config_lookup_int(cfg, "osd.tv_aspect", &val))
+        pg->osd_tv_aspect = val;
+    if (config_lookup_int(cfg, "osd.vmode", &val))
+        pg->osd_vmode = val;
+}
+
+static void build_per_game(config_setting_t *root, const per_game_cfg_t *pg)
+{
+    set_int(root, "size_mb", pg->size_mb);
+    set_int(root, "compat", pg->compat);
+    set_int(root, "dma", pg->dma);
+    set_int(root, "core_loader", pg->core_loader);
+    set_int(root, "config_source", pg->config_source);
+    set_str(root, "dnas", pg->dnas);
+    set_str(root, "alt_startup", pg->alt_startup);
+    set_str(root, "vmc1", pg->vmc1);
+    set_str(root, "vmc2", pg->vmc2);
+
+    config_setting_t *group;
+#ifdef GSM
+    group = add_group(root, "gsm");
+    set_int(group, "source", pg->gsm_source);
+    set_int(group, "enable", pg->gsm_enable);
+    set_int(group, "vmode", pg->gsm_vmode);
+    set_int(group, "x_offset", pg->gsm_xoffset);
+    set_int(group, "y_offset", pg->gsm_yoffset);
+    set_int(group, "field_fix", pg->gsm_fieldfix);
+#endif
+#ifdef CHEAT
+    group = add_group(root, "cheat");
+    set_int(group, "source", pg->cheat_source);
+    set_int(group, "enable", pg->cheat_enable);
+    set_int(group, "mode", pg->cheat_mode);
+    set_int(group, "enable_image", pg->cheat_enable_image);
+#endif
+#ifdef PADEMU
+    group = add_group(root, "pademu");
+    set_int(group, "source", pg->pademu_source);
+    set_int(group, "enable", pg->pademu_enable);
+    set_int(group, "settings", pg->pademu_settings);
+    group = add_group(root, "padmacro");
+    set_int(group, "source", pg->padmacro_source);
+    set_int(group, "settings", pg->padmacro_settings);
+#endif
+    group = add_group(root, "osd");
+    set_int(group, "source", pg->osd_source);
+    set_int(group, "enable", pg->osd_enable);
+    set_int(group, "lang_id", pg->osd_langid);
+    set_int(group, "tv_aspect", pg->osd_tv_aspect);
+    set_int(group, "vmode", pg->osd_vmode);
+}
+
+int wOPLPerGameLoad(const char *path, per_game_cfg_t *cfg)
+{
+    init_per_game_cfg(cfg);
+
+    config_t lcfg;
+    config_init(&lcfg);
+    if (config_read_file(&lcfg, path)) {
+        parse_per_game(&lcfg, cfg);
+        config_destroy(&lcfg);
+        LOG("CONFIG_PERGAME: loaded from '%s'\n", path);
+
+        return 1;
+    }
+
+    config_destroy(&lcfg);
+
+    // MIGRATION: old key=value format
+    if (file_exists(path)) {
+        config_set_t tmp;
+        config_set_t *old = configAlloc(0, &tmp, path);
+        if (old && configRead(old)) {
+            configGetInt(old, CONFIG_ITEM_COMPAT, &cfg->compat);
+            configGetInt(old, CONFIG_ITEM_DMA, &cfg->dma);
+            configGetInt(old, CONFIG_ITEM_CORE_LOADER, &cfg->core_loader);
+            configGetInt(old, CONFIG_ITEM_CONFIGSOURCE, &cfg->config_source);
+            configGetStrCopy(old, CONFIG_ITEM_DNAS, cfg->dnas, sizeof(cfg->dnas));
+            configGetStrCopy(old, CONFIG_ITEM_ALTSTARTUP, cfg->alt_startup, sizeof(cfg->alt_startup));
+            configGetVMC(old, cfg->vmc1, sizeof(cfg->vmc1), 0);
+            configGetVMC(old, cfg->vmc2, sizeof(cfg->vmc2), 1);
+#ifdef GSM
+            configGetInt(old, CONFIG_ITEM_GSMSOURCE, &cfg->gsm_source);
+            configGetInt(old, CONFIG_ITEM_ENABLEGSM, &cfg->gsm_enable);
+            configGetInt(old, CONFIG_ITEM_GSMVMODE, &cfg->gsm_vmode);
+            configGetInt(old, CONFIG_ITEM_GSMXOFFSET, &cfg->gsm_xoffset);
+            configGetInt(old, CONFIG_ITEM_GSMYOFFSET, &cfg->gsm_yoffset);
+            configGetInt(old, CONFIG_ITEM_GSMFIELDFIX, &cfg->gsm_fieldfix);
+#endif
+#ifdef CHEAT
+            configGetInt(old, CONFIG_ITEM_CHEATSSOURCE, &cfg->cheat_source);
+            configGetInt(old, CONFIG_ITEM_ENABLECHEAT, &cfg->cheat_enable);
+            configGetInt(old, CONFIG_ITEM_CHEATMODE, &cfg->cheat_mode);
+            configGetInt(old, CONFIG_ITEM_ENABLEIMAGE, &cfg->cheat_enable_image);
+#endif
+#ifdef PADEMU
+            configGetInt(old, CONFIG_ITEM_PADEMUSOURCE, &cfg->pademu_source);
+            configGetInt(old, CONFIG_ITEM_ENABLEPADEMU, &cfg->pademu_enable);
+            configGetInt(old, CONFIG_ITEM_PADEMUSETTINGS, &cfg->pademu_settings);
+            configGetInt(old, CONFIG_ITEM_PADMACROSOURCE, &cfg->padmacro_source);
+            configGetInt(old, CONFIG_ITEM_PADMACROSETTINGS, &cfg->padmacro_settings);
+#endif
+            configGetInt(old, CONFIG_ITEM_OSD_SETTINGS_SOURCE, &cfg->osd_source);
+            configGetInt(old, CONFIG_ITEM_OSD_SETTINGS_ENABLE, &cfg->osd_enable);
+            configGetInt(old, CONFIG_ITEM_OSD_SETTINGS_LANGID, &cfg->osd_langid);
+            configGetInt(old, CONFIG_ITEM_OSD_SETTINGS_TV_ASP, &cfg->osd_tv_aspect);
+            configGetInt(old, CONFIG_ITEM_OSD_SETTINGS_VMODE, &cfg->osd_vmode);
+            configClear(old);
+
+            LOG("CONFIG_PERGAME: migrated from legacy '%s'\n", path);
+            return 1;
+        }
+
+        if (old)
+            configClear(old);
+    }
+
+    return 0;
+}
+
+int wOPLPerGameSave(const char *path, const per_game_cfg_t *cfg)
+{
+    config_t lcfg;
+    config_init(&lcfg);
+    config_setting_t *root = config_root_setting(&lcfg);
+    build_per_game(root, cfg);
+
+    int ok = config_write_file(&lcfg, path);
+    config_destroy(&lcfg);
+
+    if (!ok)
+        LOG("CONFIG_PERGAME: failed to write '%s'\n", path);
+    else
+        LOG("CONFIG_PERGAME: saved to '%s'\n", path);
+
+    return ok;
+}
+
+// ---------------------------------------------------------------------------
+// Per Game info (SLES1234.info)
+// ---------------------------------------------------------------------------
+
+static void parse_game_info(config_t *cfg, game_info_t *gi)
+{
+    const char *str;
+    int val;
+
+    if (config_lookup_string(cfg, "title", &str))
+        strncpy(gi->title, str, sizeof(gi->title) - 1);
+    if (config_lookup_string(cfg, "startup", &str))
+        strncpy(gi->startup, str, sizeof(gi->startup) - 1);
+    if (config_lookup_string(cfg, "format", &str))
+        strncpy(gi->format, str, sizeof(gi->format) - 1);
+    if (config_lookup_string(cfg, "media", &str))
+        strncpy(gi->media, str, sizeof(gi->media) - 1);
+    if (config_lookup_string(cfg, "genre", &str))
+        strncpy(gi->genre, str, sizeof(gi->genre) - 1);
+    if (config_lookup_string(cfg, "release", &str))
+        strncpy(gi->release, str, sizeof(gi->release) - 1);
+    if (config_lookup_string(cfg, "developer", &str))
+        strncpy(gi->developer, str, sizeof(gi->developer) - 1);
+    if (config_lookup_string(cfg, "description", &str))
+        strncpy(gi->description, str, sizeof(gi->description) - 1);
+    if (config_lookup_int(cfg, "size_mb", &val))
+        gi->size_mb = val;
+}
+
+static void build_game_info(config_setting_t *root, const game_info_t *gi)
+{
+    set_str(root, "title", gi->title);
+    set_str(root, "startup", gi->startup);
+    set_str(root, "format", gi->format);
+    set_str(root, "media", gi->media);
+    set_str(root, "genre", gi->genre);
+    set_str(root, "release", gi->release);
+    set_str(root, "developer", gi->developer);
+    set_str(root, "description", gi->description);
+    set_int(root, "size_mb", gi->size_mb);
+}
+
+int wOPLGameInfoLoad(const char *path, game_info_t *gi)
+{
+    memset(gi, 0, sizeof(*gi));
+    config_t cfg;
+    config_init(&cfg);
+    if (config_read_file(&cfg, path)) {
+        parse_game_info(&cfg, gi);
+        config_destroy(&cfg);
+
+        return 1;
+    }
+
+    config_destroy(&cfg);
+
+    return 0;
+}
+
+int wOPLGameInfoSave(const char *path, const game_info_t *gi)
+{
+    config_t cfg;
+    config_init(&cfg);
+    config_setting_t *root = config_root_setting(&cfg);
+    build_game_info(root, gi);
+    int ok = config_write_file(&cfg, path);
+    config_destroy(&cfg);
+
+    return ok;
 }
