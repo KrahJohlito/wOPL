@@ -1,4 +1,3 @@
-#include "include/config_wopl.h"
 #include "include/lang.h"
 #include "include/gui.h"
 #include "include/supportbase.h"
@@ -21,6 +20,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include "include/common.h"
+#include "include/config_wopl.h"
 #include <ps2sdkapi.h>
 #define NEWLIB_PORT_AWARE
 #include <fileXio_rpc.h> // fileXioIoctl, fileXioDevctl
@@ -202,7 +202,7 @@ static void mmceRenameGame(item_list_t *itemList, int id, char *newName)
     mmceULSizePrev = -2;
 }
 
-void mmceLaunchGame(item_list_t *itemList, int id, config_set_t *configSet)
+void mmceLaunchGame(item_list_t *itemList, int id, per_game_cfg_t *pgcfg)
 {
     int i, index, compatmask = 0;
     int EnablePS2Logo = 0;
@@ -224,7 +224,7 @@ void mmceLaunchGame(item_list_t *itemList, int id, config_set_t *configSet)
 
     void *irx = &mmce_cdvdman_irx;
     int irx_size = size_mmce_cdvdman_irx;
-    compatmask = sbPrepare(game, configSet, irx_size, irx, &index);
+    compatmask = sbPrepare(game, pgcfg, irx_size, irx, &index);
     settings = (struct cdvdman_settings_mmce *)((u8 *)irx + index);
     if (settings == NULL)
         return;
@@ -239,7 +239,7 @@ void mmceLaunchGame(item_list_t *itemList, int id, config_set_t *configSet)
 
     for (vmc_id = 0; vmc_id < 2; vmc_id++) {
         memset(&mmce_vmc_infos, 0, sizeof(mmce_vmc_infos));
-        configGetVMC(configSet, vmc_name, sizeof(vmc_name), vmc_id);
+        strncpy(vmc_name, vmc_id == 0 ? pgcfg->vmc1 : pgcfg->vmc2, sizeof(vmc_name) - 1);
         if (vmc_name[0]) {
             vmc_size_mb = sysCheckVMC(mmcePrefix, "/", vmc_name, 0, &vmc_superblock);
             if (vmc_size_mb > 0) {
@@ -327,9 +327,10 @@ void mmceLaunchGame(item_list_t *itemList, int id, config_set_t *configSet)
     if (gRememberLastPlayed)
         wOPLLastSave(game->startup);
 
-    if (configGetStrCopy(configSet, CONFIG_ITEM_ALTSTARTUP, filename, sizeof(filename)) == 0)
+    if (pgcfg->alt_startup[0])
+        strncpy(filename, pgcfg->alt_startup, sizeof(filename) - 1);
+    else
         strcpy(filename, game->startup);
-
 
     // MMCEDRV settings
     if (gMMCESlot == 0)
@@ -377,7 +378,7 @@ void mmceLaunchGame(item_list_t *itemList, int id, config_set_t *configSet)
 #endif
 
     int coreLoader = 0;
-    configGetInt(configSet, CONFIG_ITEM_CORE_LOADER, &coreLoader);
+    coreLoader = pgcfg->core_loader;
 
     const char *neutrinoPath = NULL;
     if (coreLoader) {
@@ -417,9 +418,19 @@ void mmceLaunchGame(item_list_t *itemList, int id, config_set_t *configSet)
     sysLaunchLoaderElf(filename, "MMCE_MODE", irx_size, irx, size_mcemu_irx, mmce_mcemu_irx, EnablePS2Logo, compatmask);
 }
 
-static config_set_t *mmceGetConfig(item_list_t *itemList, int id)
+static void mmceGetInfo(item_list_t *itemList, int id, game_info_t *gi)
 {
-    return sbPopulateConfig(&mmceGames[id], mmcePrefix, "/");
+    sbPopulateConfig(&mmceGames[id], mmcePrefix, "/", gi, NULL);
+}
+
+static void mmceGetPgCfg(item_list_t *itemList, int id, per_game_cfg_t *cfg)
+{
+    sbPopulateConfig(&mmceGames[id], mmcePrefix, "/", NULL, cfg);
+}
+
+static int mmceSavePgCfg(item_list_t *itemList, int id, const per_game_cfg_t *cfg)
+{
+    return sbSaveConfig(&mmceGames[id], mmcePrefix, "/", cfg);
 }
 
 static int mmceGetImage(item_list_t *itemList, char *folder, int isRelative, char *value, char *suffix, GSTEXTURE *resultTex, short psm)
@@ -495,7 +506,7 @@ static char *mmceGetPrefix(item_list_t *itemList)
 static item_list_t mmceGameList = {
     MMCE_MODE, 2, 0, 0, MENU_MIN_INACTIVE_FRAMES, MMCE_MODE_UPDATE_DELAY, NULL, NULL, &mmceGetTextId, &mmceGetPrefix, &mmceInit, &mmceNeedsUpdate,
     &mmceUpdateGameList, &mmceGetGameCount, &mmceGetGame, &mmceGetGameName, &mmceGetGameNameLength, &mmceGetGameStartup, &mmceDeleteGame, &mmceRenameGame,
-    &mmceLaunchGame, &mmceGetConfig, &mmceGetImage, &mmceGetArchivedImage, &mmceCleanUp, &mmceShutdown, &mmceCheckVMC, &mmceGetIconId};
+    &mmceLaunchGame, &mmceGetInfo, &mmceGetPgCfg, &mmceSavePgCfg, &mmceGetImage, &mmceGetArchivedImage, &mmceCleanUp, &mmceShutdown, &mmceCheckVMC, &mmceGetIconId};
 
 void mmceInitSemaphore()
 {

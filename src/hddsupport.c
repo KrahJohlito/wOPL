@@ -1,4 +1,3 @@
-#include "include/config_wopl.h"
 #include "include/common.h"
 #include "include/lang.h"
 #include "include/gui.h"
@@ -21,6 +20,8 @@
 #include <kernel.h>
 #include "opl-hdd-ioctl.h"
 #include "include/initializer.h"
+#include "include/config_wopl.h"
+#include "include/tar.h"
 #include <stdlib.h>
 
 #define NEWLIB_PORT_AWARE
@@ -913,7 +914,7 @@ static void hddRenameGame(item_list_t *itemList, int id, char *newName)
     hddForceUpdate = 1;
 }
 
-void hddLaunchGame(item_list_t *itemList, int id, config_set_t *configSet)
+void hddLaunchGame(item_list_t *itemList, int id, per_game_cfg_t *pgcfg)
 {
     int i, size_irx = 0;
     int EnablePS2Logo = 0;
@@ -936,8 +937,8 @@ void hddLaunchGame(item_list_t *itemList, int id, config_set_t *configSet)
     hdd_vmc_infos_t hdd_vmc_infos;
     memset(&hdd_vmc_infos, 0, sizeof(hdd_vmc_infos_t));
 
-    configGetVMC(configSet, vmc_name[0], sizeof(vmc_name[0]), 0);
-    configGetVMC(configSet, vmc_name[1], sizeof(vmc_name[1]), 1);
+    strncpy(vmc_name[0], pgcfg->vmc1, sizeof(vmc_name[0]) - 1);
+    strncpy(vmc_name[1], pgcfg->vmc2, sizeof(vmc_name[1]) - 1);
 
     if (vmc_name[0][0] || vmc_name[1][0]) {
         nparts = hddGetPartitionInfo(gOPLPart, parts);
@@ -1016,12 +1017,9 @@ void hddLaunchGame(item_list_t *itemList, int id, config_set_t *configSet)
     if (gRememberLastPlayed)
         wOPLLastSave(game->startup);
 
-    char gid[5];
-    configGetDiscIDBinary(configSet, gid);
-
     int dmaType = 0, dmaMode = 7, compatMode = 0;
-    configGetInt(configSet, CONFIG_ITEM_COMPAT, &compatMode);
-    configGetInt(configSet, CONFIG_ITEM_DMA, &dmaMode);
+    compatMode = pgcfg->compat;
+    dmaMode = (pgcfg->dma != 7) ? pgcfg->dma : 7;
     if (dmaMode < 3)
         dmaType = 0x20;
     else {
@@ -1043,7 +1041,7 @@ void hddLaunchGame(item_list_t *itemList, int id, config_set_t *configSet)
         irx = &hdd_cdvdman_irx;
     }
 
-    sbPrepare(NULL, configSet, size_irx, irx, &i);
+    sbPrepare(NULL, pgcfg, size_irx, irx, &i);
 #ifdef CHEAT
     if ((result = sbLoadCheats(gHDDPrefix, game->startup)) < 0) {
         if (gAutoLaunchGame == NULL) {
@@ -1075,7 +1073,9 @@ void hddLaunchGame(item_list_t *itemList, int id, config_set_t *configSet)
     // patch start_sector
     settings->lba_start = game->start_sector;
 
-    if (configGetStrCopy(configSet, CONFIG_ITEM_ALTSTARTUP, filename, sizeof(filename)) == 0)
+    if (pgcfg->alt_startup[0])
+        strncpy(filename, pgcfg->alt_startup, sizeof(filename) - 1);
+    else
         strcpy(filename, game->startup);
 
     if (gPS2Logo)
@@ -1083,7 +1083,7 @@ void hddLaunchGame(item_list_t *itemList, int id, config_set_t *configSet)
 
     int coreLoader = 0;
     int isZSO = 0;
-    configGetInt(configSet, CONFIG_ITEM_CORE_LOADER, &coreLoader);
+    coreLoader = pgcfg->core_loader;
 
     // Check for ZSO to correctly adjust layer1 start
     settings->common.layer1_start = 0; // cdvdman will read it from APA header
@@ -1116,7 +1116,7 @@ void hddLaunchGame(item_list_t *itemList, int id, config_set_t *configSet)
     if (gAutoLaunchGame == NULL)
         deinit(NO_EXCEPTION, HDD_MODE); // CAREFUL: deinit will call hddCleanUp, so hddGames/game will be freed
     else {
-        miniDeinit(configSet);
+        miniDeinit();
 
         free(gAutoLaunchGame);
         gAutoLaunchGame = NULL;
@@ -1140,7 +1140,7 @@ void hddLaunchGame(item_list_t *itemList, int id, config_set_t *configSet)
     sysLaunchLoaderElf(filename, "HDD_MODE", size_irx, irx, size_mcemu_irx, hdd_mcemu_irx, EnablePS2Logo, compatMode);
 }
 
-static config_set_t *hddGetConfig(item_list_t *itemList, int id)
+/*static config_set_t *hddGetConfig(item_list_t *itemList, int id)
 {
     char path[256];
     hdl_game_info_t *game = &hddGames.games[id];
@@ -1156,6 +1156,127 @@ static config_set_t *hddGetConfig(item_list_t *itemList, int id)
     configSetStr(config, CONFIG_ITEM_STARTUP, game->startup);
 
     return config;
+}*/
+
+static void hddGetInfo(item_list_t *itemList, int id, game_info_t *gi)
+{
+    hdl_game_info_t *game = &hddGames.games[id];
+    char info_path[256];
+    snprintf(info_path, sizeof(info_path), "%sCFG/%s.info", gHDDPrefix, game->startup);
+
+    if (!wOPLGameInfoLoad(info_path, gi)) {
+        // no .info yet.. check TAR then populate from struct
+        char tarname[32];
+        snprintf(tarname, sizeof(tarname), "%s.cfg", game->startup);
+        TarEntryBase *e = tarFind(TAR_KIND_CFG, tarname);
+        if (e) {
+            void *buf = malloc(e->rawSize);
+            if (buf && tarRead(TAR_KIND_CFG, e, buf, e->rawSize) == e->rawSize) {
+                config_set_t tmp;
+                config_set_t *old = configAlloc(0, &tmp, NULL);
+                if (old && configReadBuffer(old, buf, (int)e->rawSize)) {
+                    const char *str;
+                    if (configGetStr(old, "Genre", &str))
+                        strncpy(gi->genre, str, sizeof(gi->genre) - 1);
+                    if (configGetStr(old, "Release", &str))
+                        strncpy(gi->release, str, sizeof(gi->release) - 1);
+                    if (configGetStr(old, "Developer", &str))
+                        strncpy(gi->developer, str, sizeof(gi->developer) - 1);
+                    if (configGetStr(old, "Description", &str))
+                        strncpy(gi->description, str, sizeof(gi->description) - 1);
+                    configClear(old);
+                }
+            }
+            if (buf)
+                free(buf);
+        }
+    }
+
+    // fill from struct (overrides empty fields)
+    if (!gi->title[0])
+        strncpy(gi->title, game->name, sizeof(gi->title) - 1);
+    if (!gi->startup[0])
+        strncpy(gi->startup, game->startup, sizeof(gi->startup) - 1);
+    if (!gi->format[0])
+        strcpy(gi->format, "HDL");
+    if (!gi->media[0])
+        strcpy(gi->media, game->disctype == SCECdPS2CD ? "CD" : "DVD");
+
+    int size_mb = game->total_size_in_kb >> 10;
+    if (gi->size_mb != size_mb) {
+        gi->size_mb = size_mb;
+        wOPLGameInfoSave(info_path, gi);
+    }
+}
+
+static void hddGetPgCfg(item_list_t *itemList, int id, per_game_cfg_t *cfg)
+{
+    char path[256];
+    hdl_game_info_t *game = &hddGames.games[id];
+    snprintf(path, sizeof(path), "%sCFG/%s.cfg", gHDDPrefix, game->startup);
+
+    if (!wOPLPerGameLoad(path, cfg)) {
+        // TAR fallback
+        char tarname[32];
+        snprintf(tarname, sizeof(tarname), "%s.cfg", game->startup);
+        TarEntryBase *e = tarFind(TAR_KIND_CFG, tarname);
+        if (e) {
+            void *buf = malloc(e->rawSize);
+            if (buf && tarRead(TAR_KIND_CFG, e, buf, e->rawSize) == e->rawSize) {
+                config_set_t tmp;
+                config_set_t *old = configAlloc(0, &tmp, NULL);
+                if (old && configReadBuffer(old, buf, (int)e->rawSize)) {
+                    configGetInt(old, CONFIG_ITEM_COMPAT, &cfg->compat);
+                    configGetInt(old, CONFIG_ITEM_DMA, &cfg->dma);
+                    configGetInt(old, CONFIG_ITEM_CORE_LOADER, &cfg->core_loader);
+                    configGetInt(old, CONFIG_ITEM_CONFIGSOURCE, &cfg->config_source);
+                    configGetStrCopy(old, CONFIG_ITEM_DNAS, cfg->dnas, sizeof(cfg->dnas));
+                    configGetStrCopy(old, CONFIG_ITEM_ALTSTARTUP, cfg->alt_startup, sizeof(cfg->alt_startup));
+                    configGetVMC(old, cfg->vmc1, sizeof(cfg->vmc1), 0);
+                    configGetVMC(old, cfg->vmc2, sizeof(cfg->vmc2), 1);
+#ifdef GSM
+                    configGetInt(old, CONFIG_ITEM_GSMSOURCE, &cfg->gsm_source);
+                    configGetInt(old, CONFIG_ITEM_ENABLEGSM, &cfg->gsm_enable);
+                    configGetInt(old, CONFIG_ITEM_GSMVMODE, &cfg->gsm_vmode);
+                    configGetInt(old, CONFIG_ITEM_GSMXOFFSET, &cfg->gsm_xoffset);
+                    configGetInt(old, CONFIG_ITEM_GSMYOFFSET, &cfg->gsm_yoffset);
+                    configGetInt(old, CONFIG_ITEM_GSMFIELDFIX, &cfg->gsm_fieldfix);
+#endif
+#ifdef CHEAT
+                    configGetInt(old, CONFIG_ITEM_CHEATSSOURCE, &cfg->cheat_source);
+                    configGetInt(old, CONFIG_ITEM_ENABLECHEAT, &cfg->cheat_enable);
+                    configGetInt(old, CONFIG_ITEM_CHEATMODE, &cfg->cheat_mode);
+                    configGetInt(old, CONFIG_ITEM_ENABLEIMAGE, &cfg->cheat_enable_image);
+#endif
+#ifdef PADEMU
+                    configGetInt(old, CONFIG_ITEM_PADEMUSOURCE, &cfg->pademu_source);
+                    configGetInt(old, CONFIG_ITEM_ENABLEPADEMU, &cfg->pademu_enable);
+                    configGetInt(old, CONFIG_ITEM_PADEMUSETTINGS, &cfg->pademu_settings);
+                    configGetInt(old, CONFIG_ITEM_PADMACROSOURCE, &cfg->padmacro_source);
+                    configGetInt(old, CONFIG_ITEM_PADMACROSETTINGS, &cfg->padmacro_settings);
+#endif
+                    configGetInt(old, CONFIG_ITEM_OSD_SETTINGS_SOURCE, &cfg->osd_source);
+                    configGetInt(old, CONFIG_ITEM_OSD_SETTINGS_ENABLE, &cfg->osd_enable);
+                    configGetInt(old, CONFIG_ITEM_OSD_SETTINGS_LANGID, &cfg->osd_langid);
+                    configGetInt(old, CONFIG_ITEM_OSD_SETTINGS_TV_ASP, &cfg->osd_tv_aspect);
+                    configGetInt(old, CONFIG_ITEM_OSD_SETTINGS_VMODE, &cfg->osd_vmode);
+                    configClear(old);
+                    wOPLPerGameSave(path, cfg);
+                }
+            }
+            if (buf)
+                free(buf);
+        }
+    }
+}
+
+static int hddSavePgCfg(item_list_t *itemList, int id, const per_game_cfg_t *cfg)
+{
+    char path[256];
+    hdl_game_info_t *game = &hddGames.games[id];
+    snprintf(path, sizeof(path), "%sCFG/%s.cfg", gHDDPrefix, game->startup);
+
+    return wOPLPerGameSave(path, cfg);
 }
 
 static int hddGetImage(item_list_t *itemList, char *folder, int isRelative, char *value, char *suffix, GSTEXTURE *resultTex, short psm)
@@ -1355,7 +1476,7 @@ static char *hddGetPrefix(item_list_t *itemList)
 static item_list_t hddGameList = {
     HDD_MODE, 0, 0, MODE_FLAG_COMPAT_DMA, MENU_MIN_INACTIVE_FRAMES, HDD_MODE_UPDATE_DELAY, NULL, NULL, &hddGetTextId, &hddGetPrefix, &hddInit, &hddNeedsUpdate, &hddUpdateGameList,
     &hddGetGameCount, &hddGetGame, &hddGetGameName, &hddGetGameNameLength, &hddGetGameStartup, &hddDeleteGame, &hddRenameGame,
-    &hddLaunchGame, &hddGetConfig, &hddGetImage, &hddGetArchivedImage, &hddCleanUp, &hddShutdown, &hddCheckVMC, &hddGetIconId};
+    &hddLaunchGame, &hddGetInfo, &hddGetPgCfg, &hddSavePgCfg, &hddGetImage, &hddGetArchivedImage, &hddCleanUp, &hddShutdown, &hddCheckVMC, &hddGetIconId};
 
 int hddIsPresent()
 {
@@ -1367,7 +1488,6 @@ int hddIsPresent()
 void autoLaunchHDDGame(char *argv[])
 {
     char path[256];
-    config_set_t *configSet;
 
     miniInit(HDD_MODE);
 
@@ -1378,9 +1498,9 @@ void autoLaunchHDDGame(char *argv[])
     gAutoLaunchGame->start_sector = strtoul(argv[2], NULL, 0);
     snprintf(gOPLPart, sizeof(gOPLPart), "hdd0:%s", argv[3]);
 
+    per_game_cfg_t pgcfg;
     snprintf(path, sizeof(path), "%sCFG/%s.cfg", gHDDPrefix, gAutoLaunchGame->startup);
-    configSet = configAlloc(0, NULL, path);
-    configRead(configSet);
+    wOPLPerGameLoad(path, &pgcfg);
 
-    hddLaunchGame(NULL, -1, configSet);
+    hddLaunchGame(NULL, -1, &pgcfg);
 }
