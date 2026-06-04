@@ -62,7 +62,9 @@ static menu_list_t *selected_item;
 
 static int actionStatus;
 static int itemConfigId;
-static config_set_t *itemConfig;
+static game_info_t itemGameInfo; // display metadata only.. fed to drawElem for info/main page rendering
+static per_game_cfg_t itemPgCfg; // per game settings.. fed to game settings dialogs
+static int itemPgCfgLoaded = 0;
 
 static u8 parentalLockCheckEnabled = 1;
 
@@ -195,9 +197,11 @@ static void menuDeleteGame(submenu_list_t **submenu)
 static void _menuLoadConfig()
 {
     WaitSema(menuSemaId);
-    if (!itemConfig) {
+    if (!itemPgCfgLoaded) {
         item_list_t *list = selected_item->item->userdata;
-        itemConfig = list->itemGetConfig(list, itemConfigId);
+        list->itemGetInfo(list, itemConfigId, &itemGameInfo);
+        list->itemGetPgCfg(list, itemConfigId, &itemPgCfg);
+        itemPgCfgLoaded = 1;
     }
     actionStatus = 0;
     SignalSema(menuSemaId);
@@ -205,11 +209,13 @@ static void _menuLoadConfig()
 
 static void _menuSaveConfig()
 {
-    int result;
+    int result = 1;
 
     WaitSema(menuSemaId);
-    result = configWrite(itemConfig);
-    itemConfigId = -1; // to invalidate cache and force reload
+    item_list_t *list = selected_item->item->userdata;
+    result = list->itemSavePgCfg(list, itemConfigId, &itemPgCfg);
+    itemConfigId = -1;
+    itemPgCfgLoaded = 0;
     actionStatus = 0;
     SignalSema(menuSemaId);
 
@@ -221,36 +227,34 @@ static void _menuRequestConfig()
 {
     WaitSema(menuSemaId);
     if (selected_item->item->current != NULL && itemConfigId != selected_item->item->current->item.id) {
-        if (itemConfig) {
-            configFree(itemConfig);
-            itemConfig = NULL;
-        }
+        itemPgCfgLoaded = 0;
         item_list_t *list = selected_item->item->userdata;
         if (itemConfigId == -1 || guiInactiveFrames >= list->delay) {
             itemConfigId = selected_item->item->current->item.id;
             ioPutRequest(IO_CUSTOM_SIMPLEACTION, &_menuLoadConfig);
         }
-    } else if (itemConfig)
+    } else if (itemPgCfgLoaded)
         actionStatus = 0;
-
     SignalSema(menuSemaId);
 }
 
-config_set_t *menuLoadConfig()
+per_game_cfg_t *menuLoadConfig()
 {
     actionStatus = 1;
     itemConfigId = -1;
+    itemPgCfgLoaded = 0;
     guiHandleDeferedIO(&actionStatus, _l(_STR_LOADING_SETTINGS), IO_CUSTOM_SIMPLEACTION, &_menuRequestConfig);
-    return itemConfig;
+    return &itemPgCfg;
 }
 
 // we don't want a pop up when transitioning to or refreshing Game Menu gui.
-config_set_t *gameMenuLoadConfig(struct UIItem *ui)
+per_game_cfg_t *gameMenuLoadConfig(struct UIItem *ui)
 {
     actionStatus = 1;
     itemConfigId = -1;
+    itemPgCfgLoaded = 0;
     guiGameHandleDeferedIO(&actionStatus, ui, IO_CUSTOM_SIMPLEACTION, &_menuRequestConfig);
-    return itemConfig;
+    return &itemPgCfg;
 }
 
 void menuSaveConfig()
@@ -336,7 +340,8 @@ void menuInit()
     menu = NULL;
     selected_item = NULL;
     itemConfigId = -1;
-    itemConfig = NULL;
+    memset(&itemPgCfg, 0, sizeof(itemPgCfg));
+    itemPgCfgLoaded = 0;
     mainMenu = NULL;
     mainMenuCurrent = NULL;
     gameMenu = NULL;
@@ -374,11 +379,6 @@ void menuEnd()
     submenuDestroy(&mainMenu);
     submenuDestroy(&gameMenu);
     submenuDestroy(&appMenu);
-
-    if (itemConfig) {
-        configFree(itemConfig);
-        itemConfig = NULL;
-    }
 
     DeleteSema(menuSemaId);
     DeleteSema(menuListSemaId);
@@ -1006,10 +1006,10 @@ void menuHandleInputMenu()
             guiShowAbout();
         } else if (id == MENU_SAVE_CHANGES) {
             if (menuCheckParentalLock() == 0) {
-                guiGameSaveOSDLanguageGlobalConfig(configGetByType(CONFIG_GAME));
+                guiGameSaveOSDLanguageGlobalConfig();
 #ifdef PADEMU
-                guiGameSavePadEmuGlobalConfig(configGetByType(CONFIG_GAME));
-                guiGameSavePadMacroGlobalConfig(configGetByType(CONFIG_GAME));
+                guiGameSavePadEmuGlobalConfig();
+                guiGameSavePadMacroGlobalConfig();
 #endif
                 configSave(CONFIG_OPL | CONFIG_NETWORK | CONFIG_GAME, 1);
                 menuSetParentalLockCheckState(1); // Re-enable parental lock check.
@@ -1044,7 +1044,7 @@ static void menuRenderElements(theme_element_t *elem)
 
     while (elem) {
         if (elem->drawElem)
-            elem->drawElem(selected_item, selected_item->item->current, itemConfig, elem);
+            elem->drawElem(selected_item, selected_item->item->current, &itemGameInfo, elem);
 
         elem = elem->next;
     }
@@ -1258,7 +1258,7 @@ void menuHandleInputGameMenu()
         sfxPlay(SFX_CONFIRM);
 
         if (menuID == GAME_COMPAT_SETTINGS) {
-            guiGameShowCompatConfig(selected_item->item->current->item.id, selected_item->item->userdata, itemConfig);
+            guiGameShowCompatConfig(selected_item->item->current->item.id, selected_item->item->userdata);
         }
 #ifdef CHEAT // TODO: Organize this
         else if (menuID == GAME_CHEAT_SETTINGS) {
@@ -1281,16 +1281,16 @@ void menuHandleInputGameMenu()
         } else if (menuID == GAME_OSD_LANGUAGE_SETTINGS) {
             guiGameShowOSDLanguageConfig(0);
         } else if (menuID == GAME_SAVE_CHANGES) {
-            if (guiGameSaveConfig(itemConfig, selected_item->item->userdata))
-                configSetInt(itemConfig, CONFIG_ITEM_CONFIGSOURCE, CONFIG_SOURCE_USER);
+            guiGameSaveConfig(&itemPgCfg, selected_item->item->userdata);
+            itemPgCfg.config_source = CONFIG_SOURCE_USER;
             menuSaveConfig();
-            configSave(CONFIG_GAME, 0);
+            wOPLGlobalGameSave();
             guiMsgBox(_l(_STR_GAME_SETTINGS_SAVED), 0, NULL);
             guiGameLoadConfig(selected_item->item->userdata, gameMenuLoadConfig(NULL));
         } else if (menuID == GAME_TEST_CHANGES) {
-            guiGameTestSettings(selected_item->item->current->item.id, selected_item->item->userdata, itemConfig);
+            guiGameTestSettings(selected_item->item->current->item.id, selected_item->item->userdata, &itemPgCfg);
         } else if (menuID == GAME_REMOVE_CHANGES) {
-            if (guiGameShowRemoveSettings(itemConfig, configGetByType(CONFIG_GAME))) {
+            if (guiGameShowRemoveSettings(&itemPgCfg)) {
                 guiGameLoadConfig(selected_item->item->userdata, gameMenuLoadConfig(NULL));
             }
         } else if (menuID == GAME_RENAME_GAME) {

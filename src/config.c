@@ -319,6 +319,10 @@ void loadConfig()
             result |= CONFIG_NETWORK;
     }
 
+    if (lscstatus & CONFIG_GAME)
+        if (wOPLGlobalGameLoad())
+            result |= CONFIG_GAME;
+
     configApply(themeID, langID, 0);
 
     lscret = result;
@@ -327,9 +331,7 @@ void loadConfig()
 
 #ifdef PADEMU
     // DS34 modules were skipped at boot (config not loaded yet).. Now that CONFIG_GAME is available, init PADEMU if globally enabled for the gui.
-    config_set_t *configGame = configGetByType(CONFIG_GAME);
-    gEnablePadEmu = 0;
-    configGetInt(configGame, CONFIG_ITEM_ENABLEPADEMU, &gEnablePadEmu);
+    gEnablePadEmu = gGlobalGameCfg.pademu_enable;
     sysInitPadEmu();
 #endif
 }
@@ -410,31 +412,31 @@ static int trySaveAlternateDevice(int types)
 
 static void saveConfig()
 {
-    char temp[256];
-    int woplResult = 0, netResult = 0;
-
-    if (lscstatus & CONFIG_OPL)
-        woplResult = wOPLSave();
-
-    if (lscstatus & CONFIG_NETWORK)
-        netResult = wOPLNetSave();
-
     char *path = configGetDir();
     if (!strncmp(path, "mc", 2)) {
         sbCheckMCFolder();
         configPrepareNotifications(gBaseMCDir);
     }
 
-    // Exclude CONFIG_OPL and CONFIG_NETWORK.. handled by libconfig above.. need to transition all eventually
-    lscret = configWriteMulti(lscstatus & ~CONFIG_OPL & ~CONFIG_NETWORK);
-    if (lscret == 0 && (lscstatus & ~CONFIG_OPL & ~CONFIG_NETWORK))
-        lscret = trySaveAlternateDevice(lscstatus & ~CONFIG_OPL & ~CONFIG_NETWORK);
+    int woplResult = 0, netResult = 0, gameResult = 0;
 
     if (lscstatus & CONFIG_OPL)
-        lscret += woplResult;
+        woplResult = wOPLSave();
     if (lscstatus & CONFIG_NETWORK)
-        lscret += netResult;
+        netResult = wOPLNetSave();
+    if (lscstatus & CONFIG_GAME)
+        gameResult = wOPLGlobalGameSave();
 
+    // legacy configs not yet migrated (CONFIG_APPS etc.)
+    int remaining = lscstatus & ~CONFIG_OPL & ~CONFIG_NETWORK & ~CONFIG_GAME;
+    lscret = 0;
+    if (remaining) {
+        lscret = configWriteMulti(remaining);
+        if (lscret == 0)
+            lscret = trySaveAlternateDevice(remaining);
+    }
+
+    lscret += woplResult + netResult + gameResult;
     lscstatus = 0;
 }
 
