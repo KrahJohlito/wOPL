@@ -401,14 +401,18 @@ static void appRenameItem(item_list_t *itemList, int id, char *newName)
     appForceUpdate = 1;
 }
 
-static void appLaunchItem(item_list_t *itemList, int id, config_set_t *configSet)
+static void appLaunchItem(item_list_t *itemList, int id, per_game_cfg_t *pgcfg)
 {
     int fd;
     char filename[256];
-    const char *argv1;
 
-    // Retrieve configuration set by appGetConfig()
-    configGetStrCopy(configSet, CONFIG_ITEM_STARTUP, filename, sizeof(filename));
+    if (appsList[id].legacy) {
+        struct config_kv_t *cur = appGetConfigValue(id);
+        strncpy(filename, cur->val, sizeof(filename) - 1);
+    } else {
+        snprintf(filename, sizeof(filename), "%s/%s", appsList[id].path, appsList[id].boot);
+    }
+    filename[sizeof(filename) - 1] = '\0';
 
     // If no device number is specified use mass? to auto find device number
     const char *oldPrefix = "mass:";
@@ -451,8 +455,9 @@ static void appLaunchItem(item_list_t *itemList, int id, config_set_t *configSet
         if (mode == HDD_MODE)
             snprintf(partition, sizeof(partition), "%s:", gOPLPart);
 
-        if (configGetStr(configSet, CONFIG_ITEM_ALTSTARTUP, &argv1) != 0) {
-            argv[0] = (char *)argv1;
+        // argv1 comes directly from appsList now
+        if (appsList[id].argv1[0]) {
+            argv[0] = appsList[id].argv1;
             argc = 1;
         }
 
@@ -462,43 +467,36 @@ static void appLaunchItem(item_list_t *itemList, int id, config_set_t *configSet
         guiMsgBox(_l(_STR_ERR_FILE_INVALID), 0, NULL);
 }
 
-static config_set_t *appGetConfig(item_list_t *itemList, int id)
+static void appGetInfo(item_list_t *itemList, int id, game_info_t *gi)
 {
-    config_set_t *config;
-    char tmp[8];
-
+    memset(gi, 0, sizeof(*gi));
     if (appsList[id].legacy) {
         struct config_kv_t *cur = appGetConfigValue(id);
-        config = oplGetLegacyAppsInfo(appGetELFName(cur->val));
-        configRead(config);
+        strncpy(gi->title, cur->key, sizeof(gi->title) - 1);
+    } else {
+        strncpy(gi->title, appsList[id].title, sizeof(gi->title) - 1);
+    }
+}
 
-        configSetStr(config, CONFIG_ITEM_NAME, appGetELFName(cur->val));
-        configSetStr(config, CONFIG_ITEM_LONGNAME, cur->key);
-        configSetStr(config, CONFIG_ITEM_STARTUP, cur->val);
-        configSetStr(config, CONFIG_ITEM_MEDIA, "APP");
-        configSetStr(config, CONFIG_ITEM_FORMAT, "ELF");
-
-        snprintf(tmp, sizeof(tmp), "%.2f", appGetELFSize(cur->val));
-        configSetStr(config, CONFIG_ITEM_SIZE, tmp);
+static void appGetPgCfg(item_list_t *itemList, int id, per_game_cfg_t *cfg)
+{
+    memset(cfg, 0, sizeof(*cfg));
+    cfg->dma = 7;
+    strcpy(cfg->format, "ELF");
+    strcpy(cfg->media, "APP");
+    if (appsList[id].legacy) {
+        struct config_kv_t *cur = appGetConfigValue(id);
+        cfg->size_mb = (int)appGetELFSize(cur->val);
     } else {
         char path[256];
-        snprintf(path, sizeof(path), "%s/%s", appsList[id].path, APP_TITLE_CONFIG_FILE);
-
-        config = configAlloc(0, NULL, path);
-        configRead(config); // Does not matter if the config file could be loaded or not.
-
-        configSetStr(config, CONFIG_ITEM_NAME, appsList[id].boot);
-        configSetStr(config, CONFIG_ITEM_LONGNAME, appsList[id].title);
-        configSetStr(config, CONFIG_ITEM_ALTSTARTUP, appsList[id].argv1); // reuse AltStartup for argument 1
         snprintf(path, sizeof(path), "%s/%s", appsList[id].path, appsList[id].boot);
-        configSetStr(config, CONFIG_ITEM_STARTUP, path);
-        configSetStr(config, CONFIG_ITEM_MEDIA, "APP");
-        configSetStr(config, CONFIG_ITEM_FORMAT, "ELF");
-
-        snprintf(tmp, sizeof(tmp), "%.2f", appGetELFSize(path));
-        configSetStr(config, CONFIG_ITEM_SIZE, tmp);
+        cfg->size_mb = (int)appGetELFSize(path);
     }
-    return config;
+}
+
+static int appSavePgCfg(item_list_t *itemList, int id, const per_game_cfg_t *cfg)
+{
+    return 1;
 }
 
 static int appGetImage(item_list_t *itemList, char *folder, int isRelative, char *value, char *suffix, GSTEXTURE *resultTex, short psm)
@@ -558,7 +556,7 @@ static void appShutdown(item_list_t *itemList)
 static item_list_t appItemList = {
     APP_MODE, -1, 0, MODE_FLAG_NO_COMPAT | MODE_FLAG_NO_UPDATE, MENU_MIN_INACTIVE_FRAMES, APP_MODE_UPDATE_DELAY, NULL, NULL, &appGetTextId, NULL, &appInit, &appNeedsUpdate, &appUpdateItemList,
     &appGetItemCount, NULL, &appGetItemName, &appGetItemNameLength, &appGetItemStartup, &appDeleteItem, &appRenameItem, &appLaunchItem,
-    &appGetConfig, &appGetImage, &appGetArchivedImage, &appCleanUp, &appShutdown, NULL, &appGetIconId};
+    &appGetInfo, &appGetPgCfg, &appSavePgCfg, &appGetImage, &appGetArchivedImage, &appCleanUp, &appShutdown, NULL, &appGetIconId};
 
 static int scanApps(int (*callback)(const char *path, config_set_t *appConfig, void *arg), void *arg, char *appsPath, int exception)
 {
@@ -714,7 +712,7 @@ static config_set_t *oplGetLegacyAppsConfig(void)
     return appConfig;
 }
 
-static config_set_t *oplGetLegacyAppsInfo(char *name)
+/*static config_set_t *oplGetLegacyAppsInfo(char *name)
 {
     int i, fd;
     item_list_t *listSupport;
@@ -737,11 +735,11 @@ static config_set_t *oplGetLegacyAppsInfo(char *name)
     }
 
     /* Apps config not found on any device, go with last tested device.
-       Does not matter if the config file could be loaded or not */
+       Does not matter if the config file could be loaded or not
     appConfig = configAlloc(0, NULL, appsPath);
 
     return appConfig;
-}
+}*/
 
 // For resolving the mode, given an app's path
 static int oplPath2Mode(const char *path)
