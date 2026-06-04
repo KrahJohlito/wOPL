@@ -179,7 +179,7 @@ void guiWarning(const char *text, int count);
 
 int guiConfirmVideoMode(void);
 
-int guiGameShowRemoveSettings(config_set_t *configSet, config_set_t *configGame);
+int guiGameShowRemoveSettings(per_game_cfg_t *pgcfg);
 
 #ifdef CHEAT
 void guiManageCheats(void);
