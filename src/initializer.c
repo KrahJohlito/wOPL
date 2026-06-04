@@ -12,6 +12,7 @@
 
 #include "include/common.h"
 #include "include/sound.h"
+#include "include/config_wopl.h"
 #include <libpad.h>
 
 #ifdef PADEMU
@@ -327,8 +328,6 @@ void deferredAudioInit(void)
 
 void miniInit(int mode)
 {
-    int ret;
-
     setDefaults();
     configInit(NULL);
 
@@ -350,42 +349,16 @@ void miniInit(int mode)
     }
 
     InitConsoleRegionData();
-
-    ret = configReadMulti(CONFIG_ALL);
-    if (CONFIG_ALL & CONFIG_OPL) {
-        if (!(ret & CONFIG_OPL)) {
-            if (mode == BDM_MODE)
-                ret = configCheckLoadConfigBDM(CONFIG_ALL);
-            else if (mode == HDD_MODE)
-                ret = configCheckLoadConfigHDD(CONFIG_ALL);
-        }
-
-        if (ret & CONFIG_OPL) {
-            config_set_t *configOPL = configGetByType(CONFIG_OPL);
-
-            configGetInt(configOPL, CONFIG_OPL_PS2LOGO, &gPS2Logo);
-            configGetStrCopy(configOPL, CONFIG_OPL_EXIT_PATH, gExitPath, sizeof(gExitPath));
-            configGetInt(configOPL, CONFIG_OPL_HDD_SPINDOWN, &gHDDSpindown);
-            if (mode == BDM_MODE) {
-                configGetStrCopy(configOPL, CONFIG_OPL_BDM_PREFIX, gBDMPrefix, sizeof(gBDMPrefix));
-                configGetInt(configOPL, CONFIG_OPL_BDM_CACHE, &bdmCacheSize);
-            } else if (mode == HDD_MODE) {
-                configGetInt(configOPL, CONFIG_OPL_HDD_CACHE, &hddCacheSize);
-            } else if (mode == MMCE_MODE) {
-                configGetStrCopy(configOPL, CONFIG_OPL_MMCE_PREFIX, gMMCEPrefix, sizeof(gMMCEPrefix));
-            }
-        }
-    }
+    wOPLLoad(NULL, NULL);
 }
 
-void miniDeinit(config_set_t *configSet)
+void miniDeinit()
 {
     ioBlockOps(1);
 #ifdef PADEMU
     ds34usb_reset();
     ds34bt_reset();
 #endif
-    configFree(configSet);
 
     ioEnd();
     configEnd();

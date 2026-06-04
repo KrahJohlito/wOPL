@@ -51,8 +51,15 @@ typedef struct predef_vmode_struct
 
 extern int gGSMSource;
 
-void InitGSMConfig(config_set_t *configSet);
+extern int gEnableGSM;
+extern int gGSMVMode;
+extern int gGSMXOffset;
+extern int gGSMYOffset;
+extern int gGSMFIELDFix;
+
 int GetGSMEnabled(void);
-void PrepareGSM(char *cmdline, struct GsmConfig_t *config);
+
+/*void InitGSMConfig(config_set_t *configSet);*/
+void PrepareGSM(char *cmdline, struct GsmConfig_t *config, int vmode, int xoff, int yoff, int fieldfix);
 
 #endif
