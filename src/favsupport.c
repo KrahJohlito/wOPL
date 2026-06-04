@@ -125,20 +125,36 @@ static int favGetIconId(item_list_t *itemList)
     return FAV_ICON;
 }
 
-static void favLaunchItem(item_list_t *itemList, int id, config_set_t *configSet)
+static void favLaunchItem(item_list_t *itemList, int id, per_game_cfg_t *pgcfg)
 {
     opl_io_module_t *pOwner = (opl_io_module_t *)itemList->owner;
     item_list_t *favOwner = (item_list_t *)pOwner->menuItem.current->item.owner;
-
-    return favOwner->itemLaunch(favOwner, id, configSet);
+    favOwner->itemLaunch(favOwner, id, pgcfg);
 }
 
-static config_set_t *favGetConfig(item_list_t *itemList, int id)
+static void favGetInfo(item_list_t *itemList, int id, game_info_t *gi)
 {
     opl_io_module_t *pOwner = (opl_io_module_t *)itemList->owner;
     item_list_t *favOwner = (item_list_t *)pOwner->menuItem.current->item.owner;
+    if (favOwner->itemGetInfo)
+        favOwner->itemGetInfo(favOwner, id, gi);
+}
 
-    return favOwner->itemGetConfig(favOwner, id);
+static void favGetPgCfg(item_list_t *itemList, int id, per_game_cfg_t *cfg)
+{
+    opl_io_module_t *pOwner = (opl_io_module_t *)itemList->owner;
+    item_list_t *favOwner = (item_list_t *)pOwner->menuItem.current->item.owner;
+    if (favOwner->itemGetPgCfg)
+        favOwner->itemGetPgCfg(favOwner, id, cfg);
+}
+
+static int favSavePgCfg(item_list_t *itemList, int id, const per_game_cfg_t *cfg)
+{
+    opl_io_module_t *pOwner = (opl_io_module_t *)itemList->owner;
+    item_list_t *favOwner = (item_list_t *)pOwner->menuItem.current->item.owner;
+    if (favOwner->itemSavePgCfg)
+        return favOwner->itemSavePgCfg(favOwner, id, cfg);
+    return 0;
 }
 
 static int favGetImage(item_list_t *itemList, char *folder, int isRelative, char *value, char *suffix, GSTEXTURE *resultTex, short psm)
@@ -187,7 +203,7 @@ static void favShutdown(item_list_t *itemList)
 static item_list_t favItemList = {
     FAV_MODE, -1, 0, 0, MENU_MIN_INACTIVE_FRAMES, FAV_MODE_UPDATE_DELAY, NULL, NULL, &favGetTextId, NULL, &favInit, &favNeedsUpdate, &favUpdateItemList,
     &favGetItemCount, NULL, &favGetItemName, &favGetItemNameLength, &favGetItemStartup, &favDeleteItem, &favRenameItem, &favLaunchItem,
-    &favGetConfig, &favGetImage, &favGetArchivedImage, &favCleanUp, &favShutdown, NULL, &favGetIconId};
+    &favGetInfo, &favGetPgCfg, &favSavePgCfg, &favGetImage, &favGetArchivedImage, &favCleanUp, &favShutdown, NULL, &favGetIconId};
 
 unsigned char favGetFlags(item_list_t *itemList)
 {
