@@ -103,6 +103,7 @@ void dnas_to_binary(const char *dnas, char *out, int out_size)
                                                                s[0] - '0';
         int lo = s[1] >= 'a' ? s[1] - 'a' + 10 : s[1] >= 'A' ? s[1] - 'A' + 10 :
                                                                s[1] - '0';
+        out[i] = (hi << 4) | lo;
     }
 }
 

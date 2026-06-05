@@ -647,7 +647,7 @@ static void drawAttributeImage(struct menu_list *menu, struct submenu_list *item
         if (attributeImage->currentConfigId != item->item.id) {
             attributeImage->currentConfigId = item->item.id;
             attributeImage->currentValue = NULL;
-            attributeImage->currentValue = (char *)gameInfoGetAttr(info, attributeImage->currentValue);
+            attributeImage->currentValue = (char *)gameInfoGetAttr(info, attributeImage->cache->suffix);
         }
         if (attributeImage->currentValue) {
             if (IS_DEFAULT_THEME(thmGetGuiValue())) {
