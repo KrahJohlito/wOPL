@@ -1106,7 +1106,8 @@ void guiGameRemoveGlobalSettings(void)
 void guiGameRemoveSettings(per_game_cfg_t *pg)
 {
     if (menuCheckParentalLock() == 0) {
-        init_per_game_cfg(pg); // exposed via config_wopl.h or a small helper
+        memset(pg, 0, sizeof(*pg))
+        pg->dma = 7;
         menuSaveConfig();
     }
 }
