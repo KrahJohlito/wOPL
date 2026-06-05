@@ -1106,7 +1106,7 @@ void guiGameRemoveGlobalSettings(void)
 void guiGameRemoveSettings(per_game_cfg_t *pg)
 {
     if (menuCheckParentalLock() == 0) {
-        memset(pg, 0, sizeof(*pg))
+        memset(pg, 0, sizeof(*pg));
         pg->dma = 7;
         menuSaveConfig();
     }
