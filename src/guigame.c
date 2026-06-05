@@ -15,7 +15,6 @@
 #include "include/guigame.h"
 #include "include/vmc_groups.h"
 #include "include/supportbase.h"
-#include "include/game_config.h"
 #include "include/config_wopl.h"
 
 #include <stdio.h>
