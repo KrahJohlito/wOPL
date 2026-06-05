@@ -606,8 +606,7 @@ static void hddFindOPLPartition(void)
         const char *paths[] = {
             "pfs0:" WOPL_CONFIG_NAME "/conf_hdd.cfg",
             "pfs0:OPL/conf_hdd.cfg", // for OPL Launcher backwards compat
-            NULL
-        };
+            NULL};
 
         for (int i = 0; paths[i]; i++) {
             fd = open(paths[i], O_RDONLY);
@@ -621,10 +620,13 @@ static void hddFindOPLPartition(void)
                     if (val) {
                         val++;
                         char *cr = strchr(val, '\r');
-                        if (cr) *cr = '\0';
+                        if (cr)
+                            *cr = '\0';
                         char *nl = strchr(val, '\n');
-                        if (nl) *nl = '\0';
+                        if (nl)
+                            *nl = '\0';
                         snprintf(gOPLPart, sizeof(gOPLPart), "hdd0:%s", val);
+
                         return;
                     }
                 }
