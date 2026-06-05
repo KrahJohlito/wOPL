@@ -199,8 +199,11 @@ static void _menuLoadConfig()
     WaitSema(menuSemaId);
     if (!itemPgCfgLoaded) {
         item_list_t *list = selected_item->item->userdata;
+        LOG("_menuLoadConfig: calling itemGetInfo for id %d\n", itemConfigId);
         list->itemGetInfo(list, itemConfigId, &itemGameInfo);
+        LOG("_menuLoadConfig: calling itemGetPgCfg\n");
         list->itemGetPgCfg(list, itemConfigId, &itemPgCfg);
+        LOG("_menuLoadConfig: done\n");
         itemPgCfgLoaded = 1;
     }
     actionStatus = 0;
