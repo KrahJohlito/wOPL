@@ -1284,6 +1284,7 @@ void menuHandleInputGameMenu()
             guiGameSaveConfig(&itemPgCfg, selected_item->item->userdata);
             itemPgCfg.config_source = CONFIG_SOURCE_USER;
             menuSaveConfig();
+            wOPLGlobalGameSave();
             guiMsgBox(_l(_STR_GAME_SETTINGS_SAVED), 0, NULL);
             guiGameLoadConfig(selected_item->item->userdata, gameMenuLoadConfig(NULL));
         } else if (menuID == GAME_TEST_CHANGES) {
