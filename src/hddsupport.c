@@ -598,49 +598,53 @@ static void hddCheckOPLFolder(const char *mountPoint)
 
 static void hddFindOPLPartition(void)
 {
-    static config_set_t *config;
-    char name[64];
     int fd, ret = 0;
 
     fileXioUmount(hddPrefix);
-
     ret = fileXioMount("pfs0:", "hdd0:__common", FIO_MT_RDWR);
     if (ret == 0) {
-        char path[256];
-        snprintf(path, sizeof(path), "pfs0:%s/conf_hdd.cfg", WOPL_CONFIG_NAME);
-        fd = open(path, O_RDONLY);
-        if (fd >= 0) {
-            config = configAlloc(0, NULL, "pfs0:wOPL/conf_hdd.cfg");
-            configRead(config);
+        const char *paths[] = {
+            "pfs0:" WOPL_CONFIG_NAME "/conf_hdd.cfg",
+            "pfs0:OPL/conf_hdd.cfg", // for OPL Launcher backwards compat
+            NULL
+        };
 
-            configGetStrCopy(config, "hdd_partition", name, sizeof(name));
-            snprintf(gOPLPart, sizeof(gOPLPart), "hdd0:%s", name);
-
-            configFree(config);
-            close(fd);
-
-            return;
+        for (int i = 0; paths[i]; i++) {
+            fd = open(paths[i], O_RDONLY);
+            if (fd >= 0) {
+                char line[128];
+                int n = read(fd, line, sizeof(line) - 1);
+                close(fd);
+                if (n > 0) {
+                    line[n] = '\0';
+                    char *val = strchr(line, '=');
+                    if (val) {
+                        val++;
+                        char *cr = strchr(val, '\r');
+                        if (cr) *cr = '\0';
+                        char *nl = strchr(val, '\n');
+                        if (nl) *nl = '\0';
+                        snprintf(gOPLPart, sizeof(gOPLPart), "hdd0:%s", val);
+                        return;
+                    }
+                }
+            }
         }
 
+        // not found anywhere.. create in wOPL location with default
         hddCheckOPLFolder(hddPrefix);
-
-
+        char path[256];
+        snprintf(path, sizeof(path), "pfs0:%s/conf_hdd.cfg", WOPL_CONFIG_NAME);
         fd = open(path, O_CREAT | O_TRUNC | O_WRONLY);
         if (fd >= 0) {
-            config = configAlloc(0, NULL, path);
-            configRead(config);
-
-            configSetStr(config, "hdd_partition", WOPL_PARTITION);
-            configWrite(config);
-
-            configFree(config);
+            char buf[64];
+            snprintf(buf, sizeof(buf), "hdd_partition=%s\n", WOPL_PARTITION);
+            write(fd, buf, strlen(buf));
             close(fd);
         }
     }
 
     snprintf(gOPLPart, sizeof(gOPLPart), "hdd0:%s", WOPL_PARTITION);
-
-    return;
 }
 
 static int hddCreateOPLPartition(const char *name)
