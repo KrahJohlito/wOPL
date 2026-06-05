@@ -488,6 +488,17 @@ static void appGetInfo(item_list_t *itemList, int id, game_info_t *gi)
     }
 }
 
+static void appGetPgCfg(item_list_t *itemList, int id, per_game_cfg_t *cfg)
+{
+    memset(cfg, 0, sizeof(*cfg));
+    cfg->dma = 7;
+}
+
+static int appSavePgCfg(item_list_t *itemList, int id, const per_game_cfg_t *cfg)
+{
+    return 1;
+}
+
 static int appGetImage(item_list_t *itemList, char *folder, int isRelative, char *value, char *suffix, GSTEXTURE *resultTex, short psm)
 {
     char device[8], *startup;
@@ -545,7 +556,7 @@ static void appShutdown(item_list_t *itemList)
 static item_list_t appItemList = {
     APP_MODE, -1, 0, MODE_FLAG_NO_COMPAT | MODE_FLAG_NO_UPDATE, MENU_MIN_INACTIVE_FRAMES, APP_MODE_UPDATE_DELAY, NULL, NULL, &appGetTextId, NULL, &appInit, &appNeedsUpdate, &appUpdateItemList,
     &appGetItemCount, NULL, &appGetItemName, &appGetItemNameLength, &appGetItemStartup, &appDeleteItem, &appRenameItem, &appLaunchItem,
-    &appGetInfo, NULL, NULL, &appGetImage, &appGetArchivedImage, &appCleanUp, &appShutdown, NULL, &appGetIconId};
+    &appGetInfo, &appGetPgCfg, &appSavePgCfg, &appGetImage, &appGetArchivedImage, &appCleanUp, &appShutdown, NULL, &appGetIconId};
 
 static int scanApps(int (*callback)(const char *path, config_set_t *appConfig, void *arg), void *arg, char *appsPath, int exception)
 {
