@@ -218,7 +218,7 @@ static void drawAttributeText(struct menu_list *menu, struct submenu_list *item,
     mutable_text_t *mutableText = (mutable_text_t *)elem->extended;
     if (info && item) {
         if (mutableText->currentConfigId != item->item.id) {
-            mutableText->currentConfigId = item->item.id;
+            mutableText->currentConfigId = -1;
             mutableText->currentValue = NULL;
             // gameInfoGetAttr returns a const char* into info or a static buffer
             mutableText->currentValue = (char *)gameInfoGetAttr(info, mutableText->value);
@@ -645,7 +645,7 @@ static void drawAttributeImage(struct menu_list *menu, struct submenu_list *item
     mutable_image_t *attributeImage = (mutable_image_t *)elem->extended;
     if (info && item) {
         if (attributeImage->currentConfigId != item->item.id) {
-            attributeImage->currentConfigId = item->item.id;
+            attributeImage->currentConfigId = -1;
             attributeImage->currentValue = NULL;
             attributeImage->currentValue = (char *)gameInfoGetAttr(info, attributeImage->cache->suffix);
         }
