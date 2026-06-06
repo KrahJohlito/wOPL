@@ -1252,39 +1252,6 @@ void sbRename(base_game_info_t **list, const char *prefix, const char *sep, int 
     }
 }
 
-// helper used in drawAttributeText/drawAttributeImage.. lives in supportbase or themes
-const char *gameInfoGetAttr(const game_info_t *gi, const char *attr)
-{
-    static char s_size[16];
-    if (!attr)
-        return NULL;
-
-    if (attr[0] == '#')
-        attr++; // some themes prefix with #
-    if (!strcasecmp(attr, "Title") || !strcasecmp(attr, "name"))
-        return gi->title[0] ? gi->title : NULL;
-    if (!strcasecmp(attr, "startup") || !strcasecmp(attr, "Startup"))
-        return gi->startup[0] ? gi->startup : NULL;
-    if (!strcasecmp(attr, "Format") || !strcasecmp(attr, "format"))
-        return gi->format[0] ? gi->format : NULL;
-    if (!strcasecmp(attr, "Media") || !strcasecmp(attr, "media"))
-        return gi->media[0] ? gi->media : NULL;
-    if (!strcasecmp(attr, "Genre"))
-        return gi->genre[0] ? gi->genre : NULL;
-    if (!strcasecmp(attr, "Release"))
-        return gi->release[0] ? gi->release : NULL;
-    if (!strcasecmp(attr, "Developer"))
-        return gi->developer[0] ? gi->developer : NULL;
-    if (!strcasecmp(attr, "Description"))
-        return gi->description[0] ? gi->description : NULL;
-    if (!strcasecmp(attr, "Size")) {
-        snprintf(s_size, sizeof(s_size), "%d", gi->size_mb);
-        return s_size;
-    }
-
-    return NULL;
-}
-
 void sbPopulateConfig(base_game_info_t *game, const char *prefix, const char *sep, game_info_t *gi, per_game_cfg_t *pgcfg)
 {
     char startup[GAME_STARTUP_MAX + 1];

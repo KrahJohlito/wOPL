@@ -173,6 +173,12 @@ typedef struct
     int size_mb;
 } game_info_t;
 
+typedef struct
+{
+    game_info_t *gi;
+    per_game_cfg_t *pg;
+} render_ctx_t;
+
 extern global_game_cfg_t gGlobalGameCfg;
 
 typedef struct _item_list_t item_list_t;

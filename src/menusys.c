@@ -1045,9 +1045,10 @@ static void menuRenderElements(theme_element_t *elem)
 
     WaitSema(menuSemaId);
 
+    render_ctx_t ctx = {&itemGameInfo, &itemPgCfg};
     while (elem) {
         if (elem->drawElem)
-            elem->drawElem(selected_item, selected_item->item->current, &itemGameInfo, elem);
+            elem->drawElem(selected_item, selected_item->item->current, &ctx, elem);
 
         elem = elem->next;
     }

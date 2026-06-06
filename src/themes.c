@@ -91,6 +91,42 @@ static const char *elementsType[ELEM_TYPE_COUNT] = {
     "Coverflow",
 };
 
+static const char *gameInfoGetAttr(const game_info_t *gi, const per_game_cfg_t *pg, const char *attr)
+{
+    static char s_size[16];
+    if (!attr)
+        return NULL;
+
+    if (attr[0] == '#')
+        attr++; // some themes prefix with #
+    if (!strcasecmp(attr, "Title") || !strcasecmp(attr, "name"))
+        return gi->title[0] ? gi->title : NULL;
+    if (!strcasecmp(attr, "startup") || !strcasecmp(attr, "Startup"))
+        return gi->startup[0] ? gi->startup : NULL;
+    if (!strcasecmp(attr, "Format") || !strcasecmp(attr, "format"))
+        return gi->format[0] ? gi->format : NULL;
+    if (!strcasecmp(attr, "Media") || !strcasecmp(attr, "media"))
+        return gi->media[0] ? gi->media : NULL;
+    if (!strcasecmp(attr, "Genre"))
+        return gi->genre[0] ? gi->genre : NULL;
+    if (!strcasecmp(attr, "Release"))
+        return gi->release[0] ? gi->release : NULL;
+    if (!strcasecmp(attr, "Developer"))
+        return gi->developer[0] ? gi->developer : NULL;
+    if (!strcasecmp(attr, "Description"))
+        return gi->description[0] ? gi->description : NULL;
+    if (!strcasecmp(attr, "Size")) {
+        snprintf(s_size, sizeof(s_size), "%d", gi->size_mb);
+        return s_size;
+    }
+
+    if (pg) {
+        // add all the pg bullshit later
+    }
+
+    return NULL;
+}
+
 // Common functions for Text ////////////////////////////////////////////////////////////////////////////////////////////////
 
 static void endMutableText(theme_element_t *elem)
@@ -102,6 +138,9 @@ static void endMutableText(theme_element_t *elem)
 
         if (mutableText->alias)
             free(mutableText->alias);
+
+        if (mutableText->currentValue)
+            free(mutableText->currentValue);
 
         free(mutableText);
     }
@@ -187,7 +226,7 @@ static mutable_text_t *initMutableText(const char *themePath, config_set_t *them
 
 // StaticText ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-static void drawStaticText(struct menu_list *menu, struct submenu_list *item, game_info_t *info, struct theme_element *elem)
+static void drawStaticText(struct menu_list *menu, struct submenu_list *item, render_ctx_t *ctx, struct theme_element *elem)
 {
     mutable_text_t *mutableText = (mutable_text_t *)elem->extended;
     if (mutableText->sizingMode == SIZING_NONE)
@@ -213,15 +252,22 @@ static void initStaticText(const char *themePath, config_set_t *themeConfig, the
 
 // AttributeText ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-static void drawAttributeText(struct menu_list *menu, struct submenu_list *item, game_info_t *info, struct theme_element *elem)
+static void drawAttributeText(struct menu_list *menu, struct submenu_list *item, render_ctx_t *ctx, struct theme_element *elem)
 {
     mutable_text_t *mutableText = (mutable_text_t *)elem->extended;
-    if (info && item) {
+    if (ctx && item) {
         if (mutableText->currentConfigId != item->item.id) {
-            mutableText->currentConfigId = -1;
-            mutableText->currentValue = NULL;
-            // gameInfoGetAttr returns a const char* into info or a static buffer
-            mutableText->currentValue = (char *)gameInfoGetAttr(info, mutableText->value);
+            if (mutableText->currentValue) {
+                free(mutableText->currentValue);
+                mutableText->currentValue = NULL;
+            }
+            mutableText->currentConfigId = item->item.id;
+            const char *v = gameInfoGetAttr(ctx->gi, ctx->pg, mutableText->value);
+            if (v) {
+                mutableText->currentValue = strdup(v);
+                if (mutableText->currentValue && mutableText->sizingMode == SIZING_WRAP)
+                    fntFitString(elem->font, mutableText->currentValue, elem->width);
+            }
         }
 
         if (mutableText->currentValue) {
@@ -493,6 +539,9 @@ static void endMutableImage(struct theme_element *elem)
         if (mutableImage->overlayTexture && !mutableImage->overlayTextureLinked)
             freeImageTexture(mutableImage->overlayTexture);
 
+        if (mutableImage->currentValue)
+            free(mutableImage->currentValue);
+
         free(mutableImage);
     }
 
@@ -566,7 +615,7 @@ static mutable_image_t *initMutableImage(const char *themePath, config_set_t *th
 
 // StaticImage //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-static void drawStaticImage(struct menu_list *menu, struct submenu_list *item, game_info_t *info, struct theme_element *elem)
+static void drawStaticImage(struct menu_list *menu, struct submenu_list *item, render_ctx_t *ctx, struct theme_element *elem)
 {
     if (!item && elem->skip)
         return;
@@ -596,7 +645,7 @@ static GSTEXTURE *getGameImageTexture(image_cache_t *cache, void *support, struc
     return cacheGetTexture(cache, list, &item->cache_id[cache->userId], &item->cache_uid[cache->userId], startup);
 }
 
-static void drawGameImage(struct menu_list *menu, struct submenu_list *item, game_info_t *info, struct theme_element *elem)
+static void drawGameImage(struct menu_list *menu, struct submenu_list *item, render_ctx_t *ctx, struct theme_element *elem)
 {
     mutable_image_t *gameImage = (mutable_image_t *)elem->extended;
     if (item) {
@@ -640,14 +689,20 @@ static void initGameImage(const char *themePath, config_set_t *themeConfig, them
 
 // AttributeImage ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-static void drawAttributeImage(struct menu_list *menu, struct submenu_list *item, game_info_t *info, struct theme_element *elem)
+static void drawAttributeImage(struct menu_list *menu, struct submenu_list *item, render_ctx_t *ctx, struct theme_element *elem)
 {
     mutable_image_t *attributeImage = (mutable_image_t *)elem->extended;
-    if (info && item) {
+    if (ctx && item) {
         if (attributeImage->currentConfigId != item->item.id) {
-            attributeImage->currentConfigId = -1;
-            attributeImage->currentValue = NULL;
-            attributeImage->currentValue = (char *)gameInfoGetAttr(info, attributeImage->cache->suffix);
+            if (attributeImage->currentValue) {
+                free(attributeImage->currentValue);
+                attributeImage->currentValue = NULL;
+            }
+            attributeImage->currentUid = -1;
+            attributeImage->currentConfigId = item->item.id;
+            const char *v = gameInfoGetAttr(ctx->gi, ctx->pg, attributeImage->cache->suffix);
+            if (v)
+                attributeImage->currentValue = strdup(v);
         }
         if (attributeImage->currentValue) {
             if (IS_DEFAULT_THEME(thmGetGuiValue())) {
@@ -813,7 +868,7 @@ static theme_element_t *initBasic(const char *themePath, config_set_t *themeConf
 }
 
 // Internal elements ////////////////////////////////////////////////////////////////////////////////////////////////////////
-static void drawBackground(struct menu_list *menu, struct submenu_list *item, game_info_t *info, struct theme_element *elem)
+static void drawBackground(struct menu_list *menu, struct submenu_list *item, render_ctx_t *ctx, struct theme_element *elem)
 {
     guiDrawBGPlasma();
 }
@@ -832,7 +887,7 @@ static void initBackground(const char *themePath, config_set_t *themeConfig, the
         elem->drawElem = &drawBackground;
 }
 
-static void drawMenuIcon(struct menu_list *menu, struct submenu_list *item, game_info_t *info, struct theme_element *elem)
+static void drawMenuIcon(struct menu_list *menu, struct submenu_list *item, render_ctx_t *ctx, struct theme_element *elem)
 {
     GSTEXTURE *menuIconTex = thmGetTexture(menu->item->icon_id);
     if (menuIconTex && menuIconTex->Mem)
@@ -857,7 +912,7 @@ static int findMenuPrev(struct menu_list *menu)
     return prev == NULL ? 0 : prev->item->visible;
 }
 
-static void drawMenuText(struct menu_list *menu, struct submenu_list *item, game_info_t *info, struct theme_element *elem)
+static void drawMenuText(struct menu_list *menu, struct submenu_list *item, render_ctx_t *ctx, struct theme_element *elem)
 {
     GSTEXTURE *leftIconTex = NULL, *rightIconTex = NULL;
     int iconOne, iconTwo;
@@ -890,7 +945,7 @@ static void drawMenuText(struct menu_list *menu, struct submenu_list *item, game
     fntRenderString(elem->font, elem->posX, elem->posY, elem->aligned, 0, 0, menuItemGetText(menu->item), elem->color);
 }
 
-static void drawBDMIndex(struct menu_list *menu, struct submenu_list *item, game_info_t *info, struct theme_element *elem)
+static void drawBDMIndex(struct menu_list *menu, struct submenu_list *item, render_ctx_t *ctx, struct theme_element *elem)
 {
     item_list_t *itemList = menu->item->userdata;
     // Only render for bdm modes and if current mode is visible
@@ -911,7 +966,7 @@ static void drawBDMIndex(struct menu_list *menu, struct submenu_list *item, game
         rmDrawPixmap(indexTex, x, elem->posY, elem->aligned, elem->width, elem->height, elem->scaled, gDefaultCol, 0);
 }
 
-static void drawItemsList(struct menu_list *menu, struct submenu_list *item, game_info_t *info, struct theme_element *elem)
+static void drawItemsList(struct menu_list *menu, struct submenu_list *item, render_ctx_t *ctx, struct theme_element *elem)
 {
     if (item) {
         items_list_t *itemsList = (items_list_t *)elem->extended;
@@ -997,7 +1052,7 @@ static void initItemsList(const char *themePath, config_set_t *themeConfig, them
     elem->drawElem = &drawItemsList;
 }
 
-static void drawItemText(struct menu_list *menu, struct submenu_list *item, game_info_t *info, struct theme_element *elem)
+static void drawItemText(struct menu_list *menu, struct submenu_list *item, render_ctx_t *ctx, struct theme_element *elem)
 {
     if (item) {
         item_list_t *support = menu->item->userdata;
@@ -1005,7 +1060,7 @@ static void drawItemText(struct menu_list *menu, struct submenu_list *item, game
     }
 }
 
-static void drawHintText(struct menu_list *menu, struct submenu_list *item, game_info_t *info, struct theme_element *elem)
+static void drawHintText(struct menu_list *menu, struct submenu_list *item, render_ctx_t *ctx, struct theme_element *elem)
 {
     menu_hint_item_t *hint = menu->item->hints;
     if (hint) {
@@ -1021,7 +1076,7 @@ static void drawHintText(struct menu_list *menu, struct submenu_list *item, game
     }
 }
 
-static void drawInfoHintText(struct menu_list *menu, struct submenu_list *item, game_info_t *info, struct theme_element *elem)
+static void drawInfoHintText(struct menu_list *menu, struct submenu_list *item, render_ctx_t *ctx, struct theme_element *elem)
 {
     int infoHints[2] = {_STR_RUN, _STR_BACK};
     int infoIcons[2] = {CIRCLE_ICON, CROSS_ICON};
@@ -1053,7 +1108,7 @@ void thmTriggerCoverflowAnim(int direction)
     animationStartTime = clock();
 }
 
-static void drawCoverFlow(struct menu_list *menu, struct submenu_list *item, game_info_t *info, struct theme_element *elem)
+static void drawCoverFlow(struct menu_list *menu, struct submenu_list *item, render_ctx_t *ctx, struct theme_element *elem)
 {
     if (item == NULL)
         return;
