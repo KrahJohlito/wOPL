@@ -103,6 +103,9 @@ static void endMutableText(theme_element_t *elem)
         if (mutableText->alias)
             free(mutableText->alias);
 
+        if (mutableText->currentValue)
+            free(mutableText->currentValue);
+
         free(mutableText);
     }
 
@@ -218,10 +221,17 @@ static void drawAttributeText(struct menu_list *menu, struct submenu_list *item,
     mutable_text_t *mutableText = (mutable_text_t *)elem->extended;
     if (info && item) {
         if (mutableText->currentConfigId != item->item.id) {
-            mutableText->currentConfigId = -1;
-            mutableText->currentValue = NULL;
-            // gameInfoGetAttr returns a const char* into info or a static buffer
-            mutableText->currentValue = (char *)gameInfoGetAttr(info, mutableText->value);
+            if (mutableText->currentValue) {
+                free(mutableText->currentValue);
+                mutableText->currentValue = NULL;
+            }
+            mutableText->currentConfigId = item->item.id;
+            const char *v = gameInfoGetAttr(info, mutableText->value);
+            if (v) {
+                mutableText->currentValue = strdup(v);
+                if (mutableText->currentValue && mutableText->sizingMode == SIZING_WRAP)
+                    fntFitString(elem->font, mutableText->currentValue, elem->width);
+            }
         }
 
         if (mutableText->currentValue) {
@@ -493,6 +503,9 @@ static void endMutableImage(struct theme_element *elem)
         if (mutableImage->overlayTexture && !mutableImage->overlayTextureLinked)
             freeImageTexture(mutableImage->overlayTexture);
 
+        if (mutableImage->currentValue)
+            free(mutableImage->currentValue);
+
         free(mutableImage);
     }
 
@@ -645,9 +658,15 @@ static void drawAttributeImage(struct menu_list *menu, struct submenu_list *item
     mutable_image_t *attributeImage = (mutable_image_t *)elem->extended;
     if (info && item) {
         if (attributeImage->currentConfigId != item->item.id) {
-            attributeImage->currentConfigId = -1;
-            attributeImage->currentValue = NULL;
-            attributeImage->currentValue = (char *)gameInfoGetAttr(info, attributeImage->cache->suffix);
+            if (attributeImage->currentValue) {
+                free(attributeImage->currentValue);
+                attributeImage->currentValue = NULL;
+            }
+            attributeImage->currentUid = -1;
+            attributeImage->currentConfigId = item->item.id;
+            const char *v = gameInfoGetAttr(info, attributeImage->cache->suffix);
+            if (v)
+                attributeImage->currentValue = strdup(v);
         }
         if (attributeImage->currentValue) {
             if (IS_DEFAULT_THEME(thmGetGuiValue())) {
