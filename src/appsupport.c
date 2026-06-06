@@ -473,18 +473,8 @@ static void appGetInfo(item_list_t *itemList, int id, game_info_t *gi)
     if (appsList[id].legacy) {
         struct config_kv_t *cur = appGetConfigValue(id);
         strncpy(gi->title, cur->key, sizeof(gi->title) - 1);
-        strncpy(gi->startup, appGetELFName(cur->val), sizeof(gi->startup) - 1);
-        strcpy(gi->format, "ELF");
-        strcpy(gi->media, "APP");
-        gi->size_mb = (int)appGetELFSize(cur->val); // rounds down..
     } else {
         strncpy(gi->title, appsList[id].title, sizeof(gi->title) - 1);
-        strncpy(gi->startup, appsList[id].boot, sizeof(gi->startup) - 1);
-        strcpy(gi->format, "ELF");
-        strcpy(gi->media, "APP");
-        char path[256];
-        snprintf(path, sizeof(path), "%s/%s", appsList[id].path, appsList[id].boot);
-        gi->size_mb = (int)appGetELFSize(path);
     }
 }
 
@@ -492,6 +482,16 @@ static void appGetPgCfg(item_list_t *itemList, int id, per_game_cfg_t *cfg)
 {
     memset(cfg, 0, sizeof(*cfg));
     cfg->dma = 7;
+    strcpy(cfg->format, "ELF");
+    strcpy(cfg->media, "APP");
+    if (appsList[id].legacy) {
+        struct config_kv_t *cur = appGetConfigValue(id);
+        cfg->size_mb = (int)appGetELFSize(cur->val);
+    } else {
+        char path[256];
+        snprintf(path, sizeof(path), "%s/%s", appsList[id].path, appsList[id].boot);
+        cfg->size_mb = (int)appGetELFSize(path);
+    }
 }
 
 static int appSavePgCfg(item_list_t *itemList, int id, const per_game_cfg_t *cfg)
