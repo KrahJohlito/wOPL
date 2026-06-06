@@ -21,6 +21,7 @@
 #include "opl-hdd-ioctl.h"
 #include "include/initializer.h"
 #include "include/config_wopl.h"
+#include "include/config_migration.h"
 #include "include/tar.h"
 #include <stdlib.h>
 
@@ -1146,134 +1147,74 @@ void hddLaunchGame(item_list_t *itemList, int id, per_game_cfg_t *pgcfg)
     sysLaunchLoaderElf(filename, "HDD_MODE", size_irx, irx, size_mcemu_irx, hdd_mcemu_irx, EnablePS2Logo, compatMode);
 }
 
-/*static config_set_t *hddGetConfig(item_list_t *itemList, int id)
-{
-    char path[256];
-    hdl_game_info_t *game = &hddGames.games[id];
-
-    snprintf(path, sizeof(path), "%sCFG/%s.cfg", gHDDPrefix, game->startup);
-    config_set_t *config = configAlloc(0, NULL, path);
-    configRead(config); // Does not matter if the config file exists or not.
-
-    configSetStr(config, CONFIG_ITEM_NAME, game->name);
-    configSetInt(config, CONFIG_ITEM_SIZE, game->total_size_in_kb >> 10);
-    configSetStr(config, CONFIG_ITEM_FORMAT, "HDL");
-    configSetStr(config, CONFIG_ITEM_MEDIA, game->disctype == SCECdPS2CD ? "CD" : "DVD");
-    configSetStr(config, CONFIG_ITEM_STARTUP, game->startup);
-
-    return config;
-}*/
-
 static void hddGetInfo(item_list_t *itemList, int id, game_info_t *gi)
 {
     hdl_game_info_t *game = &hddGames.games[id];
-    char info_path[256];
-    snprintf(info_path, sizeof(info_path), "%sCFG/%s.info", gHDDPrefix, game->startup);
+    char info_path[256], cfg_path[256];
 
-    if (!wOPLGameInfoLoad(info_path, gi)) {
-        // no .info yet.. check TAR then populate from struct
-        char tarname[32];
-        snprintf(tarname, sizeof(tarname), "%s.cfg", game->startup);
-        TarEntryBase *e = tarFind(TAR_KIND_CFG, tarname);
-        if (e) {
-            void *buf = malloc(e->rawSize);
-            if (buf && tarRead(TAR_KIND_CFG, e, buf, e->rawSize) == e->rawSize) {
-                config_set_t tmp;
-                config_set_t *old = configAlloc(0, &tmp, NULL);
-                if (old && configReadBuffer(old, buf, (int)e->rawSize)) {
-                    const char *str;
-                    if (configGetStr(old, "Genre", &str))
-                        strncpy(gi->genre, str, sizeof(gi->genre) - 1);
-                    if (configGetStr(old, "Release", &str))
-                        strncpy(gi->release, str, sizeof(gi->release) - 1);
-                    if (configGetStr(old, "Developer", &str))
-                        strncpy(gi->developer, str, sizeof(gi->developer) - 1);
-                    if (configGetStr(old, "Description", &str))
-                        strncpy(gi->description, str, sizeof(gi->description) - 1);
-                    configClear(old);
-                }
-            }
-            if (buf)
-                free(buf);
-        }
+    snprintf(info_path, sizeof(info_path), "%sCFG/%s.info", gHDDPrefix, game->startup);
+    snprintf(cfg_path, sizeof(cfg_path), "%sCFG/%s.cfg", gHDDPrefix, game->startup);
+
+    int info_loaded = wOPLGameInfoLoad(info_path, gi);
+
+    if (!info_loaded) {
+        int migrated = cfgMigrateTARGameCfg(game->startup, gi, NULL);
+        if (!migrated)
+            migrated = cfgMigrateLegacyGameInfo(cfg_path, gi);
+        if (migrated)
+            wOPLGameInfoSave(info_path, gi);
     }
 
-    // fill from struct (overrides empty fields)
     if (!gi->title[0])
         strncpy(gi->title, game->name, sizeof(gi->title) - 1);
-    if (!gi->startup[0])
-        strncpy(gi->startup, game->startup, sizeof(gi->startup) - 1);
-    if (!gi->format[0])
-        strcpy(gi->format, "HDL");
-    if (!gi->media[0])
-        strcpy(gi->media, game->disctype == SCECdPS2CD ? "CD" : "DVD");
 
-    int size_mb = game->total_size_in_kb >> 10;
-    if (gi->size_mb != size_mb) {
-        gi->size_mb = size_mb;
-        wOPLGameInfoSave(info_path, gi);
+    if (!gi->serial[0] && game->startup[0]) {
+        char *dst = gi->serial;
+        for (const char *s = game->startup;
+             *s && (dst - gi->serial) < (int)sizeof(gi->serial) - 1; s++) {
+            if (*s == '_')
+                *dst++ = '-';
+            else if (*s != '.')
+                *dst++ = *s;
+        }
+        *dst = '\0';
     }
 }
 
 static void hddGetPgCfg(item_list_t *itemList, int id, per_game_cfg_t *cfg)
 {
-    char path[256];
     hdl_game_info_t *game = &hddGames.games[id];
+    char path[256];
+    int need_save = 0;
+
     snprintf(path, sizeof(path), "%sCFG/%s.cfg", gHDDPrefix, game->startup);
 
-    if (!wOPLPerGameLoad(path, cfg)) {
-        // TAR fallback
-        char tarname[32];
-        snprintf(tarname, sizeof(tarname), "%s.cfg", game->startup);
-        TarEntryBase *e = tarFind(TAR_KIND_CFG, tarname);
-        if (e) {
-            void *buf = malloc(e->rawSize);
-            if (buf && tarRead(TAR_KIND_CFG, e, buf, e->rawSize) == e->rawSize) {
-                config_set_t tmp;
-                config_set_t *old = configAlloc(0, &tmp, NULL);
-                if (old && configReadBuffer(old, buf, (int)e->rawSize)) {
-                    configGetInt(old, CONFIG_ITEM_COMPAT, &cfg->compat);
-                    configGetInt(old, CONFIG_ITEM_DMA, &cfg->dma);
-                    configGetInt(old, CONFIG_ITEM_CORE_LOADER, &cfg->core_loader);
-                    configGetInt(old, CONFIG_ITEM_CONFIGSOURCE, &cfg->config_source);
-                    configGetStrCopy(old, CONFIG_ITEM_DNAS, cfg->dnas, sizeof(cfg->dnas));
-                    configGetStrCopy(old, CONFIG_ITEM_ALTSTARTUP, cfg->alt_startup, sizeof(cfg->alt_startup));
-                    configGetVMC(old, cfg->vmc1, sizeof(cfg->vmc1), 0);
-                    configGetVMC(old, cfg->vmc2, sizeof(cfg->vmc2), 1);
-#ifdef GSM
-                    configGetInt(old, CONFIG_ITEM_GSMSOURCE, &cfg->gsm_source);
-                    configGetInt(old, CONFIG_ITEM_ENABLEGSM, &cfg->gsm_enable);
-                    configGetInt(old, CONFIG_ITEM_GSMVMODE, &cfg->gsm_vmode);
-                    configGetInt(old, CONFIG_ITEM_GSMXOFFSET, &cfg->gsm_xoffset);
-                    configGetInt(old, CONFIG_ITEM_GSMYOFFSET, &cfg->gsm_yoffset);
-                    configGetInt(old, CONFIG_ITEM_GSMFIELDFIX, &cfg->gsm_fieldfix);
-#endif
-#ifdef CHEAT
-                    configGetInt(old, CONFIG_ITEM_CHEATSSOURCE, &cfg->cheat_source);
-                    configGetInt(old, CONFIG_ITEM_ENABLECHEAT, &cfg->cheat_enable);
-                    configGetInt(old, CONFIG_ITEM_CHEATMODE, &cfg->cheat_mode);
-                    configGetInt(old, CONFIG_ITEM_ENABLEIMAGE, &cfg->cheat_enable_image);
-#endif
-#ifdef PADEMU
-                    configGetInt(old, CONFIG_ITEM_PADEMUSOURCE, &cfg->pademu_source);
-                    configGetInt(old, CONFIG_ITEM_ENABLEPADEMU, &cfg->pademu_enable);
-                    configGetInt(old, CONFIG_ITEM_PADEMUSETTINGS, &cfg->pademu_settings);
-                    configGetInt(old, CONFIG_ITEM_PADMACROSOURCE, &cfg->padmacro_source);
-                    configGetInt(old, CONFIG_ITEM_PADMACROSETTINGS, &cfg->padmacro_settings);
-#endif
-                    configGetInt(old, CONFIG_ITEM_OSD_SETTINGS_SOURCE, &cfg->osd_source);
-                    configGetInt(old, CONFIG_ITEM_OSD_SETTINGS_ENABLE, &cfg->osd_enable);
-                    configGetInt(old, CONFIG_ITEM_OSD_SETTINGS_LANGID, &cfg->osd_langid);
-                    configGetInt(old, CONFIG_ITEM_OSD_SETTINGS_TV_ASP, &cfg->osd_tv_aspect);
-                    configGetInt(old, CONFIG_ITEM_OSD_SETTINGS_VMODE, &cfg->osd_vmode);
-                    configClear(old);
-                    wOPLPerGameSave(path, cfg);
-                }
-            }
-            if (buf)
-                free(buf);
-        }
+    // wOPLPerGameLoad() handles both libconfig (1) and old key=value (2) internally
+    int cfg_loaded = wOPLPerGameLoad(path, cfg);
+
+    if (!cfg_loaded) {
+        cfgMigrateTARGameCfg(game->startup, NULL, cfg);
+    } else if (cfg_loaded == 2) {
+        // legacy format was migrated.. resave in libconfig format
+        need_save = 1;
     }
+
+    if (!cfg->format[0]) {
+        strcpy(cfg->format, "HDL");
+        need_save = 1;
+    }
+    if (!cfg->media[0]) {
+        strcpy(cfg->media, game->disctype == SCECdPS2CD ? "CD" : "DVD");
+        need_save = 1;
+    }
+    if (!cfg->size_mb) {
+        cfg->size_mb = game->total_size_in_kb >> 10;
+        if (cfg->size_mb)
+            need_save = 1;
+    }
+
+    if (need_save)
+        wOPLPerGameSave(path, cfg);
 }
 
 static int hddSavePgCfg(item_list_t *itemList, int id, const per_game_cfg_t *cfg)

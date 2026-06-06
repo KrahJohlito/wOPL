@@ -77,7 +77,6 @@ void sbWriteFileBuffer(file_buffer_t *fileBuffer, char *inBuf, int size);
 void sbCloseFileBuffer(file_buffer_t *fileBuffer);
 
 int sbSaveConfig(base_game_info_t *game, const char *prefix, const char *sep, const per_game_cfg_t *cfg);
-const char *gameInfoGetAttr(const game_info_t *gi, const char *attr);
 
 // ISO9660 filesystem management functions.
 u32 sbGetISO9660MaxLBA(const char *path);

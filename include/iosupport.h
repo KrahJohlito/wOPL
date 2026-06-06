@@ -128,6 +128,8 @@ typedef struct
     int dma; // 7 = not set (device default)
     int core_loader;
     int config_source;
+    char format[8];
+    char media[4];
     char dnas[32];
     char alt_startup[32];
     char vmc1[32];
@@ -162,16 +164,25 @@ typedef struct
 
 typedef struct
 {
-    char title[ISO_GAME_NAME_MAX + 1]; // empty = use game->name
-    char startup[GAME_STARTUP_MAX + 1];
-    char format[8]; // "ISO", "ZSO", "UL", "HDL"
-    char media[4];  // "CD", "DVD"
+    char title[ISO_GAME_NAME_MAX + 1];
     char genre[64];
     char release[32];
     char developer[64];
     char description[256];
-    int size_mb;
+    char publisher[64];
+    char serial[16];   // "SCES-50916" formatted
+    char aspect[12];   // "standard" / "widescreen"
+    char parental[32]; // "pegi_3" / "esrb_m" etc.
+    char region[8];    // "pal" / "ntscu" / "ntscj" / "ntsca"
+    int players;       // 1-4
+    int user_rating;   // 0-5
 } game_info_t;
+
+typedef struct
+{
+    game_info_t *gi;
+    per_game_cfg_t *pg;
+} render_ctx_t;
 
 extern global_game_cfg_t gGlobalGameCfg;
 

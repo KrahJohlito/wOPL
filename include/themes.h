@@ -85,7 +85,7 @@ typedef struct theme_element
 
     void *extended;
 
-    void (*drawElem)(struct menu_list *menu, struct submenu_list *item, game_info_t *info, struct theme_element *elem);
+    void (*drawElem)(struct menu_list *menu, struct submenu_list *item, render_ctx_t *ctx, struct theme_element *elem);
     void (*endElem)(struct theme_element *elem);
 
     struct theme_element *next;
