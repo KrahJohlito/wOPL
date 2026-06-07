@@ -98,43 +98,45 @@ static const char *gameInfoGetAttr(const game_info_t *gi, const per_game_cfg_t *
     static char s_gsm[16], s_cheat[16], s_pademu[16];
     static char s_compat[12], s_dma[8];
 
-    if (!attr || !gi)
+    if (!attr)
         return NULL;
-    if (attr[0] == '#')
+
+    if (attr[0] == '#' || attr[0] == '$')
         attr++;
 
-    //  game_info_t
-    if (!strcasecmp(attr, "Title") || !strcasecmp(attr, "Name"))
-        return gi->title[0] ? gi->title : NULL;
-    if (!strcasecmp(attr, "Serial"))
-        return gi->serial[0] ? gi->serial : NULL;
-    if (!strcasecmp(attr, "Genre"))
-        return gi->genre[0] ? gi->genre : NULL;
-    if (!strcasecmp(attr, "Release"))
-        return gi->release[0] ? gi->release : NULL;
-    if (!strcasecmp(attr, "Developer"))
-        return gi->developer[0] ? gi->developer : NULL;
-    if (!strcasecmp(attr, "Publisher"))
-        return gi->publisher[0] ? gi->publisher : NULL;
-    if (!strcasecmp(attr, "Description"))
-        return gi->description[0] ? gi->description : NULL;
-    if (!strcasecmp(attr, "Aspect"))
-        return gi->aspect[0] ? gi->aspect : NULL;
-    if (!strcasecmp(attr, "Parental"))
-        return gi->parental[0] ? gi->parental : NULL;
-    if (!strcasecmp(attr, "Region"))
-        return gi->region[0] ? gi->region : NULL;
-    if (!strcasecmp(attr, "Players")) {
-        if (!gi->players)
-            return NULL;
-        snprintf(s_players, sizeof(s_players), "%d", gi->players);
-        return s_players;
+    // game_info_t
+    if (gi) {
+        if (!strcasecmp(attr, "Title") || !strcasecmp(attr, "Name"))
+            return gi->title[0] ? gi->title : NULL;
+        if (!strcasecmp(attr, "Serial"))
+            return gi->serial[0] ? gi->serial : NULL;
+        if (!strcasecmp(attr, "Genre"))
+            return gi->genre[0] ? gi->genre : NULL;
+        if (!strcasecmp(attr, "Release"))
+            return gi->release[0] ? gi->release : NULL;
+        if (!strcasecmp(attr, "Developer"))
+            return gi->developer[0] ? gi->developer : NULL;
+        if (!strcasecmp(attr, "Publisher"))
+            return gi->publisher[0] ? gi->publisher : NULL;
+        if (!strcasecmp(attr, "Description"))
+            return gi->description[0] ? gi->description : NULL;
+        if (!strcasecmp(attr, "Aspect"))
+            return gi->aspect[0] ? gi->aspect : NULL;
+        if (!strcasecmp(attr, "Parental"))
+            return gi->parental[0] ? gi->parental : NULL;
+        if (!strcasecmp(attr, "Region"))
+            return gi->region[0] ? gi->region : NULL;
+        if (!strcasecmp(attr, "Players")) {
+            if (!gi->players)
+                return NULL;
+            snprintf(s_players, sizeof(s_players), "%d", gi->players);
+            return s_players;
+        }
+        if (!strcasecmp(attr, "UserRating") || !strcasecmp(attr, "Rating")) {
+            snprintf(s_rating, sizeof(s_rating), "%d", gi->user_rating);
+            return s_rating;
+        }
     }
-    if (!strcasecmp(attr, "UserRating") || !strcasecmp(attr, "Rating")) {
-        snprintf(s_rating, sizeof(s_rating), "%d", gi->user_rating);
-        return s_rating;
-    }
-
     // per_game_cfg_t
     if (!pg)
         return NULL;
@@ -165,12 +167,15 @@ static const char *gameInfoGetAttr(const game_info_t *gi, const per_game_cfg_t *
         snprintf(s_dma, sizeof(s_dma), "%d", pg->dma);
         return s_dma;
     }
-
-#ifdef GSM
-    if (!strcasecmp(attr, "GSM")) {
-        int en = (pg->gsm_source == SETTINGS_PERGAME) ? pg->gsm_enable : gGlobalGameCfg.gsm_enable;
-        snprintf(s_gsm, sizeof(s_gsm), "%s", en ? "Enabled" : "Disabled");
-        return s_gsm;
+#ifdef PADEMU
+    if (!strcasecmp(attr, "PadEmu")) {
+        int en = (pg->pademu_source == SETTINGS_PERGAME) ? pg->pademu_enable : gGlobalGameCfg.pademu_enable;
+        snprintf(s_pademu, sizeof(s_pademu), "%s", en ? "Enabled" : "Disabled");
+        return s_pademu;
+    }
+    if (!strcasecmp(attr, "EnablePadEmu")) {
+        int en = (pg->pademu_source == SETTINGS_PERGAME) ? pg->pademu_enable : gGlobalGameCfg.pademu_enable;
+        return en ? "EnablePadEmu" : NULL;
     }
 #endif
 #ifdef CHEAT
@@ -179,12 +184,20 @@ static const char *gameInfoGetAttr(const game_info_t *gi, const per_game_cfg_t *
         snprintf(s_cheat, sizeof(s_cheat), "%s", en ? "Enabled" : "Disabled");
         return s_cheat;
     }
+    if (!strcasecmp(attr, "EnableCheat")) {
+        int en = (pg->cheat_source == SETTINGS_PERGAME) ? pg->cheat_enable : gGlobalGameCfg.cheat_enable;
+        return en ? "EnableCheat" : NULL;
+    }
 #endif
-#ifdef PADEMU
-    if (!strcasecmp(attr, "PadEmu")) {
-        int en = (pg->pademu_source == SETTINGS_PERGAME) ? pg->pademu_enable : gGlobalGameCfg.pademu_enable;
-        snprintf(s_pademu, sizeof(s_pademu), "%s", en ? "Enabled" : "Disabled");
-        return s_pademu;
+#ifdef GSM
+    if (!strcasecmp(attr, "GSM")) {
+        int en = (pg->gsm_source == SETTINGS_PERGAME) ? pg->gsm_enable : gGlobalGameCfg.gsm_enable;
+        snprintf(s_gsm, sizeof(s_gsm), "%s", en ? "Enabled" : "Disabled");
+        return s_gsm;
+    }
+    if (!strcasecmp(attr, "EnableGSM")) {
+        int en = (pg->gsm_source == SETTINGS_PERGAME) ? pg->gsm_enable : gGlobalGameCfg.gsm_enable;
+        return en ? "EnableGSM" : NULL;
     }
 #endif
 
