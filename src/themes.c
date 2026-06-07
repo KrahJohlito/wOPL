@@ -12,6 +12,7 @@
 #include "include/sound.h"
 #include "include/supportbase.h"
 #include "include/module.h"
+#include "include/guigame.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
@@ -93,36 +94,99 @@ static const char *elementsType[ELEM_TYPE_COUNT] = {
 
 static const char *gameInfoGetAttr(const game_info_t *gi, const per_game_cfg_t *pg, const char *attr)
 {
-    static char s_size[16];
-    if (!attr)
-        return NULL;
+    static char s_size[16], s_players[4], s_rating[4];
+    static char s_gsm[16], s_cheat[16], s_pademu[16];
+    static char s_compat[12], s_dma[8];
 
+    if (!attr || !gi)
+        return NULL;
     if (attr[0] == '#')
-        attr++; // some themes prefix with #
-    if (!strcasecmp(attr, "Title") || !strcasecmp(attr, "name"))
+        attr++;
+
+    //  game_info_t
+    if (!strcasecmp(attr, "Title") || !strcasecmp(attr, "Name"))
         return gi->title[0] ? gi->title : NULL;
-    if (!strcasecmp(attr, "startup") || !strcasecmp(attr, "Startup"))
-        return gi->startup[0] ? gi->startup : NULL;
-    if (!strcasecmp(attr, "Format") || !strcasecmp(attr, "format"))
-        return gi->format[0] ? gi->format : NULL;
-    if (!strcasecmp(attr, "Media") || !strcasecmp(attr, "media"))
-        return gi->media[0] ? gi->media : NULL;
+    if (!strcasecmp(attr, "Serial"))
+        return gi->serial[0] ? gi->serial : NULL;
     if (!strcasecmp(attr, "Genre"))
         return gi->genre[0] ? gi->genre : NULL;
     if (!strcasecmp(attr, "Release"))
         return gi->release[0] ? gi->release : NULL;
     if (!strcasecmp(attr, "Developer"))
         return gi->developer[0] ? gi->developer : NULL;
+    if (!strcasecmp(attr, "Publisher"))
+        return gi->publisher[0] ? gi->publisher : NULL;
     if (!strcasecmp(attr, "Description"))
         return gi->description[0] ? gi->description : NULL;
-    if (!strcasecmp(attr, "Size")) {
-        snprintf(s_size, sizeof(s_size), "%d", gi->size_mb);
-        return s_size;
+    if (!strcasecmp(attr, "Aspect"))
+        return gi->aspect[0] ? gi->aspect : NULL;
+    if (!strcasecmp(attr, "Parental"))
+        return gi->parental[0] ? gi->parental : NULL;
+    if (!strcasecmp(attr, "Region"))
+        return gi->region[0] ? gi->region : NULL;
+    if (!strcasecmp(attr, "Players")) {
+        if (!gi->players)
+            return NULL;
+        snprintf(s_players, sizeof(s_players), "%d", gi->players);
+        return s_players;
+    }
+    if (!strcasecmp(attr, "UserRating") || !strcasecmp(attr, "Rating")) {
+        snprintf(s_rating, sizeof(s_rating), "%d", gi->user_rating);
+        return s_rating;
     }
 
-    if (pg) {
-        // add all the pg bullshit later
+    // per_game_cfg_t
+    if (!pg)
+        return NULL;
+
+    if (!strcasecmp(attr, "Format"))
+        return pg->format[0] ? pg->format : NULL;
+    if (!strcasecmp(attr, "Media"))
+        return pg->media[0] ? pg->media : NULL;
+    if (!strcasecmp(attr, "Size")) {
+        if (!pg->size_mb)
+            return NULL;
+        snprintf(s_size, sizeof(s_size), "%d", pg->size_mb);
+        return s_size;
     }
+    if (!strcasecmp(attr, "VMC1"))
+        return pg->vmc1[0] ? pg->vmc1 : NULL;
+    if (!strcasecmp(attr, "VMC2"))
+        return pg->vmc2[0] ? pg->vmc2 : NULL;
+    if (!strcasecmp(attr, "Compat")) {
+        if (!pg->compat)
+            return NULL;
+        snprintf(s_compat, sizeof(s_compat), "0x%02X", pg->compat);
+        return s_compat;
+    }
+    if (!strcasecmp(attr, "DMA")) {
+        if (pg->dma == 7)
+            return NULL;
+        snprintf(s_dma, sizeof(s_dma), "%d", pg->dma);
+        return s_dma;
+    }
+
+#ifdef GSM
+    if (!strcasecmp(attr, "GSM")) {
+        int en = (pg->gsm_source == SETTINGS_PERGAME) ? pg->gsm_enable : gGlobalGameCfg.gsm_enable;
+        snprintf(s_gsm, sizeof(s_gsm), "%s", en ? "Enabled" : "Disabled");
+        return s_gsm;
+    }
+#endif
+#ifdef CHEAT
+    if (!strcasecmp(attr, "Cheat")) {
+        int en = (pg->cheat_source == SETTINGS_PERGAME) ? pg->cheat_enable : gGlobalGameCfg.cheat_enable;
+        snprintf(s_cheat, sizeof(s_cheat), "%s", en ? "Enabled" : "Disabled");
+        return s_cheat;
+    }
+#endif
+#ifdef PADEMU
+    if (!strcasecmp(attr, "PadEmu")) {
+        int en = (pg->pademu_source == SETTINGS_PERGAME) ? pg->pademu_enable : gGlobalGameCfg.pademu_enable;
+        snprintf(s_pademu, sizeof(s_pademu), "%s", en ? "Enabled" : "Disabled");
+        return s_pademu;
+    }
+#endif
 
     return NULL;
 }

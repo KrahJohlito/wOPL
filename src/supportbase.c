@@ -20,6 +20,7 @@
 #include "include/hddsupport.h"
 #include "include/tar.h"
 #include "include/config_wopl.h"
+#include "include/config_migration.h"
 
 #define NEWLIB_PORT_AWARE
 #include <fileXio_rpc.h> // fileXioMount("iso:", ***), fileXioUmount("iso:")
@@ -1254,166 +1255,105 @@ void sbRename(base_game_info_t **list, const char *prefix, const char *sep, int 
 
 void sbPopulateConfig(base_game_info_t *game, const char *prefix, const char *sep, game_info_t *gi, per_game_cfg_t *pgcfg)
 {
-    char startup[GAME_STARTUP_MAX + 1];
     char info_path[256], cfg_path[256];
     struct stat st;
 
-    strncpy(startup, game->startup, sizeof(startup) - 1);
-    startup[sizeof(startup) - 1] = '\0';
-    char *dot = strrchr(startup, '.');
-    if (dot)
-        *dot = '\0';
+    snprintf(info_path, sizeof(info_path), "%sCFG%s%s.info", prefix, sep, game->startup);
+    snprintf(cfg_path, sizeof(cfg_path), "%sCFG%s%s.cfg", prefix, sep, game->startup);
 
-    snprintf(info_path, sizeof(info_path), "%sCFG%s%s.info", prefix, sep, startup);
-    snprintf(cfg_path, sizeof(cfg_path), "%sCFG%s%s.cfg", prefix, sep, startup);
-
-    int info_loaded = 0;
-    int cfg_loaded = 0;
-    int need_save = 0;
-
-    if (gi)
-        info_loaded = wOPLGameInfoLoad(info_path, gi);
-    if (pgcfg)
-        cfg_loaded = wOPLPerGameLoad(cfg_path, pgcfg);
-
-    // TAR fallback - try old key=value cfg bundled in art/theme packs
-    if ((!info_loaded && gi) || (!cfg_loaded && pgcfg)) {
-        char tarname[32];
-        snprintf(tarname, sizeof(tarname), "%s.cfg", startup);
-        TarEntryBase *e = tarFind(TAR_KIND_CFG, tarname);
-        if (e) {
-            void *buf = malloc(e->rawSize);
-            if (buf && tarRead(TAR_KIND_CFG, e, buf, e->rawSize) == e->rawSize) {
-                config_set_t tmp;
-                config_set_t *old = configAlloc(0, &tmp, NULL);
-                if (old && configReadBuffer(old, buf, (int)e->rawSize)) {
-                    if (gi && !info_loaded) {
-                        const char *str;
-                        if (configGetStr(old, CONFIG_ITEM_NAME, &str))
-                            strncpy(gi->title, str, sizeof(gi->title) - 1);
-                        if (configGetStr(old, CONFIG_ITEM_STARTUP, &str))
-                            strncpy(gi->startup, str, sizeof(gi->startup) - 1);
-                        if (configGetStr(old, CONFIG_ITEM_FORMAT, &str))
-                            strncpy(gi->format, str, sizeof(gi->format) - 1);
-                        if (configGetStr(old, CONFIG_ITEM_MEDIA, &str))
-                            strncpy(gi->media, str, sizeof(gi->media) - 1);
-                        // genre/release/developer/description
-                        if (configGetStr(old, "Genre", &str))
-                            strncpy(gi->genre, str, sizeof(gi->genre) - 1);
-                        if (configGetStr(old, "Release", &str))
-                            strncpy(gi->release, str, sizeof(gi->release) - 1);
-                        if (configGetStr(old, "Developer", &str))
-                            strncpy(gi->developer, str, sizeof(gi->developer) - 1);
-                        if (configGetStr(old, "Description", &str))
-                            strncpy(gi->description, str, sizeof(gi->description) - 1);
-
-                        configGetInt(old, CONFIG_ITEM_SIZE, &gi->size_mb);
-                        info_loaded = 1;
-                        need_save = 1;
-                    }
-                    if (pgcfg && !cfg_loaded) {
-                        // same migration as wOPLPerGameLoad does internally.. should probably move all migrate code to one file for easy deletion
-                        configGetInt(old, CONFIG_ITEM_COMPAT, &pgcfg->compat);
-                        configGetInt(old, CONFIG_ITEM_DMA, &pgcfg->dma);
-                        configGetInt(old, CONFIG_ITEM_CORE_LOADER, &pgcfg->core_loader);
-                        configGetInt(old, CONFIG_ITEM_CONFIGSOURCE, &pgcfg->config_source);
-                        configGetStrCopy(old, CONFIG_ITEM_DNAS, pgcfg->dnas, sizeof(pgcfg->dnas));
-                        configGetStrCopy(old, CONFIG_ITEM_ALTSTARTUP, pgcfg->alt_startup, sizeof(pgcfg->alt_startup));
-                        configGetVMC(old, pgcfg->vmc1, sizeof(pgcfg->vmc1), 0);
-                        configGetVMC(old, pgcfg->vmc2, sizeof(pgcfg->vmc2), 1);
-#ifdef GSM
-                        configGetInt(old, CONFIG_ITEM_GSMSOURCE, &pgcfg->gsm_source);
-                        configGetInt(old, CONFIG_ITEM_ENABLEGSM, &pgcfg->gsm_enable);
-                        configGetInt(old, CONFIG_ITEM_GSMVMODE, &pgcfg->gsm_vmode);
-                        configGetInt(old, CONFIG_ITEM_GSMXOFFSET, &pgcfg->gsm_xoffset);
-                        configGetInt(old, CONFIG_ITEM_GSMYOFFSET, &pgcfg->gsm_yoffset);
-                        configGetInt(old, CONFIG_ITEM_GSMFIELDFIX, &pgcfg->gsm_fieldfix);
-#endif
-#ifdef CHEAT
-                        configGetInt(old, CONFIG_ITEM_CHEATSSOURCE, &pgcfg->cheat_source);
-                        configGetInt(old, CONFIG_ITEM_ENABLECHEAT, &pgcfg->cheat_enable);
-                        configGetInt(old, CONFIG_ITEM_CHEATMODE, &pgcfg->cheat_mode);
-                        configGetInt(old, CONFIG_ITEM_ENABLEIMAGE, &pgcfg->cheat_enable_image);
-#endif
-#ifdef PADEMU
-                        configGetInt(old, CONFIG_ITEM_PADEMUSOURCE, &pgcfg->pademu_source);
-                        configGetInt(old, CONFIG_ITEM_ENABLEPADEMU, &pgcfg->pademu_enable);
-                        configGetInt(old, CONFIG_ITEM_PADEMUSETTINGS, &pgcfg->pademu_settings);
-                        configGetInt(old, CONFIG_ITEM_PADMACROSOURCE, &pgcfg->padmacro_source);
-                        configGetInt(old, CONFIG_ITEM_PADMACROSETTINGS, &pgcfg->padmacro_settings);
-#endif
-                        configGetInt(old, CONFIG_ITEM_OSD_SETTINGS_SOURCE, &pgcfg->osd_source);
-                        configGetInt(old, CONFIG_ITEM_OSD_SETTINGS_ENABLE, &pgcfg->osd_enable);
-                        configGetInt(old, CONFIG_ITEM_OSD_SETTINGS_LANGID, &pgcfg->osd_langid);
-                        configGetInt(old, CONFIG_ITEM_OSD_SETTINGS_TV_ASP, &pgcfg->osd_tv_aspect);
-                        configGetInt(old, CONFIG_ITEM_OSD_SETTINGS_VMODE, &pgcfg->osd_vmode);
-                        cfg_loaded = 1;
-                        need_save = 1;
-                    }
-                    configClear(old);
-                }
-            }
-            free(buf);
-        }
-    }
-
-    // fill display info from game struct for anything not overridden
     if (gi) {
+        int info_loaded = wOPLGameInfoLoad(info_path, gi);
+
+        if (!info_loaded) {
+            int migrated = cfgMigrateTARGameCfg(game->startup, gi, NULL);
+
+            // try reading display metadata from old standalone .cfg
+            if (!migrated)
+                migrated = cfgMigrateLegacyGameInfo(cfg_path, gi);
+
+            // persist migrated data as .info so this never runs again.. delete migration later
+            if (migrated)
+                wOPLGameInfoSave(info_path, gi);
+        }
+
+        // fill for display.. don't save
         if (!gi->title[0])
             strncpy(gi->title, game->name, sizeof(gi->title) - 1);
-        if (!gi->startup[0])
-            strncpy(gi->startup, game->startup, sizeof(gi->startup) - 1);
 
-        if (!gi->format[0]) {
-            if (game->format == GAME_FORMAT_USBLD)
-                strcpy(gi->format, "UL");
-            else if (!strcasecmp(game->extension, ".zso"))
-                strcpy(gi->format, "ZSO");
-            else
-                strcpy(gi->format, "ISO");
+        if (!gi->serial[0] && game->startup[0]) {
+            char *dst = gi->serial;
+            for (const char *s = game->startup;
+                 *s && (dst - gi->serial) < (int)sizeof(gi->serial) - 1; s++) {
+                if (*s == '_')
+                    *dst++ = '-';
+                else if (*s != '.')
+                    *dst++ = *s;
+            }
+            *dst = '\0';
         }
-        if (!gi->media[0])
-            strcpy(gi->media, game->media == SCECdPS2CD ? "CD" : "DVD");
-
-        // restore or calculate size
-        if (gi->size_mb > 0) {
-            game->sizeMB = gi->size_mb;
-        } else if (game->sizeMB == 0) {
-            char gamepath[256];
-            if (game->format == GAME_FORMAT_ISO) {
-                snprintf(gamepath, sizeof(gamepath), "%s%s%s%s%s%s", prefix, sep, game->media == SCECdPS2CD ? "CD" : "DVD", sep, game->name, game->extension);
-                if (stat(gamepath, &st) == 0)
-                    game->sizeMB = st.st_size >> 20;
-            } else if (game->format == GAME_FORMAT_OLD_ISO) {
-                snprintf(gamepath, sizeof(gamepath), "%s%s%s%s%s.%s%s", prefix, sep, game->media == SCECdPS2CD ? "CD" : "DVD", sep, game->startup, game->name, game->extension);
-                if (stat(gamepath, &st) == 0)
-                    game->sizeMB = st.st_size >> 20;
-            }
-            if (game->sizeMB > 0) {
-                gi->size_mb = game->sizeMB;
-                need_save = 1;
-            }
-        } else
-            gi->size_mb = game->sizeMB;
-
-        if (need_save)
-            wOPLGameInfoSave(info_path, gi);
     }
 
-    if (pgcfg && need_save)
-        wOPLPerGameSave(cfg_path, pgcfg);
+    if (pgcfg) {
+        int need_save = 0;
+
+        // wOPLPerGameLoad() handles both libconfig (returns 1) and old key=value
+        // (returns 2 via cfgMigrateLegacyPerGame internally)
+        int cfg_loaded = wOPLPerGameLoad(cfg_path, pgcfg);
+
+        if (!cfg_loaded) {
+            // no file.. try TAR
+            cfgMigrateTARGameCfg(game->startup, NULL, pgcfg);
+        } else if (cfg_loaded == 2) {
+            // legacy format was migrated.. resave immediately in libconfig format
+            // so cfgMigrateLegacyPerGame never runs for this game again
+            need_save = 1;
+        }
+
+        // auto determine and cache format/media/size if not set
+        if (!pgcfg->format[0]) {
+            if (game->format == GAME_FORMAT_USBLD)
+                strcpy(pgcfg->format, "UL");
+            else if (!strcasecmp(game->extension, ".zso"))
+                strcpy(pgcfg->format, "ZSO");
+            else
+                strcpy(pgcfg->format, "ISO");
+            need_save = 1;
+        }
+
+        if (!pgcfg->media[0]) {
+            strcpy(pgcfg->media, game->media == SCECdPS2CD ? "CD" : "DVD");
+            need_save = 1;
+        }
+
+        if (!pgcfg->size_mb) {
+            if (game->sizeMB > 0) {
+                pgcfg->size_mb = game->sizeMB;
+            } else {
+                char gamepath[256];
+                if (game->format == GAME_FORMAT_ISO) {
+                    snprintf(gamepath, sizeof(gamepath), "%s%s%s%s%s%s", prefix, sep, game->media == SCECdPS2CD ? "CD" : "DVD", sep, game->name, game->extension);
+                    if (stat(gamepath, &st) == 0)
+                        pgcfg->size_mb = st.st_size >> 20;
+                } else if (game->format == GAME_FORMAT_OLD_ISO) {
+                    snprintf(gamepath, sizeof(gamepath), "%s%s%s%s%s.%s%s", prefix, sep, game->media == SCECdPS2CD ? "CD" : "DVD", sep, game->startup, game->name, game->extension);
+                    if (stat(gamepath, &st) == 0)
+                        pgcfg->size_mb = st.st_size >> 20;
+                }
+            }
+            if (pgcfg->size_mb)
+                need_save = 1;
+        }
+
+        if (need_save)
+            wOPLPerGameSave(cfg_path, pgcfg);
+    }
 }
 
 int sbSaveConfig(base_game_info_t *game, const char *prefix, const char *sep, const per_game_cfg_t *cfg)
 {
     char path[256];
-    char startup[GAME_STARTUP_MAX + 1];
 
-    strncpy(startup, game->startup, sizeof(startup) - 1);
-    char *dot = strrchr(startup, '.');
-    if (dot)
-        *dot = '\0';
-    snprintf(path, sizeof(path), "%sCFG%s%s.cfg", prefix, sep, startup);
+    snprintf(path, sizeof(path), "%sCFG%s%s.cfg", prefix, sep, game->startup);
 
     return wOPLPerGameSave(path, cfg);
 }
