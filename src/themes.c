@@ -168,33 +168,18 @@ static const char *gameInfoGetAttr(const game_info_t *gi, const per_game_cfg_t *
         return s_dma;
     }
 #ifdef PADEMU
-    if (!strcasecmp(attr, "PadEmu")) {
-        int en = (pg->pademu_source == SETTINGS_PERGAME) ? pg->pademu_enable : gGlobalGameCfg.pademu_enable;
-        snprintf(s_pademu, sizeof(s_pademu), "%s", en ? "Enabled" : "Disabled");
-        return s_pademu;
-    }
     if (!strcasecmp(attr, "EnablePadEmu")) {
         int en = (pg->pademu_source == SETTINGS_PERGAME) ? pg->pademu_enable : gGlobalGameCfg.pademu_enable;
         return en ? "EnablePadEmu" : NULL;
     }
 #endif
 #ifdef CHEAT
-    if (!strcasecmp(attr, "Cheat")) {
-        int en = (pg->cheat_source == SETTINGS_PERGAME) ? pg->cheat_enable : gGlobalGameCfg.cheat_enable;
-        snprintf(s_cheat, sizeof(s_cheat), "%s", en ? "Enabled" : "Disabled");
-        return s_cheat;
-    }
     if (!strcasecmp(attr, "EnableCheat")) {
         int en = (pg->cheat_source == SETTINGS_PERGAME) ? pg->cheat_enable : gGlobalGameCfg.cheat_enable;
         return en ? "EnableCheat" : NULL;
     }
 #endif
 #ifdef GSM
-    if (!strcasecmp(attr, "GSM")) {
-        int en = (pg->gsm_source == SETTINGS_PERGAME) ? pg->gsm_enable : gGlobalGameCfg.gsm_enable;
-        snprintf(s_gsm, sizeof(s_gsm), "%s", en ? "Enabled" : "Disabled");
-        return s_gsm;
-    }
     if (!strcasecmp(attr, "EnableGSM")) {
         int en = (pg->gsm_source == SETTINGS_PERGAME) ? pg->gsm_enable : gGlobalGameCfg.gsm_enable;
         return en ? "EnableGSM" : NULL;
