@@ -182,6 +182,7 @@ typedef struct
 {
     game_info_t *gi;
     per_game_cfg_t *pg;
+    int uid;
 } render_ctx_t;
 
 extern global_game_cfg_t gGlobalGameCfg;

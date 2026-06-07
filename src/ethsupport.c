@@ -636,6 +636,7 @@ static void ethLaunchGame(item_list_t *itemList, int id, per_game_cfg_t *pgcfg)
     for (vmc_id = 0; vmc_id < 2; vmc_id++) {
         memset(&smb_vmc_infos, 0, sizeof(smb_vmc_infos_t));
         strncpy(vmc_name, vmc_id == 0 ? pgcfg->vmc1 : pgcfg->vmc2, sizeof(vmc_name) - 1);
+        vmc_name[sizeof(vmc_name) - 1] = '\0';
         if (vmc_name[0]) {
             if (sysCheckVMC(ethPrefix, "\\", vmc_name, 0, &vmc_superblock) > 0) {
                 smb_vmc_infos.flags = vmc_superblock.mc_flag & 0xFF;

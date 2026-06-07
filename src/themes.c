@@ -318,7 +318,7 @@ static void drawAttributeText(struct menu_list *menu, struct submenu_list *item,
 {
     mutable_text_t *mutableText = (mutable_text_t *)elem->extended;
     if (ctx && item) {
-        if (mutableText->currentConfigId != item->item.id) {
+        if (mutableText->currentConfigId != ctx->uid) {
             if (mutableText->currentValue) {
                 free(mutableText->currentValue);
                 mutableText->currentValue = NULL;
@@ -755,7 +755,7 @@ static void drawAttributeImage(struct menu_list *menu, struct submenu_list *item
 {
     mutable_image_t *attributeImage = (mutable_image_t *)elem->extended;
     if (ctx && item) {
-        if (attributeImage->currentConfigId != item->item.id) {
+        if (attributeImage->currentConfigId != ctx->uid) {
             if (attributeImage->currentValue) {
                 free(attributeImage->currentValue);
                 attributeImage->currentValue = NULL;

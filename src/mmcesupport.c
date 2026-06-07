@@ -240,6 +240,7 @@ void mmceLaunchGame(item_list_t *itemList, int id, per_game_cfg_t *pgcfg)
     for (vmc_id = 0; vmc_id < 2; vmc_id++) {
         memset(&mmce_vmc_infos, 0, sizeof(mmce_vmc_infos));
         strncpy(vmc_name, vmc_id == 0 ? pgcfg->vmc1 : pgcfg->vmc2, sizeof(vmc_name) - 1);
+        vmc_name[sizeof(vmc_name) - 1] = '\0';
         if (vmc_name[0]) {
             vmc_size_mb = sysCheckVMC(mmcePrefix, "/", vmc_name, 0, &vmc_superblock);
             if (vmc_size_mb > 0) {

@@ -66,6 +66,7 @@ static int itemConfigId;
 static game_info_t itemGameInfo;
 static per_game_cfg_t itemPgCfg;
 static int itemCfgLoaded;
+static int itemCfgGeneration;
 
 static u8 parentalLockCheckEnabled = 1;
 
@@ -211,6 +212,7 @@ static void _menuLoadConfig()
             list->itemGetPgCfg(list, itemConfigId, &itemPgCfg);
 
         itemCfgLoaded = 1;
+        itemCfgGeneration++;
     }
     actionStatus = 0;
     SignalSema(menuSemaId);
@@ -1056,7 +1058,7 @@ static void menuRenderElements(theme_element_t *elem)
 
     WaitSema(menuSemaId);
 
-    render_ctx_t ctx = {&itemGameInfo, &itemPgCfg};
+    render_ctx_t ctx = {&itemGameInfo, &itemPgCfg, itemCfgGeneration};
 
     while (elem) {
         if (elem->drawElem)

@@ -358,11 +358,11 @@ static void parse_display(config_t *cfg)
 static void parse_ui(config_t *cfg, int *out_theme_id, int *out_lang_id)
 {
     const char *theme_name = lookup_str(cfg, "ui.theme", NULL);
-    if (theme_name)
+    if (theme_name && out_theme_id)
         *out_theme_id = thmFindGuiID(theme_name);
 
     const char *lang_name = lookup_str(cfg, "ui.language", NULL);
-    if (lang_name)
+    if (lang_name && out_lang_id)
         *out_lang_id = lngFindGuiID(lang_name);
 
     gSelectButton = lookup_bool(cfg, "ui.swap_button", 0) ? KEY_CROSS : KEY_CIRCLE;

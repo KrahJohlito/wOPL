@@ -944,7 +944,10 @@ void hddLaunchGame(item_list_t *itemList, int id, per_game_cfg_t *pgcfg)
     memset(&hdd_vmc_infos, 0, sizeof(hdd_vmc_infos_t));
 
     strncpy(vmc_name[0], pgcfg->vmc1, sizeof(vmc_name[0]) - 1);
+    vmc_name[0][sizeof(vmc_name[0]) - 1] = '\0';
+
     strncpy(vmc_name[1], pgcfg->vmc2, sizeof(vmc_name[1]) - 1);
+    vmc_name[1][sizeof(vmc_name[1]) - 1] = '\0';
 
     if (vmc_name[0][0] || vmc_name[1][0]) {
         nparts = hddGetPartitionInfo(gOPLPart, parts);
