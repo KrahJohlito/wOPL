@@ -20,6 +20,7 @@
 #include "include/hddsupport.h"
 #include "include/tar.h"
 #include "include/config_wopl.h"
+#include "include/config_migration.h"
 
 #define NEWLIB_PORT_AWARE
 #include <fileXio_rpc.h> // fileXioMount("iso:", ***), fileXioUmount("iso:")
@@ -1276,85 +1277,9 @@ void sbPopulateConfig(base_game_info_t *game, const char *prefix, const char *se
     if (pgcfg)
         cfg_loaded = wOPLPerGameLoad(cfg_path, pgcfg);
 
-    // TAR fallback - try old key=value cfg bundled in art/theme packs
     if ((!info_loaded && gi) || (!cfg_loaded && pgcfg)) {
-        char tarname[32];
-        snprintf(tarname, sizeof(tarname), "%s.cfg", startup);
-        TarEntryBase *e = tarFind(TAR_KIND_CFG, tarname);
-        if (e) {
-            void *buf = malloc(e->rawSize);
-            if (buf && tarRead(TAR_KIND_CFG, e, buf, e->rawSize) == e->rawSize) {
-                config_set_t tmp;
-                config_set_t *old = configAlloc(0, &tmp, NULL);
-                if (old && configReadBuffer(old, buf, (int)e->rawSize)) {
-                    if (gi && !info_loaded) {
-                        const char *str;
-                        if (configGetStr(old, CONFIG_ITEM_NAME, &str))
-                            strncpy(gi->title, str, sizeof(gi->title) - 1);
-                        if (configGetStr(old, CONFIG_ITEM_STARTUP, &str))
-                            strncpy(gi->startup, str, sizeof(gi->startup) - 1);
-                        if (configGetStr(old, CONFIG_ITEM_FORMAT, &str))
-                            strncpy(gi->format, str, sizeof(gi->format) - 1);
-                        if (configGetStr(old, CONFIG_ITEM_MEDIA, &str))
-                            strncpy(gi->media, str, sizeof(gi->media) - 1);
-                        // genre/release/developer/description
-                        if (configGetStr(old, "Genre", &str))
-                            strncpy(gi->genre, str, sizeof(gi->genre) - 1);
-                        if (configGetStr(old, "Release", &str))
-                            strncpy(gi->release, str, sizeof(gi->release) - 1);
-                        if (configGetStr(old, "Developer", &str))
-                            strncpy(gi->developer, str, sizeof(gi->developer) - 1);
-                        if (configGetStr(old, "Description", &str))
-                            strncpy(gi->description, str, sizeof(gi->description) - 1);
-
-                        configGetInt(old, CONFIG_ITEM_SIZE, &gi->size_mb);
-                        info_loaded = 1;
-                        need_save = 1;
-                    }
-                    if (pgcfg && !cfg_loaded) {
-                        // same migration as wOPLPerGameLoad does internally.. should probably move all migrate code to one file for easy deletion
-                        configGetInt(old, CONFIG_ITEM_COMPAT, &pgcfg->compat);
-                        configGetInt(old, CONFIG_ITEM_DMA, &pgcfg->dma);
-                        configGetInt(old, CONFIG_ITEM_CORE_LOADER, &pgcfg->core_loader);
-                        configGetInt(old, CONFIG_ITEM_CONFIGSOURCE, &pgcfg->config_source);
-                        configGetStrCopy(old, CONFIG_ITEM_DNAS, pgcfg->dnas, sizeof(pgcfg->dnas));
-                        configGetStrCopy(old, CONFIG_ITEM_ALTSTARTUP, pgcfg->alt_startup, sizeof(pgcfg->alt_startup));
-                        configGetVMC(old, pgcfg->vmc1, sizeof(pgcfg->vmc1), 0);
-                        configGetVMC(old, pgcfg->vmc2, sizeof(pgcfg->vmc2), 1);
-#ifdef GSM
-                        configGetInt(old, CONFIG_ITEM_GSMSOURCE, &pgcfg->gsm_source);
-                        configGetInt(old, CONFIG_ITEM_ENABLEGSM, &pgcfg->gsm_enable);
-                        configGetInt(old, CONFIG_ITEM_GSMVMODE, &pgcfg->gsm_vmode);
-                        configGetInt(old, CONFIG_ITEM_GSMXOFFSET, &pgcfg->gsm_xoffset);
-                        configGetInt(old, CONFIG_ITEM_GSMYOFFSET, &pgcfg->gsm_yoffset);
-                        configGetInt(old, CONFIG_ITEM_GSMFIELDFIX, &pgcfg->gsm_fieldfix);
-#endif
-#ifdef CHEAT
-                        configGetInt(old, CONFIG_ITEM_CHEATSSOURCE, &pgcfg->cheat_source);
-                        configGetInt(old, CONFIG_ITEM_ENABLECHEAT, &pgcfg->cheat_enable);
-                        configGetInt(old, CONFIG_ITEM_CHEATMODE, &pgcfg->cheat_mode);
-                        configGetInt(old, CONFIG_ITEM_ENABLEIMAGE, &pgcfg->cheat_enable_image);
-#endif
-#ifdef PADEMU
-                        configGetInt(old, CONFIG_ITEM_PADEMUSOURCE, &pgcfg->pademu_source);
-                        configGetInt(old, CONFIG_ITEM_ENABLEPADEMU, &pgcfg->pademu_enable);
-                        configGetInt(old, CONFIG_ITEM_PADEMUSETTINGS, &pgcfg->pademu_settings);
-                        configGetInt(old, CONFIG_ITEM_PADMACROSOURCE, &pgcfg->padmacro_source);
-                        configGetInt(old, CONFIG_ITEM_PADMACROSETTINGS, &pgcfg->padmacro_settings);
-#endif
-                        configGetInt(old, CONFIG_ITEM_OSD_SETTINGS_SOURCE, &pgcfg->osd_source);
-                        configGetInt(old, CONFIG_ITEM_OSD_SETTINGS_ENABLE, &pgcfg->osd_enable);
-                        configGetInt(old, CONFIG_ITEM_OSD_SETTINGS_LANGID, &pgcfg->osd_langid);
-                        configGetInt(old, CONFIG_ITEM_OSD_SETTINGS_TV_ASP, &pgcfg->osd_tv_aspect);
-                        configGetInt(old, CONFIG_ITEM_OSD_SETTINGS_VMODE, &pgcfg->osd_vmode);
-                        cfg_loaded = 1;
-                        need_save = 1;
-                    }
-                    configClear(old);
-                }
-            }
-            free(buf);
-        }
+        if (cfgMigrateTARGameCfg(startup, gi ? (info_loaded ? NULL : gi) : NULL, pgcfg ? (cfg_loaded ? NULL : pgcfg) : NULL))
+            need_save = 1;
     }
 
     // fill display info from game struct for anything not overridden

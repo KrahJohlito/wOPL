@@ -298,10 +298,8 @@ static int tryAlternateDevice(int types)
 void loadConfig()
 {
     int themeID = -1, langID = -1;
-    const char *temp;
 
-    // Skip CONFIG_OPL & CONFIG_NETWORK.. handled by libconfig below
-    int result = configReadMulti(lscstatus & ~CONFIG_OPL & ~CONFIG_NETWORK);
+    int result = configReadMulti(lscstatus & ~CONFIG_OPL & ~CONFIG_NETWORK & ~CONFIG_GAME);
 
     if (lscstatus & CONFIG_OPL) {
         if (wOPLLoad(&themeID, &langID))
