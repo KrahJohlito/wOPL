@@ -22,7 +22,6 @@
 #include "include/initializer.h"
 #include "include/config_wopl.h"
 #include "include/config_migration.h"
-#include "include/tar.h"
 #include <stdlib.h>
 
 #define NEWLIB_PORT_AWARE

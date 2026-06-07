@@ -198,7 +198,6 @@ static void menuDeleteGame(submenu_list_t **submenu)
 static void _menuLoadConfig()
 {
     WaitSema(menuSemaId);
-
     if (!itemCfgLoaded) {
         item_list_t *list = selected_item->item->userdata;
 
@@ -213,7 +212,6 @@ static void _menuLoadConfig()
 
         itemCfgLoaded = 1;
     }
-
     actionStatus = 0;
     SignalSema(menuSemaId);
 }
@@ -223,7 +221,6 @@ static void _menuSaveConfig()
     int result = 1;
 
     WaitSema(menuSemaId);
-
     item_list_t *list = selected_item->item->userdata;
 
     if (list && list->itemSavePgCfg)
@@ -231,7 +228,6 @@ static void _menuSaveConfig()
 
     itemConfigId = -1; // to invalidate cache and force reload
     itemCfgLoaded = 0;
-
     actionStatus = 0;
     SignalSema(menuSemaId);
 
@@ -242,19 +238,15 @@ static void _menuSaveConfig()
 static void _menuRequestConfig()
 {
     WaitSema(menuSemaId);
-
     if (selected_item->item->current != NULL && itemConfigId != selected_item->item->current->item.id) {
         itemCfgLoaded = 0;
-
         item_list_t *list = selected_item->item->userdata;
-
         if (itemConfigId == -1 || guiInactiveFrames >= list->delay) {
             itemConfigId = selected_item->item->current->item.id;
             ioPutRequest(IO_CUSTOM_SIMPLEACTION, &_menuLoadConfig);
         }
-    } else if (itemCfgLoaded) {
+    } else if (itemCfgLoaded)
         actionStatus = 0;
-    }
 
     SignalSema(menuSemaId);
 }
@@ -264,9 +256,7 @@ per_game_cfg_t *menuLoadConfig()
     actionStatus = 1;
     itemConfigId = -1;
     itemCfgLoaded = 0;
-
     guiHandleDeferedIO(&actionStatus, _l(_STR_LOADING_SETTINGS), IO_CUSTOM_SIMPLEACTION, &_menuRequestConfig);
-
     return &itemPgCfg;
 }
 
@@ -276,9 +266,7 @@ per_game_cfg_t *gameMenuLoadConfig(struct UIItem *ui)
     actionStatus = 1;
     itemConfigId = -1;
     itemCfgLoaded = 0;
-
     guiGameHandleDeferedIO(&actionStatus, ui, IO_CUSTOM_SIMPLEACTION, &_menuRequestConfig);
-
     return &itemPgCfg;
 }
 
@@ -1076,7 +1064,6 @@ static void menuRenderElements(theme_element_t *elem)
 
         elem = elem->next;
     }
-
     SignalSema(menuSemaId);
 }
 
