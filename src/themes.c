@@ -213,7 +213,7 @@ static void endMutableText(theme_element_t *elem)
 static mutable_text_t *initMutableText(const char *themePath, config_set_t *themeConfig, theme_t *theme, const char *name, int type, struct theme_element *elem, const char *value, const char *alias, int displayMode, int sizingMode)
 {
     mutable_text_t *mutableText = (mutable_text_t *)malloc(sizeof(mutable_text_t));
-    mutableText->currentConfigId = -1;
+    mutableText->currentConfigId = 0;
     mutableText->currentValue = NULL;
     mutableText->alias = NULL;
 
@@ -617,7 +617,7 @@ static mutable_image_t *initMutableImage(const char *themePath, config_set_t *th
 {
     mutable_image_t *mutableImage = (mutable_image_t *)malloc(sizeof(mutable_image_t));
     mutableImage->currentUid = -1;
-    mutableImage->currentConfigId = -1;
+    mutableImage->currentConfigId = 0;
     mutableImage->currentValue = NULL;
     mutableImage->cache = NULL;
     mutableImage->cacheLinked = 0;

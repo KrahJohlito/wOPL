@@ -62,9 +62,10 @@ static menu_list_t *selected_item;
 
 static int actionStatus;
 static int itemConfigId;
-static game_info_t itemGameInfo; // display metadata only.. fed to drawElem for info/main page rendering
-static per_game_cfg_t itemPgCfg; // per game settings.. fed to game settings dialogs
-static int itemPgCfgLoaded = 0;
+
+static game_info_t itemGameInfo;
+static per_game_cfg_t itemPgCfg;
+static int itemCfgLoaded;
 
 static u8 parentalLockCheckEnabled = 1;
 
@@ -197,15 +198,22 @@ static void menuDeleteGame(submenu_list_t **submenu)
 static void _menuLoadConfig()
 {
     WaitSema(menuSemaId);
-    if (!itemPgCfgLoaded) {
+
+    if (!itemCfgLoaded) {
         item_list_t *list = selected_item->item->userdata;
-        LOG("_menuLoadConfig: calling itemGetInfo for id %d\n", itemConfigId);
-        list->itemGetInfo(list, itemConfigId, &itemGameInfo);
-        LOG("_menuLoadConfig: calling itemGetPgCfg\n");
-        list->itemGetPgCfg(list, itemConfigId, &itemPgCfg);
-        LOG("_menuLoadConfig: done\n");
-        itemPgCfgLoaded = 1;
+
+        memset(&itemGameInfo, 0, sizeof(itemGameInfo));
+        memset(&itemPgCfg, 0, sizeof(itemPgCfg));
+
+        if (list->itemGetInfo)
+            list->itemGetInfo(list, itemConfigId, &itemGameInfo);
+
+        if (list->itemGetPgCfg)
+            list->itemGetPgCfg(list, itemConfigId, &itemPgCfg);
+
+        itemCfgLoaded = 1;
     }
+
     actionStatus = 0;
     SignalSema(menuSemaId);
 }
@@ -215,10 +223,15 @@ static void _menuSaveConfig()
     int result = 1;
 
     WaitSema(menuSemaId);
+
     item_list_t *list = selected_item->item->userdata;
-    result = list->itemSavePgCfg(list, itemConfigId, &itemPgCfg);
-    itemConfigId = -1;
-    itemPgCfgLoaded = 0;
+
+    if (list && list->itemSavePgCfg)
+        result = list->itemSavePgCfg(list, itemConfigId, &itemPgCfg);
+
+    itemConfigId = -1; // to invalidate cache and force reload
+    itemCfgLoaded = 0;
+
     actionStatus = 0;
     SignalSema(menuSemaId);
 
@@ -229,15 +242,20 @@ static void _menuSaveConfig()
 static void _menuRequestConfig()
 {
     WaitSema(menuSemaId);
+
     if (selected_item->item->current != NULL && itemConfigId != selected_item->item->current->item.id) {
-        itemPgCfgLoaded = 0;
+        itemCfgLoaded = 0;
+
         item_list_t *list = selected_item->item->userdata;
+
         if (itemConfigId == -1 || guiInactiveFrames >= list->delay) {
             itemConfigId = selected_item->item->current->item.id;
             ioPutRequest(IO_CUSTOM_SIMPLEACTION, &_menuLoadConfig);
         }
-    } else if (itemPgCfgLoaded)
+    } else if (itemCfgLoaded) {
         actionStatus = 0;
+    }
+
     SignalSema(menuSemaId);
 }
 
@@ -245,8 +263,10 @@ per_game_cfg_t *menuLoadConfig()
 {
     actionStatus = 1;
     itemConfigId = -1;
-    itemPgCfgLoaded = 0;
+    itemCfgLoaded = 0;
+
     guiHandleDeferedIO(&actionStatus, _l(_STR_LOADING_SETTINGS), IO_CUSTOM_SIMPLEACTION, &_menuRequestConfig);
+
     return &itemPgCfg;
 }
 
@@ -255,8 +275,10 @@ per_game_cfg_t *gameMenuLoadConfig(struct UIItem *ui)
 {
     actionStatus = 1;
     itemConfigId = -1;
-    itemPgCfgLoaded = 0;
+    itemCfgLoaded = 0;
+
     guiGameHandleDeferedIO(&actionStatus, ui, IO_CUSTOM_SIMPLEACTION, &_menuRequestConfig);
+
     return &itemPgCfg;
 }
 
@@ -343,8 +365,9 @@ void menuInit()
     menu = NULL;
     selected_item = NULL;
     itemConfigId = -1;
+    memset(&itemGameInfo, 0, sizeof(itemGameInfo));
     memset(&itemPgCfg, 0, sizeof(itemPgCfg));
-    itemPgCfgLoaded = 0;
+    itemCfgLoaded = 0;
     mainMenu = NULL;
     mainMenuCurrent = NULL;
     gameMenu = NULL;
@@ -1046,12 +1069,14 @@ static void menuRenderElements(theme_element_t *elem)
     WaitSema(menuSemaId);
 
     render_ctx_t ctx = {&itemGameInfo, &itemPgCfg};
+
     while (elem) {
         if (elem->drawElem)
-            elem->drawElem(selected_item, selected_item->item->current, &ctx, elem);
+            elem->drawElem(selected_item, selected_item->item->current, itemCfgLoaded ? &ctx : NULL, elem);
 
         elem = elem->next;
     }
+
     SignalSema(menuSemaId);
 }
 
@@ -1285,10 +1310,12 @@ void menuHandleInputGameMenu()
         } else if (menuID == GAME_OSD_LANGUAGE_SETTINGS) {
             guiGameShowOSDLanguageConfig(0);
         } else if (menuID == GAME_SAVE_CHANGES) {
-            guiGameSaveConfig(&itemPgCfg, selected_item->item->userdata);
-            itemPgCfg.config_source = CONFIG_SOURCE_USER;
+            if (guiGameSaveConfig(&itemPgCfg, selected_item->item->userdata))
+                itemPgCfg.config_source = CONFIG_SOURCE_USER;
+
             menuSaveConfig();
             wOPLGlobalGameSave();
+
             guiMsgBox(_l(_STR_GAME_SETTINGS_SAVED), 0, NULL);
             guiGameLoadConfig(selected_item->item->userdata, gameMenuLoadConfig(NULL));
         } else if (menuID == GAME_TEST_CHANGES) {
@@ -1443,10 +1470,8 @@ static void updateMenuFromGameList(opl_io_module_t *mdl)
     menuClearGameList(mdl);
 
     const char *temp = NULL;
-    if (gRememberLastPlayed) {
-        wOPLLastLoad();
-        temp = wOPLLastGet();
-    }
+    if (gRememberLastPlayed)
+        configGetStr(configGetByType(CONFIG_LAST), "last_played", &temp);
 
     // refresh device icon and text (for bdm)
     mdl->menuItem.icon_id = mdl->support->itemIconId(mdl->support);
