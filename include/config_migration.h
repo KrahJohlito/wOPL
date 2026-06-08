@@ -10,6 +10,7 @@ int cfgMigrateLegacyGlobalGame(const char *path);
 int cfgMigrateLegacyPerGame(const char *path, per_game_cfg_t *cfg);
 int cfgMigrateLegacyGameInfo(const char *path, game_info_t *gi);
 int cfgMigrateLegacyAppTitleCfg(const char *path);
+int cfgMigrateLegacyTheme(const char *path);
 
 // Returns 1 if anything was loaded from TAR.. 0 if nothing found
 // gi and/or pgcfg may be NULL if caller only needs one of them

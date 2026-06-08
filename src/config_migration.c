@@ -426,3 +426,95 @@ int cfgMigrateLegacyAppTitleCfg(const char *path)
     config_destroy(&lcfg);
     return 1;
 }
+
+int cfgMigrateLegacyTheme(const char *path)
+{
+    FILE *f = fopen(path, "r");
+    if (!f)
+        return 0;
+    fseek(f, 0, SEEK_END);
+    long sz = ftell(f);
+    rewind(f);
+    char *buf = malloc(sz);
+    if (!buf) {
+        fclose(f);
+        return 0;
+    }
+    fread(buf, 1, sz, f);
+    fclose(f);
+
+    config_t cfg;
+    config_init(&cfg);
+    config_setting_t *root = config_root_setting(&cfg);
+    config_setting_t *section = NULL;
+    const char *p = buf;
+    const char *end = buf + sz;
+
+    while (p < end) {
+        const char *lend = p;
+        while (lend < end && *lend != '\n')
+            lend++;
+        int len = (int)(lend - p);
+        char line[512];
+        if (len >= (int)sizeof(line))
+            len = sizeof(line) - 1;
+        memcpy(line, p, len);
+        while (len > 0 && (line[len - 1] == '\r' || line[len - 1] == '\n'))
+            len--;
+        line[len] = '\0';
+        p = (lend < end) ? lend + 1 : end;
+
+        if (!line[0] || line[0] == '#')
+            continue;
+
+        if (line[0] == '\t') {
+            if (!section)
+                continue;
+            char *eq = strchr(line + 1, '=');
+            if (!eq)
+                continue;
+            *eq = '\0';
+            char *key = line + 1;
+            char *val = eq + 1;
+            char *endp;
+            long ival = strtol(val, &endp, 10);
+            if (endp != val && *endp == '\0') {
+                config_setting_t *s = config_setting_add(section, key, CONFIG_TYPE_INT);
+                if (s)
+                    config_setting_set_int(s, (int)ival);
+            } else {
+                config_setting_t *s = config_setting_add(section, key, CONFIG_TYPE_STRING);
+                if (s)
+                    config_setting_set_string(s, val);
+            }
+        } else {
+            if (len > 0 && line[len - 1] == ':') {
+                line[len - 1] = '\0';
+                section = config_setting_add(root, line, CONFIG_TYPE_GROUP);
+            } else {
+                char *eq = strchr(line, '=');
+                if (!eq)
+                    continue;
+                *eq = '\0';
+                char *key = line;
+                char *val = eq + 1;
+                char *endp;
+                long ival = strtol(val, &endp, 10);
+                if (endp != val && *endp == '\0') {
+                    config_setting_t *s = config_setting_add(root, key, CONFIG_TYPE_INT);
+                    if (s)
+                        config_setting_set_int(s, (int)ival);
+                } else {
+                    config_setting_t *s = config_setting_add(root, key, CONFIG_TYPE_STRING);
+                    if (s)
+                        config_setting_set_string(s, val);
+                }
+            }
+        }
+    }
+
+    free(buf);
+    config_write_file(&cfg, path);
+    config_destroy(&cfg);
+    return 1;
+}
