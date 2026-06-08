@@ -12,6 +12,7 @@
 #include "include/supportbase.h"
 #include "include/module.h"
 #include "include/guigame.h"
+#include "include/config_wopl.h"
 #include "include/config_migration.h"
 #include <libconfig.h>
 #include <stdio.h>
@@ -96,7 +97,6 @@ static const char *elementsType[ELEM_TYPE_COUNT] = {
 static const char *gameInfoGetAttr(const game_info_t *gi, const per_game_cfg_t *pg, const char *attr)
 {
     static char s_size[16], s_players[4], s_rating[4];
-    static char s_gsm[16], s_cheat[16], s_pademu[16];
     static char s_compat[12], s_dma[8];
 
     if (!attr)
@@ -810,6 +810,22 @@ static void initAttributeImage(const char *themePath, config_t *themeConfig, the
 }
 
 // BasicElement /////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+static int thmGetColorSetting(config_t *cfg, const char *key, unsigned char *color)
+{
+    const char *str;
+    unsigned int r, g, b;
+    if (!config_lookup_string(cfg, key, &str))
+        return 0;
+    if (str[0] != '#' || strlen(str) < 7)
+        return 0;
+    if (sscanf(str + 1, "%02X%02X%02X", &r, &g, &b) != 3)
+        return 0;
+    color[0] = (unsigned char)r;
+    color[1] = (unsigned char)g;
+    color[2] = (unsigned char)b;
+    return 1;
+}
 
 static void endBasic(theme_element_t *elem)
 {
@@ -1608,22 +1624,6 @@ static void thmSetColors(theme_t *theme)
             elem->color = theme->textColor;
         elem = elem->next;
     }
-}
-
-static int thmGetColorSetting(config_t *cfg, const char *key, unsigned char *color)
-{
-    const char *str;
-    unsigned int r, g, b;
-    if (!config_lookup_string(cfg, key, &str))
-        return 0;
-    if (str[0] != '#' || strlen(str) < 7)
-        return 0;
-    if (sscanf(str + 1, "%02X%02X%02X", &r, &g, &b) != 3)
-        return 0;
-    color[0] = (unsigned char)r;
-    color[1] = (unsigned char)g;
-    color[2] = (unsigned char)b;
-    return 1;
 }
 
 static void thmLoadFonts(config_t *themeConfig, const char *themePath, theme_t *theme)
