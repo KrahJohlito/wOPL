@@ -50,12 +50,12 @@ static char s_theme_name[128] = {0};
 
 global_game_cfg_t gGlobalGameCfg = {0};
 
-int gBDMFramesDelay = 0;
-int gETHFramesDelay = 0;
-int gHDDFramesDelay = 0;
-int gMMCEFramesDelay = 0;
-int gAPPFramesDelay = 0;
-int gFAVFramesDelay = 0;
+int gBDMFramesDelay = MENU_MIN_INACTIVE_FRAMES;
+int gETHFramesDelay = MENU_MIN_INACTIVE_FRAMES;
+int gHDDFramesDelay = MENU_MIN_INACTIVE_FRAMES;
+int gMMCEFramesDelay = MENU_MIN_INACTIVE_FRAMES;
+int gAPPFramesDelay = MENU_MIN_INACTIVE_FRAMES;
+int gFAVFramesDelay = MENU_MIN_INACTIVE_FRAMES;
 
 // ---------------------------------------------------------------------------
 // Shared helpers
@@ -227,6 +227,22 @@ static int file_exists(const char *path)
 
     fclose(fd);
     return 1;
+}
+
+static void sanitize_frame_delays(void)
+{
+    if (gBDMFramesDelay <= 0)
+        gBDMFramesDelay = MENU_MIN_INACTIVE_FRAMES;
+    if (gETHFramesDelay <= 0)
+        gETHFramesDelay = MENU_MIN_INACTIVE_FRAMES;
+    if (gHDDFramesDelay <= 0)
+        gHDDFramesDelay = MENU_MIN_INACTIVE_FRAMES;
+    if (gMMCEFramesDelay <= 0)
+        gMMCEFramesDelay = MENU_MIN_INACTIVE_FRAMES;
+    if (gAPPFramesDelay <= 0)
+        gAPPFramesDelay = MENU_MIN_INACTIVE_FRAMES;
+    if (gFAVFramesDelay <= 0)
+        gFAVFramesDelay = MENU_MIN_INACTIVE_FRAMES;
 }
 
 static int probe_config_path(const char *filename, char *dir_out, size_t dir_len, char *path_out, size_t path_len, int for_write)
@@ -604,6 +620,8 @@ static void parse_opl_cfg(config_t *cfg, int *out_theme_id, int *out_lang_id)
     parse_mmce(cfg);
     parse_debug(cfg);
     parse_coverflow(cfg);
+
+    sanitize_frame_delays();
 }
 
 int wOPLLoad(int *out_theme_id, int *out_lang_id)
