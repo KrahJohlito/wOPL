@@ -159,8 +159,7 @@ static int appScanCallback(const char *path, config_t *appConfig, void *arg)
     struct app_info_linked *app;
     const char *title = NULL, *boot = NULL, *argv1 = NULL;
 
-    if (config_lookup_string(appConfig, "title", &title) == CONFIG_TRUE
-        && config_lookup_string(appConfig, "boot", &boot) == CONFIG_TRUE) {
+    if (config_lookup_string(appConfig, "title", &title) == CONFIG_TRUE && config_lookup_string(appConfig, "boot", &boot) == CONFIG_TRUE) {
         if (*appsLinkedList == NULL) {
             *appsLinkedList = malloc(sizeof(struct app_info_linked));
             app = *appsLinkedList;

@@ -412,8 +412,7 @@ int cfgMigrateLegacyAppTitleCfg(const char *path)
         "title", "boot", "argv1",
         "Title", "Description", "Developer",
         "Version", "Release", "Package", "Source",
-        NULL
-    };
+        NULL};
     const char *value;
     for (int f = 0; fields[f]; f++) {
         if (configGetStr(old, fields[f], &value)) {
