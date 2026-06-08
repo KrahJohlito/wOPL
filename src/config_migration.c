@@ -394,3 +394,36 @@ int cfgMigrateTARGameCfg(const char *startup, game_info_t *gi, per_game_cfg_t *p
     free(buf);
     return loaded;
 }
+
+int cfgMigrateLegacyAppTitleCfg(const char *path)
+{
+    config_set_t tmp;
+    config_set_t *old = configAlloc(0, &tmp, (char *)path);
+    if (!configRead(old)) {
+        configClear(old);
+        return 0;
+    }
+
+    config_t lcfg;
+    config_init(&lcfg);
+    config_setting_t *root = config_root_setting(&lcfg);
+
+    const char *fields[] = {
+        "title", "boot", "argv1",
+        "Title", "Description", "Developer",
+        "Version", "Release", "Package", "Source",
+        NULL
+    };
+    const char *value;
+    for (int f = 0; fields[f]; f++) {
+        if (configGetStr(old, fields[f], &value)) {
+            config_setting_t *s = config_setting_add(root, fields[f], CONFIG_TYPE_STRING);
+            if (s)
+                config_setting_set_string(s, value);
+        }
+    }
+    configClear(old);
+    config_write_file(&lcfg, path);
+    config_destroy(&lcfg);
+    return 1;
+}
