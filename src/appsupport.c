@@ -62,7 +62,7 @@ unsigned char shouldAppsUpdate;
 
 static void appFreeList(void);
 
-static int oplScanApps(int (*callback)(const char *path, config_set_t *appConfig, void *arg), void *arg);
+static int oplScanApps(int (*callback)(const char *path, config_t *appConfig, void *arg), void *arg);
 
 static int oplGetAppImage(const char *device, char *folder, int isRelative, char *value, char *suffix, GSTEXTURE *resultTex, short psm);
 static int oplShouldAppsUpdate(void);
@@ -361,14 +361,9 @@ static void appGetPgCfg(item_list_t *itemList, int id, per_game_cfg_t *cfg)
     cfg->dma = 7;
     strcpy(cfg->format, "ELF");
     strcpy(cfg->media, "APP");
-    if (appsList[id].legacy) {
-        struct config_kv_t *cur = appGetConfigValue(id);
-        cfg->size_mb = (int)appGetELFSize(cur->val);
-    } else {
-        char path[256];
-        snprintf(path, sizeof(path), "%s/%s", appsList[id].path, appsList[id].boot);
-        cfg->size_mb = (int)appGetELFSize(path);
-    }
+    char path[256];
+    snprintf(path, sizeof(path), "%s/%s", appsList[id].path, appsList[id].boot);
+    cfg->size_mb = (int)appGetELFSize(path);
 }
 
 static int appSavePgCfg(item_list_t *itemList, int id, const per_game_cfg_t *cfg)
