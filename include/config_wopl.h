@@ -1,6 +1,13 @@
 #ifndef CONFIG_WOPL_H
 #define CONFIG_WOPL_H
 
+extern int gBDMFramesDelay;
+extern int gETHFramesDelay;
+extern int gHDDFramesDelay;
+extern int gMMCEFramesDelay;
+extern int gAPPFramesDelay;
+extern int gFAVFramesDelay;
+
 void dnas_to_binary(const char *dnas, char *out, int out_size);
 
 int wOPLLoad(int *out_theme_id, int *out_lang_id);
