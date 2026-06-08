@@ -50,12 +50,12 @@ static char s_theme_name[128] = {0};
 
 global_game_cfg_t gGlobalGameCfg = {0};
 
-int gBDMFramesDelay  = 0;
-int gETHFramesDelay  = 0;
-int gHDDFramesDelay  = 0;
+int gBDMFramesDelay = 0;
+int gETHFramesDelay = 0;
+int gHDDFramesDelay = 0;
 int gMMCEFramesDelay = 0;
-int gAPPFramesDelay  = 0;
-int gFAVFramesDelay  = 0;
+int gAPPFramesDelay = 0;
+int gFAVFramesDelay = 0;
 
 // ---------------------------------------------------------------------------
 // Shared helpers
