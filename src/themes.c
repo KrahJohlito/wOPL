@@ -1853,6 +1853,10 @@ static void thmLoad(const char *themePath, int themeID)
     for (i = L1_ICON; i <= R3_ICON; i++)
         thmLoadResource(&newT->textures[i], i, NULL, GS_PSM_CT32, 1); */
 
+    if (!themePath)
+        for (i = ELF_FORMAT; i <= VMODE_PAL; i++)
+            thmLoadResource(&newT->textures[i], i, NULL, GS_PSM_CT32, 1);
+
     if (themePath) {
         if (config_lookup_int(&themeConfig, "use_settings_bg", &intValue)) {
             if (intValue)
