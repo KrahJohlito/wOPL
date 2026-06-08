@@ -7,6 +7,7 @@
 #include "include/ioman.h"
 #include "include/util.h"
 #include "include/module.h"
+#include "include/config_wopl.h"
 #include "include/config_migration.h"
 
 #include "include/bdmsupport.h"
@@ -68,19 +69,6 @@ static int oplGetAppImage(const char *device, char *folder, int isRelative, char
 static int oplShouldAppsUpdate(void);
 static int oplPath2Mode(const char *path);
 
-static char *appGetELFName(char *name)
-{
-    // Looking for the ELF name
-    char *pos = strrchr(name, '/');
-    if (!pos)
-        pos = strrchr(name, ':');
-    if (pos) {
-        return pos + 1;
-    }
-
-    return name;
-}
-
 static float appGetELFSize(char *path)
 {
     int fd, size;
@@ -128,7 +116,7 @@ static void appInit(item_list_t *itemList)
 {
     LOG("APPSUPPORT Init\n");
     appForceUpdate = 1;
-    configGetInt(configGetByType(CONFIG_OPL), "app_frames_delay", &appItemList.delay);
+    appItemList.delay = gAPPFramesDelay;
     appsList = NULL;
     appItemList.enabled = 1;
 }

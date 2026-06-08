@@ -25,7 +25,7 @@ void menuClearGameList(opl_io_module_t *mdl);
 void favInit(item_list_t *itemList)
 {
     LOG("FAVSUPPORT Init\n");
-    configGetInt(configGetByType(CONFIG_OPL), "fav_frames_delay", &favItemList.delay);
+    favItemList.delay = gFAVFramesDelay;
     favItemList.enabled = 1;
     itemList->enabled = 1;
 }
