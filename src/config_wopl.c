@@ -221,38 +221,6 @@ static int file_exists(const char *path)
     return 1;
 }
 
-static int ensure_mc_dir(const char *dir)
-{
-    struct stat st;
-    if (stat(dir, &st) == 0)
-        return 1;
-
-    return mkdir(dir, 0777) == 0 || errno == EEXIST;
-}
-
-static int ensure_config_dir(void)
-{
-    char dir[128];
-    char path[256];
-
-    if (config_dir[0])
-        return 1;
-
-    if (probe_config_path(WOPL_FILENAME, dir, sizeof(dir), path, sizeof(path), 0) ||
-        probe_config_path(WOPL_FILENAME_OLD, dir, sizeof(dir), path, sizeof(path), 0) ||
-        probe_config_path(NET_FILENAME, dir, sizeof(dir), path, sizeof(path), 0) ||
-        probe_config_path(NET_FILENAME_OLD, dir, sizeof(dir), path, sizeof(path), 0) ||
-        probe_config_path(GAME_FILENAME, dir, sizeof(dir), path, sizeof(path), 0) ||
-        probe_config_path(GAME_FILENAME_OLD, dir, sizeof(dir), path, sizeof(path), 0)) {
-        strncpy(config_dir, dir, sizeof(config_dir) - 1);
-        config_dir[sizeof(config_dir) - 1] = '\0';
-
-        return 1;
-    }
-
-    return 0;
-}
-
 static int probe_config_path(const char *filename, char *dir_out, size_t dir_len, char *path_out, size_t path_len, int for_write)
 {
     char dir[128];
@@ -301,6 +269,38 @@ static int probe_config_path(const char *filename, char *dir_out, size_t dir_len
 
             return 1;
         }
+    }
+
+    return 0;
+}
+
+static int ensure_mc_dir(const char *dir)
+{
+    struct stat st;
+    if (stat(dir, &st) == 0)
+        return 1;
+
+    return mkdir(dir, 0777) == 0 || errno == EEXIST;
+}
+
+static int ensure_config_dir(void)
+{
+    char dir[128];
+    char path[256];
+
+    if (config_dir[0])
+        return 1;
+
+    if (probe_config_path(WOPL_FILENAME, dir, sizeof(dir), path, sizeof(path), 0) ||
+        probe_config_path(WOPL_FILENAME_OLD, dir, sizeof(dir), path, sizeof(path), 0) ||
+        probe_config_path(NET_FILENAME, dir, sizeof(dir), path, sizeof(path), 0) ||
+        probe_config_path(NET_FILENAME_OLD, dir, sizeof(dir), path, sizeof(path), 0) ||
+        probe_config_path(GAME_FILENAME, dir, sizeof(dir), path, sizeof(path), 0) ||
+        probe_config_path(GAME_FILENAME_OLD, dir, sizeof(dir), path, sizeof(path), 0)) {
+        strncpy(config_dir, dir, sizeof(config_dir) - 1);
+        config_dir[sizeof(config_dir) - 1] = '\0';
+
+        return 1;
     }
 
     return 0;
