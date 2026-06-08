@@ -35,6 +35,7 @@
 
 static char config_dir[128] = {0};
 static char last_played[256] = {0};
+static char s_theme_name[128] = {0};
 
 global_game_cfg_t gGlobalGameCfg = {0};
 
@@ -383,8 +384,11 @@ static void parse_display(config_t *cfg)
 static void parse_ui(config_t *cfg, int *out_theme_id, int *out_lang_id)
 {
     const char *theme_name = lookup_str(cfg, "ui.theme", NULL);
-    if (theme_name && out_theme_id)
-        *out_theme_id = thmFindGuiID(theme_name);
+    if (theme_name) {
+        strncpy(s_theme_name, theme_name, sizeof(s_theme_name) - 1);
+        if (out_theme_id)
+            *out_theme_id = thmFindGuiID(theme_name);
+    }
 
     const char *lang_name = lookup_str(cfg, "ui.language", NULL);
     if (lang_name && out_lang_id)
@@ -1192,4 +1196,9 @@ int wOPLGameInfoSave(const char *path, const game_info_t *gi)
     config_destroy(&cfg);
 
     return ok;
+}
+
+const char *wOPLGetThemeName(void)
+{
+    return s_theme_name[0] ? s_theme_name : NULL;
 }

@@ -6,6 +6,7 @@ void dnas_to_binary(const char *dnas, char *out, int out_size);
 int wOPLLoad(int *out_theme_id, int *out_lang_id);
 int wOPLSave(void);
 const char *wOPLGetDir(void);
+const char *wOPLGetThemeName(void);
 
 int wOPLNetLoad(void);
 int wOPLNetSave(void);
