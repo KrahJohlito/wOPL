@@ -7,6 +7,7 @@
 #include "include/ioman.h"
 #include "include/util.h"
 #include "include/module.h"
+#include "include/config_wopl.h"
 #include "include/config_migration.h"
 
 #include "include/bdmsupport.h"
@@ -67,19 +68,6 @@ static int oplScanApps(int (*callback)(const char *path, config_t *appConfig, vo
 static int oplGetAppImage(const char *device, char *folder, int isRelative, char *value, char *suffix, GSTEXTURE *resultTex, short psm);
 static int oplShouldAppsUpdate(void);
 static int oplPath2Mode(const char *path);
-
-static char *appGetELFName(char *name)
-{
-    // Looking for the ELF name
-    char *pos = strrchr(name, '/');
-    if (!pos)
-        pos = strrchr(name, ':');
-    if (pos) {
-        return pos + 1;
-    }
-
-    return name;
-}
 
 static float appGetELFSize(char *path)
 {
