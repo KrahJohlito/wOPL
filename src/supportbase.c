@@ -1277,8 +1277,10 @@ void sbPopulateConfig(base_game_info_t *game, const char *prefix, const char *se
         }
 
         // fill for display.. don't save
-        if (!gi->title[0])
+        if (!gi->title[0]) {
             strncpy(gi->title, game->name, sizeof(gi->title) - 1);
+            gi->title[sizeof(gi->title) - 1] = '\0';
+        }
 
         if (!gi->serial[0] && game->startup[0]) {
             char *dst = gi->serial;

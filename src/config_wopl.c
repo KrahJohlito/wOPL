@@ -33,11 +33,6 @@
 #include "include/cheatman.h"
 #endif
 
-static char config_dir[128] = {0};
-static char last_played[256] = {0};
-
-global_game_cfg_t gGlobalGameCfg = {0};
-
 #define WOPL_FILENAME     "wopl_settings.cfg"
 #define WOPL_FILENAME_OLD "conf_wopl.cfg"
 
@@ -49,12 +44,25 @@ global_game_cfg_t gGlobalGameCfg = {0};
 
 #define LAST_FILENAME "wopl_last_played.cfg"
 
+static char config_dir[128] = {0};
+static char last_played[256] = {0};
+static char s_theme_name[128] = {0};
+
+global_game_cfg_t gGlobalGameCfg = {0};
+
+int gBDMFramesDelay = MENU_MIN_INACTIVE_FRAMES;
+int gETHFramesDelay = MENU_MIN_INACTIVE_FRAMES;
+int gHDDFramesDelay = MENU_MIN_INACTIVE_FRAMES;
+int gMMCEFramesDelay = MENU_MIN_INACTIVE_FRAMES;
+int gAPPFramesDelay = MENU_MIN_INACTIVE_FRAMES;
+int gFAVFramesDelay = MENU_MIN_INACTIVE_FRAMES;
+
 // ---------------------------------------------------------------------------
 // Shared helpers
 // ---------------------------------------------------------------------------
 
 // Only log actual syntax/parse errors, not missing files (FILE_IO is normal.. no cfg yet)
-static void log_config_error(const char *path, const config_t *cfg)
+/*static void log_config_error(const char *path, const config_t *cfg)
 {
     if (config_error_type(cfg) != CONFIG_ERR_PARSE)
         return;
@@ -64,11 +72,9 @@ static void log_config_error(const char *path, const config_t *cfg)
     // Derive log directory from config_dir if set.. else from the file's own path
     char log_dir[256];
     if (config_dir[0]) {
-        strncpy(log_dir, config_dir, sizeof(log_dir) - 1);
-        log_dir[sizeof(log_dir) - 1] = '\0';
+        copy_str(log_dir, config_dir, sizeof(log_dir));
     } else {
-        strncpy(log_dir, path, sizeof(log_dir) - 1);
-        log_dir[sizeof(log_dir) - 1] = '\0';
+        copy_str(log_dir, path, sizeof(log_dir));
         char *sep = strrchr(log_dir, '/');
         if (!sep)
             sep = strrchr(log_dir, '\\');
@@ -91,19 +97,20 @@ static void log_config_error(const char *path, const config_t *cfg)
     fprintf(f, "[%s] line %d: %s\n", path, config_error_line(cfg), config_error_text(cfg));
 
     fclose(f);
-}
+}*/
 
 void dnas_to_binary(const char *dnas, char *out, int out_size)
 {
     memset(out, 0, out_size);
     if (!dnas || !dnas[0])
         return;
+
     const char *s = dnas;
     for (int i = 0; i < out_size && s[0] && s[1]; i++, s += 2) {
-        int hi = s[0] >= 'a' ? s[0] - 'a' + 10 : s[0] >= 'A' ? s[0] - 'A' + 10 :
-                                                               s[0] - '0';
-        int lo = s[1] >= 'a' ? s[1] - 'a' + 10 : s[1] >= 'A' ? s[1] - 'A' + 10 :
-                                                               s[1] - '0';
+        int hi = fromHex(s[0]);
+        int lo = fromHex(s[1]);
+        if (hi < 0 || lo < 0)
+            return;
         out[i] = (hi << 4) | lo;
     }
 }
@@ -221,6 +228,40 @@ static int file_exists(const char *path)
     return 1;
 }
 
+static void copy_str(char *dst, const char *src, size_t size)
+{
+    if (!size)
+        return;
+
+    strncpy(dst, src, size - 1);
+    dst[size - 1] = '\0';
+}
+
+static void sanitize_frame_delays(void)
+{
+    if (gBDMFramesDelay <= 0)
+        gBDMFramesDelay = MENU_MIN_INACTIVE_FRAMES;
+    if (gETHFramesDelay <= 0)
+        gETHFramesDelay = MENU_MIN_INACTIVE_FRAMES;
+    if (gHDDFramesDelay <= 0)
+        gHDDFramesDelay = MENU_MIN_INACTIVE_FRAMES;
+    if (gMMCEFramesDelay <= 0)
+        gMMCEFramesDelay = MENU_MIN_INACTIVE_FRAMES;
+    if (gAPPFramesDelay <= 0)
+        gAPPFramesDelay = MENU_MIN_INACTIVE_FRAMES;
+    if (gFAVFramesDelay <= 0)
+        gFAVFramesDelay = MENU_MIN_INACTIVE_FRAMES;
+}
+
+static void sanitize_pad_sensitivity(void)
+{
+    if (gXSensitivity < 0 || gXSensitivity > 2)
+        gXSensitivity = 0;
+
+    if (gYSensitivity < 0 || gYSensitivity > 2)
+        gYSensitivity = 0;
+}
+
 static int probe_config_path(const char *filename, char *dir_out, size_t dir_len, char *path_out, size_t path_len, int for_write)
 {
     char dir[128];
@@ -232,11 +273,9 @@ static int probe_config_path(const char *filename, char *dir_out, size_t dir_len
         snprintf(dir, sizeof(dir), "mc%d:wOPL/", mc & 1);
         snprintf(path, sizeof(path), "%s%s", dir, filename);
         if (for_write || file_exists(path)) {
-            strncpy(dir_out, dir, dir_len - 1);
-            dir_out[dir_len - 1] = '\0';
+            copy_str(dir_out, dir, dir_len);
 
-            strncpy(path_out, path, path_len - 1);
-            path_out[path_len - 1] = '\0';
+            copy_str(path_out, path, path_len);
 
             return 1;
         }
@@ -247,11 +286,9 @@ static int probe_config_path(const char *filename, char *dir_out, size_t dir_len
     for (int i = 0; mass_dirs[i]; i++) {
         snprintf(path, sizeof(path), "%s%s", mass_dirs[i], filename);
         if (for_write || file_exists(path)) {
-            strncpy(dir_out, mass_dirs[i], dir_len - 1);
-            dir_out[dir_len - 1] = '\0';
+            copy_str(dir_out, mass_dirs[i], dir_len);
 
-            strncpy(path_out, path, path_len - 1);
-            path_out[path_len - 1] = '\0';
+            copy_str(path_out, path, path_len);
 
             return 1;
         }
@@ -261,11 +298,9 @@ static int probe_config_path(const char *filename, char *dir_out, size_t dir_len
     if (gHDDPrefix && gHDDPrefix[0]) {
         snprintf(path, sizeof(path), "%s%s", gHDDPrefix, filename);
         if (for_write || file_exists(path)) {
-            strncpy(dir_out, gHDDPrefix, dir_len - 1);
-            dir_out[dir_len - 1] = '\0';
+            copy_str(dir_out, gHDDPrefix, dir_len);
 
-            strncpy(path_out, path, path_len - 1);
-            path_out[path_len - 1] = '\0';
+            copy_str(path_out, path, path_len);
 
             return 1;
         }
@@ -297,8 +332,7 @@ static int ensure_config_dir(void)
         probe_config_path(NET_FILENAME_OLD, dir, sizeof(dir), path, sizeof(path), 0) ||
         probe_config_path(GAME_FILENAME, dir, sizeof(dir), path, sizeof(path), 0) ||
         probe_config_path(GAME_FILENAME_OLD, dir, sizeof(dir), path, sizeof(path), 0)) {
-        strncpy(config_dir, dir, sizeof(config_dir) - 1);
-        config_dir[sizeof(config_dir) - 1] = '\0';
+        copy_str(config_dir, dir, sizeof(config_dir));
 
         return 1;
     }
@@ -312,8 +346,7 @@ static int do_save(const char *filename, void (*build)(config_setting_t *))
     char path[256];
 
     if (config_dir[0]) {
-        strncpy(dir, config_dir, 127);
-        dir[127] = '\0';
+        copy_str(dir, config_dir, 127);
         snprintf(path, sizeof(path), "%s%s", dir, filename);
     } else {
         if (!probe_config_path(filename, dir, sizeof(dir), path, sizeof(path), 1))
@@ -322,8 +355,7 @@ static int do_save(const char *filename, void (*build)(config_setting_t *))
 
     if (!strncmp(dir, "mc", 2)) {
         char mc_dir[128];
-        strncpy(mc_dir, dir, sizeof(mc_dir) - 1);
-        mc_dir[sizeof(mc_dir) - 1] = '\0';
+        copy_str(mc_dir, dir, sizeof(mc_dir));
         size_t len = strlen(mc_dir);
         if (len > 0 && mc_dir[len - 1] == '/')
             mc_dir[len - 1] = '\0';
@@ -347,8 +379,7 @@ static int do_save(const char *filename, void (*build)(config_setting_t *))
         return 0;
     }
 
-    strncpy(config_dir, dir, 127);
-    config_dir[sizeof(config_dir) - 1] = '\0';
+    copy_str(config_dir, dir, 127);
 
     LOG("CONFIG: saved to '%s'\n", path);
     return 1;
@@ -383,8 +414,11 @@ static void parse_display(config_t *cfg)
 static void parse_ui(config_t *cfg, int *out_theme_id, int *out_lang_id)
 {
     const char *theme_name = lookup_str(cfg, "ui.theme", NULL);
-    if (theme_name && out_theme_id)
-        *out_theme_id = thmFindGuiID(theme_name);
+    if (theme_name) {
+        copy_str(s_theme_name, theme_name, sizeof(s_theme_name));
+        if (out_theme_id)
+            *out_theme_id = thmFindGuiID(theme_name);
+    }
 
     const char *lang_name = lookup_str(cfg, "ui.language", NULL);
     if (lang_name && out_lang_id)
@@ -408,7 +442,7 @@ static void parse_audio(config_t *cfg)
 
     const char *path = lookup_str(cfg, "audio.bgm_path", NULL);
     if (path)
-        strncpy(gDefaultBGMPath, path, sizeof(gDefaultBGMPath) - 1);
+        copy_str(gDefaultBGMPath, path, sizeof(gDefaultBGMPath));
 }
 
 static void parse_startup(config_t *cfg)
@@ -427,7 +461,7 @@ static void parse_startup(config_t *cfg)
 
     const char *path = lookup_str(cfg, "startup.exit_path", NULL);
     if (path)
-        strncpy(gExitPath, path, sizeof(gExitPath) - 1);
+        copy_str(gExitPath, path, sizeof(gExitPath));
 }
 
 static void parse_devices(config_t *cfg)
@@ -448,13 +482,13 @@ static void parse_paths(config_t *cfg)
 {
     const char *path;
     if ((path = lookup_str(cfg, "paths.bdm_prefix", NULL)))
-        strncpy(gBDMPrefix, path, sizeof(gBDMPrefix) - 1);
+        copy_str(gBDMPrefix, path, sizeof(gBDMPrefix));
 
     if ((path = lookup_str(cfg, "paths.eth_prefix", NULL)))
-        strncpy(gETHPrefix, path, sizeof(gETHPrefix) - 1);
+        copy_str(gETHPrefix, path, sizeof(gETHPrefix));
 
     if ((path = lookup_str(cfg, "paths.mmce_prefix", NULL)))
-        strncpy(gMMCEPrefix, path, sizeof(gMMCEPrefix) - 1);
+        copy_str(gMMCEPrefix, path, sizeof(gMMCEPrefix));
 }
 
 static void parse_mmce(config_t *cfg)
@@ -481,6 +515,16 @@ static void parse_coverflow(config_t *cfg)
     gCoverflowCenterScale = lookup_int(cfg, "coverflow.center_scale", gCoverflowCenterScale);
     gCoverflowAnimSpeed = lookup_int(cfg, "coverflow.anim_speed", gCoverflowAnimSpeed);
     gCoverflowDimCovers = lookup_int(cfg, "coverflow.dim_covers", gCoverflowDimCovers);
+}
+
+static void parse_frames_delay(config_t *cfg)
+{
+    gAPPFramesDelay = lookup_int(cfg, "frames_delay.app_frames_delay", gAPPFramesDelay);
+    gFAVFramesDelay = lookup_int(cfg, "frames_delay.fav_frames_delay", gFAVFramesDelay);
+    gBDMFramesDelay = lookup_int(cfg, "frames_delay.bdm_frames_delay", gBDMFramesDelay);
+    gETHFramesDelay = lookup_int(cfg, "frames_delay.eth_frames_delay", gETHFramesDelay);
+    gHDDFramesDelay = lookup_int(cfg, "frames_delay.hdd_frames_delay", gHDDFramesDelay);
+    gMMCEFramesDelay = lookup_int(cfg, "frames_delay.mmce_frames_delay", gMMCEFramesDelay);
 }
 
 static void build_opl(config_setting_t *root)
@@ -568,6 +612,14 @@ static void build_opl(config_setting_t *root)
     set_int(group, "center_scale", gCoverflowCenterScale);
     set_int(group, "anim_speed", gCoverflowAnimSpeed);
     set_int(group, "dim_covers", gCoverflowDimCovers);
+
+    group = add_group(root, "frames_delay");
+    set_int(group, "app_frames_delay", gAPPFramesDelay);
+    set_int(group, "fav_frames_delay", gFAVFramesDelay);
+    set_int(group, "bdm_frames_delay", gBDMFramesDelay);
+    set_int(group, "eth_frames_delay", gETHFramesDelay);
+    set_int(group, "hdd_frames_delay", gHDDFramesDelay);
+    set_int(group, "mmce_frames_delay", gMMCEFramesDelay);
 }
 
 static void parse_opl_cfg(config_t *cfg, int *out_theme_id, int *out_lang_id)
@@ -581,6 +633,10 @@ static void parse_opl_cfg(config_t *cfg, int *out_theme_id, int *out_lang_id)
     parse_mmce(cfg);
     parse_debug(cfg);
     parse_coverflow(cfg);
+    parse_frames_delay(cfg);
+
+    sanitize_frame_delays();
+    sanitize_pad_sensitivity();
 }
 
 int wOPLLoad(int *out_theme_id, int *out_lang_id)
@@ -600,7 +656,7 @@ int wOPLLoad(int *out_theme_id, int *out_lang_id)
         if (config_read_file(&cfg, path)) {
             parse_opl_cfg(&cfg, out_theme_id, out_lang_id);
             config_destroy(&cfg);
-            strncpy(config_dir, dir, sizeof(config_dir) - 1);
+            copy_str(config_dir, dir, sizeof(config_dir));
             LOG("CONFIG_WOPL: loaded from '%s'\n", path);
             return 1;
         }
@@ -625,9 +681,11 @@ int wOPLLoad(int *out_theme_id, int *out_lang_id)
         if (!ok)
             return 0;
 
-        strncpy(config_dir, dir, sizeof(config_dir) - 1);
+        copy_str(config_dir, dir, sizeof(config_dir));
         if (wOPLSave()) {
-            remove(path);
+            char bak[256];
+            snprintf(bak, sizeof(bak), "%s.bak", path);
+            rename(path, bak);
             LOG("CONFIG_WOPL: migrated to '%s'\n", WOPL_FILENAME);
         }
         return 1;
@@ -668,19 +726,19 @@ static void parse_net(config_t *cfg)
 
     gPCShareAddressIsNetBIOS = lookup_bool(cfg, "smb.use_netbios", gPCShareAddressIsNetBIOS);
     if ((string = lookup_str(cfg, "smb.nb_address", NULL)))
-        strncpy(gPCShareNBAddress, string, sizeof(gPCShareNBAddress) - 1);
+        copy_str(gPCShareNBAddress, string, sizeof(gPCShareNBAddress));
     if ((string = lookup_str(cfg, "smb.ip", NULL)))
         str_to_ip(string, pc_ip);
 
     gPCPort = lookup_int(cfg, "smb.port", gPCPort);
     if ((string = lookup_str(cfg, "smb.share", NULL)))
-        strncpy(gPCShareName, string, sizeof(gPCShareName) - 1);
+        copy_str(gPCShareName, string, sizeof(gPCShareName));
     if ((string = lookup_str(cfg, "smb.username", NULL)))
-        strncpy(gPCUserName, string, sizeof(gPCUserName) - 1);
+        copy_str(gPCUserName, string, sizeof(gPCUserName));
     if ((string = lookup_str(cfg, "smb.password", NULL)))
-        strncpy(gPCPassword, string, sizeof(gPCPassword) - 1);
+        copy_str(gPCPassword, string, sizeof(gPCPassword));
     if ((string = lookup_str(cfg, "nbd.export", NULL)))
-        strncpy(gExportName, string, sizeof(gExportName) - 1);
+        copy_str(gExportName, string, sizeof(gExportName));
 }
 
 static void build_net(config_setting_t *root)
@@ -751,9 +809,12 @@ int wOPLNetLoad(void)
         return 0;
 
     if (wOPLNetSave()) {
-        remove(old_path);
+        char bak[256];
+        snprintf(bak, sizeof(bak), "%s.bak", old_path);
+        rename(old_path, bak);
         LOG("CONFIG_NET: migrated to '%s'\n", NET_FILENAME);
     }
+
     return 1;
 }
 
@@ -785,7 +846,7 @@ int wOPLLastLoad(void)
 
     const char *string = lookup_str(&cfg, "last_played", NULL);
     if (string)
-        strncpy(last_played, string, sizeof(last_played) - 1);
+        copy_str(last_played, string, sizeof(last_played));
 
     config_destroy(&cfg);
 
@@ -812,7 +873,7 @@ int wOPLLastSave(const char *startup)
     config_destroy(&cfg);
 
     if (ok)
-        strncpy(last_played, startup, sizeof(last_played) - 1);
+        copy_str(last_played, startup, sizeof(last_played));
 
     return ok;
 }
@@ -918,7 +979,12 @@ int wOPLGlobalGameLoad(void)
 
     snprintf(path, sizeof(path), "%s%s", config_dir, GAME_FILENAME_OLD);
     if (cfgMigrateLegacyGlobalGame(path)) {
-        LOG("CONFIG_GAME: migrated from legacy '%s'\n", path);
+        if (wOPLGlobalGameSave()) {
+            char bak[256];
+            snprintf(bak, sizeof(bak), "%s.bak", path);
+            rename(path, bak);
+            LOG("CONFIG_GAME: migrated to '%s'\n", GAME_FILENAME);
+        }
         return 1;
     }
 
@@ -956,17 +1022,17 @@ static void parse_per_game(config_t *cfg, per_game_cfg_t *pg)
     if (config_lookup_int(cfg, "config_source", &val))
         pg->config_source = val;
     if (config_lookup_string(cfg, "dnas", &str))
-        strncpy(pg->dnas, str, sizeof(pg->dnas) - 1);
+        copy_str(pg->dnas, str, sizeof(pg->dnas));
     if (config_lookup_string(cfg, "alt_startup", &str))
-        strncpy(pg->alt_startup, str, sizeof(pg->alt_startup) - 1);
+        copy_str(pg->alt_startup, str, sizeof(pg->alt_startup));
     if (config_lookup_string(cfg, "vmc1", &str))
-        strncpy(pg->vmc1, str, sizeof(pg->vmc1) - 1);
+        copy_str(pg->vmc1, str, sizeof(pg->vmc1));
     if (config_lookup_string(cfg, "vmc2", &str))
-        strncpy(pg->vmc2, str, sizeof(pg->vmc2) - 1);
+        copy_str(pg->vmc2, str, sizeof(pg->vmc2));
     if (config_lookup_string(cfg, "format", &str))
-        strncpy(pg->format, str, sizeof(pg->format) - 1);
+        copy_str(pg->format, str, sizeof(pg->format));
     if (config_lookup_string(cfg, "media", &str))
-        strncpy(pg->media, str, sizeof(pg->media) - 1);
+        copy_str(pg->media, str, sizeof(pg->media));
 #ifdef GSM
     if (config_lookup_int(cfg, "gsm.source", &val))
         pg->gsm_source = val;
@@ -1117,25 +1183,25 @@ static void parse_game_info(config_t *cfg, game_info_t *gi)
     int val;
 
     if (config_lookup_string(cfg, "title", &str))
-        strncpy(gi->title, str, sizeof(gi->title) - 1);
+        copy_str(gi->title, str, sizeof(gi->title));
     if (config_lookup_string(cfg, "genre", &str))
-        strncpy(gi->genre, str, sizeof(gi->genre) - 1);
+        copy_str(gi->genre, str, sizeof(gi->genre));
     if (config_lookup_string(cfg, "release", &str))
-        strncpy(gi->release, str, sizeof(gi->release) - 1);
+        copy_str(gi->release, str, sizeof(gi->release));
     if (config_lookup_string(cfg, "developer", &str))
-        strncpy(gi->developer, str, sizeof(gi->developer) - 1);
+        copy_str(gi->developer, str, sizeof(gi->developer));
     if (config_lookup_string(cfg, "description", &str))
-        strncpy(gi->description, str, sizeof(gi->description) - 1);
+        copy_str(gi->description, str, sizeof(gi->description));
     if (config_lookup_string(cfg, "publisher", &str))
-        strncpy(gi->publisher, str, sizeof(gi->publisher) - 1);
+        copy_str(gi->publisher, str, sizeof(gi->publisher));
     if (config_lookup_string(cfg, "serial", &str))
-        strncpy(gi->serial, str, sizeof(gi->serial) - 1);
+        copy_str(gi->serial, str, sizeof(gi->serial));
     if (config_lookup_string(cfg, "aspect", &str))
-        strncpy(gi->aspect, str, sizeof(gi->aspect) - 1);
+        copy_str(gi->aspect, str, sizeof(gi->aspect));
     if (config_lookup_string(cfg, "parental", &str))
-        strncpy(gi->parental, str, sizeof(gi->parental) - 1);
+        copy_str(gi->parental, str, sizeof(gi->parental));
     if (config_lookup_string(cfg, "region", &str))
-        strncpy(gi->region, str, sizeof(gi->region) - 1);
+        copy_str(gi->region, str, sizeof(gi->region));
     if (config_lookup_int(cfg, "players", &val))
         gi->players = val;
     if (config_lookup_int(cfg, "user_rating", &val))
@@ -1192,4 +1258,9 @@ int wOPLGameInfoSave(const char *path, const game_info_t *gi)
     config_destroy(&cfg);
 
     return ok;
+}
+
+const char *wOPLGetThemeName(void)
+{
+    return s_theme_name[0] ? s_theme_name : NULL;
 }

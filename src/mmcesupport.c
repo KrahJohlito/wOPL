@@ -82,7 +82,7 @@ void mmceInit(item_list_t *itemList)
     mmceGameCount = 0;
     mmceGames = NULL;
 
-    configGetInt(configGetByType(CONFIG_OPL), "usb_frames_delay", &mmceGameList.delay);
+    itemList->delay = gMMCEFramesDelay;
     mmceGameList.updateDelay = -1; // No automatic updates
 
     mmceLoadModules();
