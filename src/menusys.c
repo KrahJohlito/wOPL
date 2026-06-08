@@ -240,8 +240,7 @@ static void _menuSaveConfig()
 static void _menuRequestConfig()
 {
     WaitSema(menuSemaId);
-    if (selected_item->item->current != NULL &&
-        itemConfigId != selected_item->item->current->item.id) {
+    if (selected_item->item->current != NULL && itemConfigId != selected_item->item->current->item.id) {
         itemCfgLoaded = 0;
         item_list_t *list = selected_item->item->userdata;
         if (actionStatus || itemConfigId == -1 || guiInactiveFrames >= list->delay) {
@@ -250,6 +249,7 @@ static void _menuRequestConfig()
         }
     } else if (itemCfgLoaded)
         actionStatus = 0;
+
     SignalSema(menuSemaId);
 }
 
