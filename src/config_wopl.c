@@ -33,12 +33,6 @@
 #include "include/cheatman.h"
 #endif
 
-static char config_dir[128] = {0};
-static char last_played[256] = {0};
-static char s_theme_name[128] = {0};
-
-global_game_cfg_t gGlobalGameCfg = {0};
-
 #define WOPL_FILENAME     "wopl_settings.cfg"
 #define WOPL_FILENAME_OLD "conf_wopl.cfg"
 
@@ -49,6 +43,19 @@ global_game_cfg_t gGlobalGameCfg = {0};
 #define GAME_FILENAME_OLD "conf_game.cfg"
 
 #define LAST_FILENAME "wopl_last_played.cfg"
+
+static char config_dir[128] = {0};
+static char last_played[256] = {0};
+static char s_theme_name[128] = {0};
+
+global_game_cfg_t gGlobalGameCfg = {0};
+
+int gBDMFramesDelay = 0;
+int gETHFramesDelay = 0;
+int gHDDFramesDelay = 0;
+int gMMCEFramesDelay = 0;
+int gAPPFramesDelay = 0;
+int gFAVFramesDelay = 0;
 
 // ---------------------------------------------------------------------------
 // Shared helpers
@@ -428,6 +435,8 @@ static void parse_startup(config_t *cfg)
     gAPPStartMode = lookup_int(cfg, "startup.app_start_mode", gAPPStartMode);
     gFAVStartMode = lookup_int(cfg, "startup.fav_start_mode", gFAVStartMode);
     gMMCEStartMode = lookup_int(cfg, "startup.mmce_start_mode", gMMCEStartMode);
+    gAPPFramesDelay = lookup_int(cfg, "startup.app_frames_delay", gAPPFramesDelay);
+    gFAVFramesDelay = lookup_int(cfg, "startup.fav_frames_delay", gFAVFramesDelay);
 
     const char *path = lookup_str(cfg, "startup.exit_path", NULL);
     if (path)
@@ -446,6 +455,9 @@ static void parse_devices(config_t *cfg)
     gHDDSpindown = lookup_int(cfg, "devices.hdd_spindown", gHDDSpindown);
     gHDDGameListCache = lookup_bool(cfg, "devices.hdd_game_list_cache", gHDDGameListCache);
     gEnableWrite = lookup_bool(cfg, "devices.enable_write", gEnableWrite);
+    gBDMFramesDelay = lookup_int(cfg, "devices.bdm_frames_delay", gBDMFramesDelay);
+    gETHFramesDelay = lookup_int(cfg, "devices.eth_frames_delay", gETHFramesDelay);
+    gHDDFramesDelay = lookup_int(cfg, "devices.hdd_frames_delay", gHDDFramesDelay);
 }
 
 static void parse_paths(config_t *cfg)
@@ -467,6 +479,7 @@ static void parse_mmce(config_t *cfg)
     gMMCEIGRSlot = lookup_int(cfg, "mmce.igr_slot", gMMCEIGRSlot);
     gMMCEAckWaitCycles = lookup_int(cfg, "mmce.mmce_wait_cycles", gMMCEAckWaitCycles);
     gMMCEUseAlarms = lookup_bool(cfg, "mmce.use_alarms", gMMCEUseAlarms);
+    gMMCEFramesDelay = lookup_int(cfg, "mmce.frames_delay", gMMCEFramesDelay);
 }
 
 static void parse_debug(config_t *cfg)
@@ -535,6 +548,8 @@ static void build_opl(config_setting_t *root)
     set_int(group, "app_start_mode", gAPPStartMode);
     set_int(group, "fav_start_mode", gFAVStartMode);
     set_int(group, "mmce_start_mode", gMMCEStartMode);
+    set_int(group, "app_frames_delay", gAPPFramesDelay);
+    set_int(group, "fav_frames_delay", gFAVFramesDelay);
 
     group = add_group(root, "devices");
     set_bool(group, "usb_enabled", gEnableUSB);
@@ -547,6 +562,9 @@ static void build_opl(config_setting_t *root)
     set_int(group, "hdd_spindown", gHDDSpindown);
     set_bool(group, "hdd_game_list_cache", gHDDGameListCache);
     set_bool(group, "enable_write", gEnableWrite);
+    set_int(group, "bdm_frames_delay", gBDMFramesDelay);
+    set_int(group, "eth_frames_delay", gETHFramesDelay);
+    set_int(group, "hdd_frames_delay", gHDDFramesDelay);
 
     group = add_group(root, "paths");
     set_str(group, "bdm_prefix", gBDMPrefix);
@@ -558,6 +576,7 @@ static void build_opl(config_setting_t *root)
     set_int(group, "igr_slot", gMMCEIGRSlot);
     set_int(group, "mmce_wait_cycles", gMMCEAckWaitCycles);
     set_bool(group, "use_alarms", gMMCEUseAlarms);
+    set_int(group, "frames_delay", gMMCEFramesDelay);
 
     group = add_group(root, "debug");
     set_bool(group, "enable_debug", gEnableDebug);
