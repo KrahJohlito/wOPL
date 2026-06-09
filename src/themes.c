@@ -1375,10 +1375,10 @@ static void validateBackgroundElems(const char *themePath, config_t *themeConfig
     }
 }
 
-static void validateItemsList(const char *themePath, config_t *themeConfig, theme_t *theme, theme_element_t *list, theme_elems_t *mainElems)
+static void validateItemsList(const char *themePath, config_t *themeConfig, theme_t *theme, theme_element_t **list, theme_elems_t *mainElems)
 {
-    if (list) {
-        items_list_t *itemsList = (items_list_t *)list->extended;
+    if (*list) {
+        items_list_t *itemsList = (items_list_t *)(*list)->extended;
         if (itemsList->decorator) {
             // Second pass to find the decorator
             theme_element_t *decoratorElem = mainElems->first;
@@ -1399,10 +1399,19 @@ static void validateItemsList(const char *themePath, config_t *themeConfig, them
         }
     } else {
         LOG("THEMES No itemsList found, adding a default one\n");
-        list = initBasic(themePath, themeConfig, theme, "il", ELEM_TYPE_ITEMS_LIST, 42, 42, ALIGN_NONE, 373, 316, SCALING_RATIO, theme->textColor, theme->fonts[0]);
-        initItemsList(themePath, themeConfig, theme, list, "il", NULL);
-        list->next = mainElems->first->next; // Position the itemsList as second element (right after the Background)
-        mainElems->first->next = list;
+        *list = initBasic(themePath, themeConfig, theme, "il", ELEM_TYPE_ITEMS_LIST, 42, 42, ALIGN_NONE, 373, 316, SCALING_RATIO, theme->textColor, theme->fonts[0]);
+        initItemsList(themePath, themeConfig, theme, *list, "il", NULL);
+
+        if (mainElems->first) {
+            (*list)->next = mainElems->first->next; // Position the itemsList as second element, right after the Background
+            mainElems->first->next = *list;
+
+            if (!mainElems->last)
+                mainElems->last = *list;
+        } else {
+            mainElems->first = *list;
+            mainElems->last = *list;
+        }
     }
 }
 
@@ -1414,9 +1423,9 @@ static void validateGUIElems(const char *themePath, config_t *themeConfig, theme
     validateBackgroundElems(themePath, themeConfig, theme, &theme->favsMainElems, &theme->favsInfoElems);
 
     // 2. check we have a valid ItemsList element, and link its decorator to the target element
-    validateItemsList(themePath, themeConfig, theme, theme->gamesItemsList, &theme->mainElems);
-    validateItemsList(themePath, themeConfig, theme, theme->appsItemsList, &theme->appsMainElems);
-    validateItemsList(themePath, themeConfig, theme, theme->favsItemsList, &theme->favsMainElems);
+    validateItemsList(themePath, themeConfig, theme, &theme->gamesItemsList, &theme->mainElems);
+    validateItemsList(themePath, themeConfig, theme, &theme->appsItemsList, &theme->appsMainElems);
+    validateItemsList(themePath, themeConfig, theme, &theme->favsItemsList, &theme->favsMainElems);
 }
 
 static int addGUIElem(const char *themePath, config_t *themeConfig, theme_t *theme, theme_elems_t *elems, const char *type, const char *name)
