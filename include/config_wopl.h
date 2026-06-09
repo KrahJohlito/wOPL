@@ -1,6 +1,8 @@
 #ifndef CONFIG_WOPL_H
 #define CONFIG_WOPL_H
 
+#include "include/iosupport.h"
+
 extern int gBDMFramesDelay;
 extern int gETHFramesDelay;
 extern int gHDDFramesDelay;
@@ -29,5 +31,12 @@ int wOPLPerGameSave(const char *path, const per_game_cfg_t *cfg);
 
 int wOPLGameInfoLoad(const char *path, game_info_t *gi);
 int wOPLGameInfoSave(const char *path, const game_info_t *gi);
+
+extern char *gBaseMCDir;
+
+void loadConfig();
+void configApply(int themeID, int langID, int skipDeviceRefresh);
+int configLoad(int types);
+int configSave(int types, int showUI);
 
 #endif

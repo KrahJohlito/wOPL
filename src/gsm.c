@@ -12,12 +12,13 @@
 */
 
 #include "include/common.h"
-#include "include/config.h"
+#include "include/config_wopl.h"
 #include "include/util.h"
 #include "include/system.h"
 #include "include/ioman.h"
 #include "include/renderman.h"
 #include "../ee_core/include/coreconfig.h"
+#include "include/config_migration.h" // DELETE_WITH_MIGRATION
 
 #include "include/pggsm.h"
 #include <fcntl.h>

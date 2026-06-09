@@ -7,6 +7,7 @@
 #include "include/sound.h"
 #include "include/supportbase.h"
 #include "include/module.h"
+#include "include/config_migration.h" // DELETE_WITH_MIGRATION
 #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
