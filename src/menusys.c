@@ -265,7 +265,7 @@ per_game_cfg_t *gameMenuLoadConfig(struct UIItem *ui)
     itemConfigId = -1;
     itemConfigPtr = NULL;
     guiGameHandleDeferedIO(&actionStatus, ui, IO_CUSTOM_SIMPLEACTION, &_menuRequestConfig);
-    return itemConfig;
+    return &itemPgCfg;
 }
 
 void menuSaveConfig()
@@ -1056,8 +1056,8 @@ static void menuRenderElements(theme_element_t *elem)
     WaitSema(menuSemaId);
 
     while (elem) {
-    if (elem->drawElem)
-        elem->drawElem(selected_item, selected_item->item->current, itemConfigPtr, elem);
+        if (elem->drawElem)
+            elem->drawElem(selected_item, selected_item->item->current, itemConfigPtr, elem);
 
         elem = elem->next;
     }
