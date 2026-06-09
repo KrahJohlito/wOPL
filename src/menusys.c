@@ -94,7 +94,6 @@ int gAutoRefresh;
 
 extern unsigned char shouldAppsUpdate;
 
-
 #define MENU_GENERAL_UPDATE_DELAY 60
 
 static void menuRenameGame(submenu_list_t **submenu)
@@ -1025,7 +1024,9 @@ void menuHandleInputMenu()
                 guiGameSavePadEmuGlobalConfig();
                 guiGameSavePadMacroGlobalConfig();
 #endif
-                configSave(CONFIG_OPL | CONFIG_NETWORK | CONFIG_GAME, 1);
+                wOPLSave();
+                wOPLNetSave();
+                wOPLGlobalGameSave();
                 menuSetParentalLockCheckState(1); // Re-enable parental lock check.
             }
         } else if (id == MENU_EXIT) {

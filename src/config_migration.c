@@ -6,6 +6,7 @@
 // values into globals, then wOPLSave() immediately rewrites them in
 // the new libconfig format.. phase out eventually
 // ---------------------------------------------------------------------------
+// DELETE_WITH_MIGRATION whole file
 
 #include "include/common.h"
 #include "include/config.h"

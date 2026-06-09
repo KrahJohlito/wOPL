@@ -8,7 +8,7 @@
 #include "include/util.h"
 #include "include/module.h"
 #include "include/config_wopl.h"
-#include "include/config_migration.h"
+#include "include/config_migration.h" // DELETE_WITH_MIGRATION
 
 #include "include/bdmsupport.h"
 #include "include/ethsupport.h"
@@ -440,9 +440,10 @@ static int scanApps(int (*callback)(const char *path, config_t *appConfig, void 
             config_t lcfg;
             config_init(&lcfg);
 
-            // try libconfig first.. if that fails try old key=value and migrate
             if (!config_read_file(&lcfg, path)) {
                 config_destroy(&lcfg);
+
+            // DELETE_WITH_MIGRATION
 
                 if (!cfgMigrateLegacyAppTitleCfg(path))
                     continue; // not found or not parseable at all
@@ -454,6 +455,7 @@ static int scanApps(int (*callback)(const char *path, config_t *appConfig, void 
                     continue;
                 }
             }
+            // DELETE_WITH_MIGRATION
 
             ret = callback(dir, &lcfg, arg);
             config_destroy(&lcfg);

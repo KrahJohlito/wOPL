@@ -3,6 +3,8 @@
 
 #include "include/iosupport.h"
 
+// DELETE_WITH_MIGRATION whole file
+
 // Each returns 1 on success.. 0 if not found or failed
 int cfgMigrateLegacyOPL(const char *path, int *out_theme_id, int *out_lang_id);
 int cfgMigrateLegacyNet(const char *path);
