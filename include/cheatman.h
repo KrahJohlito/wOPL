@@ -26,8 +26,6 @@
 #define _CHEATMAN_H_
 
 #include <tamtypes.h>
-#include "config.h"
-
 
 #define CHEAT_VERSION "0.5.3.7"
 
