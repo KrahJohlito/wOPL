@@ -416,8 +416,15 @@ static void parse_ui(config_t *cfg, int *out_theme_id, int *out_lang_id)
         *out_lang_id = lngFindGuiID(lang_name);
 
     gSelectButton = lookup_bool(cfg, "ui.swap_button", 0) ? KEY_CROSS : KEY_CIRCLE;
+
     gXSensitivity = lookup_int(cfg, "ui.x_sensitivity", gXSensitivity);
     gYSensitivity = lookup_int(cfg, "ui.y_sensitivity", gYSensitivity);
+    if (gXSensitivity < 0 || gXSensitivity > 2)
+        gXSensitivity = 0;
+
+    if (gYSensitivity < 0 || gYSensitivity > 2)
+        gYSensitivity = 0;
+
     gEnableNotifications = lookup_bool(cfg, "ui.notifications", gEnableNotifications);
     gDiscEnableArt = lookup_bool(cfg, "ui.disc_art", gDiscEnableArt);
 }

@@ -1099,7 +1099,6 @@ void menuHandleInputMain()
         selected_item->item->execCircle(selected_item->item);
     } else if (getKeyOn(KEY_SQUARE)) {
         selected_item->item->execSquare(selected_item->item);
-        guiSwitchScreen(GUI_SCREEN_INFO);
     } else if (getKeyOn(KEY_START)) {
         // reinit main menu - show/hide items valid in the active context
         menuInitMainMenu();
