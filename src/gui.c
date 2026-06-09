@@ -14,6 +14,7 @@
 #include "include/pad.h"
 #include "include/util.h"
 #include "include/config_wopl.h"
+#include "include/config_migration.h" // DELETE_WITH_MIGRATION
 #include "include/system.h"
 #include "include/ethsupport.h"
 #ifdef GSM

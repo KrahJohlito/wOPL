@@ -18,6 +18,7 @@
 #include "include/ioman.h"
 #include "include/renderman.h"
 #include "../ee_core/include/coreconfig.h"
+#include "include/config_migration.h" // DELETE_WITH_MIGRATION
 
 #include "include/pggsm.h"
 #include <fcntl.h>
