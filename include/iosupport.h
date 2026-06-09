@@ -1,7 +1,6 @@
 #ifndef __IOSUPPORT_H
 #define __IOSUPPORT_H
 
-#include "include/config_wopl.h"
 #include <gsKit.h>
 
 struct menu_item;

@@ -4,6 +4,8 @@
 #include "include/supportbase.h"
 #include "include/iosupport.h"
 
+#include <time.h>
+
 typedef struct
 {
     int massDeviceIndex; // Underlying device index backing the mass fs partition, ex: usb0 = 0, usb1 = 1, etc.

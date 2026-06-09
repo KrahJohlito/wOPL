@@ -1277,7 +1277,6 @@ const char *wOPLGetThemeName(void)
 
 // ---------------------------------------------------------------------------
 // Old config.c stuff we will still need.. may need a clean up though
-// 
 // ---------------------------------------------------------------------------
 
 #include "include/module.h"

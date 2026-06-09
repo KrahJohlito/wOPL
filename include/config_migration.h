@@ -41,13 +41,15 @@ enum CONFIG_INDEX {
 #define CONFIG_KEY_NAME_LEN  32
 #define CONFIG_KEY_VALUE_LEN 256
 
-struct config_kv_t {
+struct config_kv_t
+{
     char key[CONFIG_KEY_NAME_LEN];
     char val[CONFIG_KEY_VALUE_LEN];
     struct config_kv_t *next;
 };
 
-typedef struct {
+typedef struct
+{
     int type;
     struct config_kv_t *head;
     struct config_kv_t *tail;
@@ -57,19 +59,19 @@ typedef struct {
 } config_set_t;
 
 // Per-game config keys
-#define CONFIG_ITEM_NAME         "#Name"
-#define CONFIG_ITEM_LONGNAME     "#LongName"
-#define CONFIG_ITEM_SIZE         "#Size"
-#define CONFIG_ITEM_FORMAT       "#Format"
-#define CONFIG_ITEM_MEDIA        "#Media"
-#define CONFIG_ITEM_STARTUP      "#Startup"
-#define CONFIG_ITEM_ALTSTARTUP   "$AltStartup"
-#define CONFIG_ITEM_VMC          "$VMC"
-#define CONFIG_ITEM_COMPAT       "$Compatibility"
-#define CONFIG_ITEM_DMA          "$DMA"
-#define CONFIG_ITEM_DNAS         "$DNAS"
-#define CONFIG_ITEM_CONFIGSOURCE "$ConfigSource"
-#define CONFIG_ITEM_CORE_LOADER  "$CoreLoader"
+#define CONFIG_ITEM_NAME                "#Name"
+#define CONFIG_ITEM_LONGNAME            "#LongName"
+#define CONFIG_ITEM_SIZE                "#Size"
+#define CONFIG_ITEM_FORMAT              "#Format"
+#define CONFIG_ITEM_MEDIA               "#Media"
+#define CONFIG_ITEM_STARTUP             "#Startup"
+#define CONFIG_ITEM_ALTSTARTUP          "$AltStartup"
+#define CONFIG_ITEM_VMC                 "$VMC"
+#define CONFIG_ITEM_COMPAT              "$Compatibility"
+#define CONFIG_ITEM_DMA                 "$DMA"
+#define CONFIG_ITEM_DNAS                "$DNAS"
+#define CONFIG_ITEM_CONFIGSOURCE        "$ConfigSource"
+#define CONFIG_ITEM_CORE_LOADER         "$CoreLoader"
 #define CONFIG_ITEM_OSD_SETTINGS_LANGID "$CustomLanguageValue"
 #define CONFIG_ITEM_OSD_SETTINGS_SOURCE "$CustomLanguageSource"
 #define CONFIG_ITEM_OSD_SETTINGS_ENABLE "$OSDSettingsEnable"

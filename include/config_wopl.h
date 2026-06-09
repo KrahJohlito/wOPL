@@ -1,6 +1,8 @@
 #ifndef CONFIG_WOPL_H
 #define CONFIG_WOPL_H
 
+#include "include/iosupport.h"
+
 extern int gBDMFramesDelay;
 extern int gETHFramesDelay;
 extern int gHDDFramesDelay;
