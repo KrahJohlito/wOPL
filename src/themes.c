@@ -503,8 +503,7 @@ static void freeImageTexture(image_texture_t *texture)
 
 static image_texture_t *initImageTexture(const char *themePath, config_t *themeConfig, const char *name, const char *imgName, int isOverlay)
 {
-    image_texture_t *texture = (image_texture_t *)malloc(sizeof(image_texture_t));
-    texture->name = NULL;
+    image_texture_t *texture = (image_texture_t *)calloc(1, sizeof(image_texture_t));
 
     int texId = -1;
     int result = 0;
@@ -512,14 +511,10 @@ static image_texture_t *initImageTexture(const char *themePath, config_t *themeC
     if (themePath) {
         char path[256];
         snprintf(path, sizeof(path), "%s%s", themePath, imgName);
-        if (texDiscoverLoad(&texture->source, path, texId, 0) >= 0)
-            ;
-        result = 1;
+        result = texDiscoverLoad(&texture->source, path, texId, 0) >= 0;
     } else {
         texId = texLookupInternalTexId(imgName);
-        if (texLoadInternal(&texture->source, texId) >= 0)
-            ;
-        result = 1;
+        result = (texId >= 0 && texLoadInternal(&texture->source, texId) >= 0);
     }
 
     if (result) {
@@ -565,18 +560,17 @@ static image_texture_t *initImageTexture(const char *themePath, config_t *themeC
 
 static image_texture_t *initImageInternalTexture(config_t *themeConfig, const char *name)
 {
-    image_texture_t *texture = (image_texture_t *)malloc(sizeof(image_texture_t));
-    texture->name = NULL;
-    int result;
+    image_texture_t *texture = (image_texture_t *)calloc(1, sizeof(image_texture_t));
+    int result = texLookupInternalTexId(name);
 
-    if ((result = texLookupInternalTexId(name)) >= 0) {
+    if (result >= 0)
         result = texLoadInternal(&texture->source, result);
+
+    if (result >= 0) {
         int length = strlen(name) + 1;
         texture->name = (char *)malloc(length * sizeof(char));
         memcpy(texture->name, name, length);
-    }
-
-    if (result < 0) {
+    } else {
         freeImageTexture(texture);
         texture = NULL;
     }
@@ -682,6 +676,10 @@ static void drawStaticImage(struct menu_list *menu, struct submenu_list *item, r
         return;
 
     mutable_image_t *staticImage = (mutable_image_t *)elem->extended;
+
+    if (!staticImage || !staticImage->defaultTexture || !staticImage->defaultTexture->source.Mem)
+        return;
+
     thmDrawTexture(&staticImage->defaultTexture->source, staticImage, elem->posX, elem->posY, elem->aligned, elem->width, elem->height, elem->scaled, gDefaultCol, 0, 0, 0, 1.0f);
 }
 
