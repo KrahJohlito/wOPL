@@ -77,8 +77,10 @@ void itemExecCircle(struct menu_item *curMenu)
 
 void itemExecSquare(struct menu_item *curMenu)
 {
-    if (curMenu->current && gTheme->infoElems.first)
+    if (curMenu->current && gTheme->infoElems.first) {
+        gameMenuLoadConfig(NULL);
         guiSwitchScreen(GUI_SCREEN_INFO);
+    }
 }
 
 void itemExecTriangle(struct menu_item *curMenu)
