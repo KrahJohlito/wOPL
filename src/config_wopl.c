@@ -439,6 +439,7 @@ static void parse_ui(config_t *cfg, int *out_theme_id, int *out_lang_id)
             *out_theme_id = thmFindGuiID(theme_name);
     }
 
+    const char *lang_name = lookup_str(cfg, "ui.language", NULL);
     if (lang_name) {
         copy_str(s_lang_name, lang_name, sizeof(s_lang_name));
         if (out_lang_id)
