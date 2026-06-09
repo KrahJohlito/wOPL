@@ -49,6 +49,8 @@ static char last_played[256] = {0};
 static char s_theme_name[128] = {0};
 static char s_lang_name[128] = {0};
 
+char gParentalLockPassword[256] = {0};
+
 global_game_cfg_t gGlobalGameCfg = {0};
 
 int gBDMFramesDelay = MENU_MIN_INACTIVE_FRAMES;
@@ -446,6 +448,10 @@ static void parse_ui(config_t *cfg, int *out_theme_id, int *out_lang_id)
             *out_lang_id = lngFindGuiID(lang_name);
     }
 
+    const char *pwd = lookup_str(cfg, "ui.parental_lock_password", NULL);
+    if (pwd)
+        copy_str(gParentalLockPassword, pwd, sizeof(gParentalLockPassword));
+
     gSelectButton = lookup_bool(cfg, "ui.swap_button", 0) ? KEY_CROSS : KEY_CIRCLE;
     gXSensitivity = lookup_int(cfg, "ui.x_sensitivity", gXSensitivity);
     gYSensitivity = lookup_int(cfg, "ui.y_sensitivity", gYSensitivity);
@@ -569,6 +575,7 @@ static void build_opl(config_setting_t *root)
     group = add_group(root, "ui");
     set_str(group, "theme", thmGetValue());
     set_str(group, "language", lngGetValue());
+    set_str(group, "parental_lock_password", gParentalLockPassword);
     set_bool(group, "swap_button", gSelectButton == KEY_CROSS);
     set_int(group, "x_sensitivity", gXSensitivity);
     set_int(group, "y_sensitivity", gYSensitivity);

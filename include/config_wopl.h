@@ -34,6 +34,7 @@ int wOPLPerGameSave(const char *path, const per_game_cfg_t *cfg);
 int wOPLGameInfoLoad(const char *path, game_info_t *gi);
 int wOPLGameInfoSave(const char *path, const game_info_t *gi);
 
+extern char gParentalLockPassword[256];
 extern char *gBaseMCDir;
 
 void loadConfig();

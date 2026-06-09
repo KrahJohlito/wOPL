@@ -19,7 +19,6 @@
 #include "include/system.h"
 #include "include/themes.h"
 #include "include/config_wopl.h"
-#include "include/config_migration.h" // DELETE_WITH_MIGRATION
 #include <assert.h>
 
 #include <kernel.h>
@@ -926,36 +925,30 @@ int menuSetParentalLockCheckState(int enabled)
 
 int menuCheckParentalLock(void)
 {
-    const char *parentalLockPassword;
-    char password[CONFIG_KEY_VALUE_LEN];
+    char password[sizeof(gParentalLockPassword)];
     int result;
 
     result = 0; // Default to unlocked.
-    if (parentalLockCheckEnabled) {
-        config_set_t *configOPL = configGetByType(CONFIG_OPL);
+    if (parentalLockCheckEnabled && gParentalLockPassword[0] != '\0') {
+        password[0] = '\0';
 
         // Prompt for password, only if one was set.
-        if (configGetStr(configOPL, CONFIG_OPL_PARENTAL_LOCK_PWD, &parentalLockPassword) && (parentalLockPassword[0] != '\0')) {
-            password[0] = '\0';
-            if (diaShowKeyb(password, CONFIG_KEY_VALUE_LEN, 1, _l(_STR_PARENLOCK_ENTER_PASSWORD_TITLE))) {
-                if (strncmp(parentalLockPassword, password, CONFIG_KEY_VALUE_LEN) == 0) {
-                    result = 0;
-                    parentalLockCheckEnabled = 0; // Stop asking for the password.
-                } else if (strncmp(PARENTAL_LOCK_MASTER_PASS, password, CONFIG_KEY_VALUE_LEN) == 0) {
-                    guiMsgBox(_l(_STR_PARENLOCK_DISABLE_WARNING), 0, NULL);
-
-                    configRemoveKey(configOPL, CONFIG_OPL_PARENTAL_LOCK_PWD);
-                    configSave(CONFIG_OPL, 1);
-
-                    result = 0;
-                    parentalLockCheckEnabled = 0; // Stop asking for the password.
-                } else {
-                    guiMsgBox(_l(_STR_PARENLOCK_PASSWORD_INCORRECT), 0, NULL);
-                    result = EACCES;
-                }
-            } else // User aborted.
+        if (diaShowKeyb(password, sizeof(password), 1, _l(_STR_PARENLOCK_ENTER_PASSWORD_TITLE))) {
+            if (strncmp(gParentalLockPassword, password, sizeof(password)) == 0) {
+                result = 0;
+                parentalLockCheckEnabled = 0; // Stop asking for the password.
+            } else if (strncmp(PARENTAL_LOCK_MASTER_PASS, password, sizeof(password)) == 0) {
+                guiMsgBox(_l(_STR_PARENLOCK_DISABLE_WARNING), 0, NULL);
+                gParentalLockPassword[0] = '\0';
+                wOPLSave();
+                result = 0;
+                parentalLockCheckEnabled = 0; // Stop asking for the password.
+            } else {
+                guiMsgBox(_l(_STR_PARENLOCK_PASSWORD_INCORRECT), 0, NULL);
                 result = EACCES;
-        }
+            }
+        } else // User aborted.
+            result = EACCES;
     }
 
     return result;
