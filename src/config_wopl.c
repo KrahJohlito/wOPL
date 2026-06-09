@@ -1286,7 +1286,8 @@ char *gBaseMCDir;
 static int lscstatus = CONFIG_ALL;
 static int lscret = 0;
 
-static void loadConfig()
+// needed in initalizer
+void loadConfig()
 {
     int themeID = -1, langID = -1;
     int result = 0;
