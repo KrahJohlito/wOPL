@@ -13,6 +13,7 @@
 
 #include "include/common.h"
 #include "include/config_wopl.h"
+#include "include/guigame.h"
 #include "include/util.h"
 #include "include/system.h"
 #include "include/ioman.h"
