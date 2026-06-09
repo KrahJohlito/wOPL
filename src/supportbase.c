@@ -1090,20 +1090,7 @@ int sbPrepare(base_game_info_t *game, const per_game_cfg_t *pgcfg, int size_cdvd
     settings->fakemodule_flags |= FAKE_MODULE_FLAG_CDVDSTM;
 
 #ifdef GSM
-    gEnableGSM = gGSMVMode = gGSMXOffset = gGSMYOffset = gGSMFIELDFix = 0;
-    if (pgcfg && pgcfg->gsm_source == SETTINGS_PERGAME) {
-        gEnableGSM = pgcfg->gsm_enable;
-        gGSMVMode = pgcfg->gsm_vmode;
-        gGSMXOffset = pgcfg->gsm_xoffset;
-        gGSMYOffset = pgcfg->gsm_yoffset;
-        gGSMFIELDFix = pgcfg->gsm_fieldfix;
-    } else {
-        gEnableGSM = gGlobalGameCfg.gsm_enable;
-        gGSMVMode = gGlobalGameCfg.gsm_vmode;
-        gGSMXOffset = gGlobalGameCfg.gsm_xoffset;
-        gGSMYOffset = gGlobalGameCfg.gsm_yoffset;
-        gGSMFIELDFix = gGlobalGameCfg.gsm_fieldfix;
-    }
+    InitGSMConfig(pgcfg);
 #endif
 
 #ifdef CHEAT
