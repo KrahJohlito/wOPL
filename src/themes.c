@@ -331,8 +331,6 @@ static void drawAttributeText(struct menu_list *menu, struct submenu_list *item,
                     fntFitString(elem->font, mutableText->currentValue, elem->width);
             }
         }
-    }
-
         if (mutableText->currentValue) {
             char result[300];
             if (mutableText->displayMode == DISPLAY_NEVER) {
