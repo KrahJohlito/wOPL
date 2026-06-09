@@ -189,7 +189,7 @@ static void bdmInit(item_list_t *itemList)
     pDeviceData->bdmGameCount = 0;
     pDeviceData->bdmGames = NULL;
     bdmLoadModules();
-    //itemList->delay = gBDMFramesDelay;
+    configGetInt(configGetByType(CONFIG_OPL), "usb_frames_delay", &itemList->delay);
     itemList->enabled = 1;
 }
 
