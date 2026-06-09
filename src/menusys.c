@@ -243,7 +243,7 @@ static void _menuRequestConfig()
     if (selected_item->item->current != NULL && itemConfigId != selected_item->item->current->item.id) {
         itemCfgLoaded = 0;
         item_list_t *list = selected_item->item->userdata;
-        if (actionStatus || itemConfigId == -1 || guiInactiveFrames >= list->delay) {
+        if (itemConfigId == -1 || guiInactiveFrames >= list->delay) {
             itemConfigId = selected_item->item->current->item.id;
             ioPutRequest(IO_CUSTOM_SIMPLEACTION, &_menuLoadConfig);
         }

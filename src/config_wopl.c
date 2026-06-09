@@ -449,8 +449,6 @@ static void parse_startup(config_t *cfg)
     gAPPStartMode = lookup_int(cfg, "startup.app_start_mode", gAPPStartMode);
     gFAVStartMode = lookup_int(cfg, "startup.fav_start_mode", gFAVStartMode);
     gMMCEStartMode = lookup_int(cfg, "startup.mmce_start_mode", gMMCEStartMode);
-    gAPPFramesDelay = lookup_int(cfg, "startup.app_frames_delay", gAPPFramesDelay);
-    gFAVFramesDelay = lookup_int(cfg, "startup.fav_frames_delay", gFAVFramesDelay);
 
     const char *path = lookup_str(cfg, "startup.exit_path", NULL);
     if (path)
@@ -469,9 +467,6 @@ static void parse_devices(config_t *cfg)
     gHDDSpindown = lookup_int(cfg, "devices.hdd_spindown", gHDDSpindown);
     gHDDGameListCache = lookup_bool(cfg, "devices.hdd_game_list_cache", gHDDGameListCache);
     gEnableWrite = lookup_bool(cfg, "devices.enable_write", gEnableWrite);
-    gBDMFramesDelay = lookup_int(cfg, "devices.bdm_frames_delay", gBDMFramesDelay);
-    gETHFramesDelay = lookup_int(cfg, "devices.eth_frames_delay", gETHFramesDelay);
-    gHDDFramesDelay = lookup_int(cfg, "devices.hdd_frames_delay", gHDDFramesDelay);
 }
 
 static void parse_paths(config_t *cfg)
@@ -493,7 +488,6 @@ static void parse_mmce(config_t *cfg)
     gMMCEIGRSlot = lookup_int(cfg, "mmce.igr_slot", gMMCEIGRSlot);
     gMMCEAckWaitCycles = lookup_int(cfg, "mmce.mmce_wait_cycles", gMMCEAckWaitCycles);
     gMMCEUseAlarms = lookup_bool(cfg, "mmce.use_alarms", gMMCEUseAlarms);
-    gMMCEFramesDelay = lookup_int(cfg, "mmce.frames_delay", gMMCEFramesDelay);
 }
 
 static void parse_debug(config_t *cfg)
@@ -512,6 +506,16 @@ static void parse_coverflow(config_t *cfg)
     gCoverflowCenterScale = lookup_int(cfg, "coverflow.center_scale", gCoverflowCenterScale);
     gCoverflowAnimSpeed = lookup_int(cfg, "coverflow.anim_speed", gCoverflowAnimSpeed);
     gCoverflowDimCovers = lookup_int(cfg, "coverflow.dim_covers", gCoverflowDimCovers);
+}
+
+static void parse_frames_delay(config_t *cfg)
+{
+    gAPPFramesDelay = lookup_int(cfg, "frames_delay.app_frames_delay", gAPPFramesDelay);
+    gFAVFramesDelay = lookup_int(cfg, "frames_delay.fav_frames_delay", gFAVFramesDelay);
+    gBDMFramesDelay = lookup_int(cfg, "frames_delay.bdm_frames_delay", gBDMFramesDelay);
+    gETHFramesDelay = lookup_int(cfg, "frames_delay.eth_frames_delay", gETHFramesDelay);
+    gHDDFramesDelay = lookup_int(cfg, "frames_delay.hdd_frames_delay", gHDDFramesDelay);
+    gMMCEFramesDelay = lookup_int(cfg, "frames_delay.mmce_frames_delay", gMMCEFramesDelay);
 }
 
 static void build_opl(config_setting_t *root)
@@ -562,8 +566,6 @@ static void build_opl(config_setting_t *root)
     set_int(group, "app_start_mode", gAPPStartMode);
     set_int(group, "fav_start_mode", gFAVStartMode);
     set_int(group, "mmce_start_mode", gMMCEStartMode);
-    set_int(group, "app_frames_delay", gAPPFramesDelay);
-    set_int(group, "fav_frames_delay", gFAVFramesDelay);
 
     group = add_group(root, "devices");
     set_bool(group, "usb_enabled", gEnableUSB);
@@ -576,9 +578,6 @@ static void build_opl(config_setting_t *root)
     set_int(group, "hdd_spindown", gHDDSpindown);
     set_bool(group, "hdd_game_list_cache", gHDDGameListCache);
     set_bool(group, "enable_write", gEnableWrite);
-    set_int(group, "bdm_frames_delay", gBDMFramesDelay);
-    set_int(group, "eth_frames_delay", gETHFramesDelay);
-    set_int(group, "hdd_frames_delay", gHDDFramesDelay);
 
     group = add_group(root, "paths");
     set_str(group, "bdm_prefix", gBDMPrefix);
@@ -590,7 +589,6 @@ static void build_opl(config_setting_t *root)
     set_int(group, "igr_slot", gMMCEIGRSlot);
     set_int(group, "mmce_wait_cycles", gMMCEAckWaitCycles);
     set_bool(group, "use_alarms", gMMCEUseAlarms);
-    set_int(group, "frames_delay", gMMCEFramesDelay);
 
     group = add_group(root, "debug");
     set_bool(group, "enable_debug", gEnableDebug);
@@ -605,6 +603,14 @@ static void build_opl(config_setting_t *root)
     set_int(group, "center_scale", gCoverflowCenterScale);
     set_int(group, "anim_speed", gCoverflowAnimSpeed);
     set_int(group, "dim_covers", gCoverflowDimCovers);
+
+    group = add_group(root, "frames_delay");
+    set_int(group, "app_frames_delay", gAPPFramesDelay);
+    set_int(group, "fav_frames_delay", gFAVFramesDelay);
+    set_int(group, "bdm_frames_delay", gBDMFramesDelay);
+    set_int(group, "eth_frames_delay", gETHFramesDelay);
+    set_int(group, "hdd_frames_delay", gHDDFramesDelay);
+    set_int(group, "mmce_frames_delay", gMMCEFramesDelay);
 }
 
 static void parse_opl_cfg(config_t *cfg, int *out_theme_id, int *out_lang_id)
@@ -618,6 +624,7 @@ static void parse_opl_cfg(config_t *cfg, int *out_theme_id, int *out_lang_id)
     parse_mmce(cfg);
     parse_debug(cfg);
     parse_coverflow(cfg);
+    parse_frames_delay(cfg);
 
     sanitize_frame_delays();
 }
