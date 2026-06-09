@@ -514,14 +514,10 @@ static image_texture_t *initImageTexture(const char *themePath, config_t *themeC
     if (themePath) {
         char path[256];
         snprintf(path, sizeof(path), "%s%s", themePath, imgName);
-        if (texDiscoverLoad(&texture->source, path, texId, 0) >= 0)
-            ;
-        result = 1;
+        result = texDiscoverLoad(&texture->source, path, texId, 0) >= 0;
     } else {
         texId = texLookupInternalTexId(imgName);
-        if (texLoadInternal(&texture->source, texId) >= 0)
-            ;
-        result = 1;
+        result = (texId >= 0 && texLoadInternal(&texture->source, texId) >= 0);
     }
 
     if (result) {
@@ -684,6 +680,10 @@ static void drawStaticImage(struct menu_list *menu, struct submenu_list *item, r
         return;
 
     mutable_image_t *staticImage = (mutable_image_t *)elem->extended;
+
+    if (!staticImage || !staticImage->defaultTexture || !staticImage->defaultTexture->source.Mem)
+        return;
+
     thmDrawTexture(&staticImage->defaultTexture->source, staticImage, elem->posX, elem->posY, elem->aligned, elem->width, elem->height, elem->scaled, gDefaultCol, 0, 0, 0, 1.0f);
 }
 
@@ -1435,9 +1435,6 @@ static int addGUIElem(const char *themePath, config_t *themeConfig, theme_t *the
     theme_element_t *elem = NULL;
     const char *cfgType = NULL;
 
-    if (!config_lookup(themeConfig, name))
-        return 0; // element group does not exist.. end sequential loading
-
     snprintf(elemProp, sizeof(elemProp), "%s.enabled", name);
     config_lookup_int(themeConfig, elemProp, &enabled);
 
@@ -1448,10 +1445,8 @@ static int addGUIElem(const char *themePath, config_t *themeConfig, theme_t *the
         cfgType = type;
     else {
         snprintf(elemProp, sizeof(elemProp), "%s.type", name);
-        if (!config_lookup_string(themeConfig, elemProp, &cfgType)) {
-            LOG("THEMES %s: missing type\n", name);
+        if (!config_lookup_string(themeConfig, elemProp, &cfgType))
             return 0;
-        }
     }
 
     if (!strcmp(elementsType[ELEM_TYPE_ATTRIBUTE_TEXT], cfgType)) {
