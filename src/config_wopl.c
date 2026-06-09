@@ -1327,11 +1327,9 @@ void loadConfig()
 
 static void saveConfig()
 {
-    char *path = configGetDir();
-    if (!strncmp(path, "mc", 2)) {
+    const char *path = wOPLGetDir();
+    if (path && !strncmp(path, "mc", 2))
         sbCheckMCFolder();
-        configPrepareNotifications(gBaseMCDir);
-    }
 
     int woplResult = 0, netResult = 0, gameResult = 0;
 
@@ -1342,16 +1340,7 @@ static void saveConfig()
     if (lscstatus & CONFIG_GAME)
         gameResult = wOPLGlobalGameSave();
 
-    // legacy configs not yet migrated (CONFIG_APPS etc.)
-    int remaining = lscstatus & ~CONFIG_OPL & ~CONFIG_NETWORK & ~CONFIG_GAME;
-    lscret = 0;
-    if (remaining) {
-        lscret = configWriteMulti(remaining);
-        if (lscret == 0)
-            lscret = trySaveAlternateDevice(remaining);
-    }
-
-    lscret += woplResult + netResult + gameResult;
+    lscret = woplResult + netResult + gameResult;
     lscstatus = 0;
 }
 
