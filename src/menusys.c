@@ -210,6 +210,7 @@ static void _menuLoadConfig()
 
         itemConfig.gi = &itemGameInfo;
         itemConfig.pg = &itemPgCfg;
+        itemConfig.uid++;
         itemConfigPtr = &itemConfig;
     }
     actionStatus = 0;
