@@ -395,6 +395,7 @@ void menuInit()
     memset(&itemGameInfo, 0, sizeof(itemGameInfo));
     memset(&itemPgCfg, 0, sizeof(itemPgCfg));
     itemCfgLoaded = 0;
+    itemCfgGeneration = 0;
     mainMenu = NULL;
     mainMenuCurrent = NULL;
     gameMenu = NULL;
@@ -1111,14 +1112,14 @@ void menuRenderMain(void)
     item_list_t *list = selected_item->item->userdata;
 
     if (list->mode == APP_MODE) {
-        menuRenderElements(gTheme->appsMainElems.first);
         gTheme->itemsList = gTheme->appsItemsList;
+        menuRenderElements(gTheme->appsMainElems.first);
     } else if (list->mode == FAV_MODE) {
-        menuRenderElements(gTheme->favsMainElems.first);
         gTheme->itemsList = gTheme->favsItemsList;
+        menuRenderElements(gTheme->favsMainElems.first);
     } else {
-        menuRenderElements(gTheme->mainElems.first);
         gTheme->itemsList = gTheme->gamesItemsList;
+        menuRenderElements(gTheme->mainElems.first);
     }
 }
 
@@ -1173,14 +1174,14 @@ void menuRenderInfo(void)
     item_list_t *list = selected_item->item->userdata;
 
     if (list->mode == APP_MODE) {
-        menuRenderElements(gTheme->appsInfoElems.first);
         gTheme->itemsList = gTheme->appsItemsList;
+        menuRenderElements(gTheme->appsInfoElems.first);
     } else if (list->mode == FAV_MODE) {
-        menuRenderElements(gTheme->favsInfoElems.first);
         gTheme->itemsList = gTheme->favsItemsList;
+        menuRenderElements(gTheme->favsInfoElems.first);
     } else {
-        menuRenderElements(gTheme->infoElems.first);
         gTheme->itemsList = gTheme->gamesItemsList;
+        menuRenderElements(gTheme->infoElems.first);
     }
 }
 
