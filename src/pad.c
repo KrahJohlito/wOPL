@@ -217,7 +217,7 @@ static u32 readLeftJoy(struct pad_data_t *pad, u32 pdata)
                 xDeadzone = 60;
                 break;
             default:
-                xDeadzone = 100;
+                xDeadzone = 80;
                 break;
         }
 
@@ -232,7 +232,7 @@ static u32 readLeftJoy(struct pad_data_t *pad, u32 pdata)
                 yDeadzone = 60;
                 break;
             default:
-                yDeadzone = 100;
+                yDeadzone = 80;
                 break;
         }
 
