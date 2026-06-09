@@ -214,7 +214,7 @@ static void endMutableText(theme_element_t *elem)
 static mutable_text_t *initMutableText(const char *themePath, config_t *themeConfig, theme_t *theme, const char *name, int type, struct theme_element *elem, const char *value, const char *alias, int displayMode, int sizingMode)
 {
     mutable_text_t *mutableText = (mutable_text_t *)malloc(sizeof(mutable_text_t));
-    mutableText->currentConfigId = -1;
+    mutableText->currentConfigId = 0;
     mutableText->currentValue = NULL;
     mutableText->alias = NULL;
 
@@ -318,20 +318,20 @@ static void initStaticText(const char *themePath, config_t *themeConfig, theme_t
 static void drawAttributeText(struct menu_list *menu, struct submenu_list *item, render_ctx_t *ctx, struct theme_element *elem)
 {
     mutable_text_t *mutableText = (mutable_text_t *)elem->extended;
-    if (ctx && item) {
+    if (ctx) {
         if (mutableText->currentConfigId != ctx->uid) {
-            if (mutableText->currentValue) {
-                free(mutableText->currentValue);
-                mutableText->currentValue = NULL;
-            }
+            // force refresh
             mutableText->currentConfigId = ctx->uid;
+            mutableText->currentValue = NULL;
             const char *value = gameInfoGetAttr(ctx->gi, ctx->pg, mutableText->value);
             if (value) {
                 mutableText->currentValue = strdup(value);
+
                 if (mutableText->currentValue && mutableText->sizingMode == SIZING_WRAP)
                     fntFitString(elem->font, mutableText->currentValue, elem->width);
             }
         }
+    }
 
         if (mutableText->currentValue) {
             char result[300];
@@ -618,7 +618,7 @@ static mutable_image_t *initMutableImage(const char *themePath, config_t *themeC
 {
     mutable_image_t *mutableImage = (mutable_image_t *)malloc(sizeof(mutable_image_t));
     mutableImage->currentUid = -1;
-    mutableImage->currentConfigId = -1;
+    mutableImage->currentConfigId = 0;
     mutableImage->currentValue = NULL;
     mutableImage->cache = NULL;
     mutableImage->cacheLinked = 0;
@@ -755,17 +755,20 @@ static void initGameImage(const char *themePath, config_t *themeConfig, theme_t 
 static void drawAttributeImage(struct menu_list *menu, struct submenu_list *item, render_ctx_t *ctx, struct theme_element *elem)
 {
     mutable_image_t *attributeImage = (mutable_image_t *)elem->extended;
-    if (ctx && item) {
+    if (ctx) {
         if (attributeImage->currentConfigId != ctx->uid) {
-            if (attributeImage->currentValue) {
-                free(attributeImage->currentValue);
-                attributeImage->currentValue = NULL;
-            }
+            // force refresh
             attributeImage->currentUid = -1;
             attributeImage->currentConfigId = ctx->uid;
-            const char *value = gameInfoGetAttr(ctx->gi, ctx->pg, attributeImage->cache->suffix);
-            if (value)
+            attributeImage->currentValue = NULL;
+
+            const char *value = gameInfoGetAttr(ctx->gi, ctx->pg, attributeImage->value);
+            if (value) {
                 attributeImage->currentValue = strdup(value);
+
+                if (attributeImage->currentValue && attributeImage->sizingMode == SIZING_WRAP)
+                    fntFitString(elem->font, attributeImage->currentValue, elem->width);
+            }
         }
         if (attributeImage->currentValue) {
             if (IS_DEFAULT_THEME(thmGetGuiValue())) {
