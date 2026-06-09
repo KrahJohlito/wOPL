@@ -1083,7 +1083,27 @@ void menuRenderMain(void)
 
 void menuHandleInputMain()
 {
-    if (getKey(KEY_LEFT)) {
+    if (getKeyOn(KEY_CROSS)) {
+        selected_item->item->execCross(selected_item->item);
+    } else if (getKeyOn(KEY_TRIANGLE)) {
+        selected_item->item->execTriangle(selected_item->item);
+    } else if (getKeyOn(KEY_CIRCLE)) {
+        selected_item->item->execCircle(selected_item->item);
+    } else if (getKeyOn(KEY_SQUARE)) {
+        if (selected_item->item->current && gTheme->infoElems.first)
+            guiSwitchScreen(GUI_SCREEN_INFO);
+    } else if (getKeyOn(KEY_START)) {
+        menuInitMainMenu();
+        guiSwitchScreen(GUI_SCREEN_MENU);
+    } else if (getKeyOn(KEY_SELECT)) {
+        selected_item->item->refresh(selected_item->item);
+    } else if (getKeyOn(KEY_L2)) { // home
+        menuFirstPage();
+    } else if (getKeyOn(KEY_R2)) { // end
+        menuLastPage();
+    } else if (getKeyOn(KEY_R3)) {
+        selected_item->item->fav(selected_item->item);
+    } else if (getKey(KEY_LEFT)) {
         menuNavigateLeft();
     } else if (getKey(KEY_RIGHT)) {
         menuNavigateRight();
@@ -1091,31 +1111,10 @@ void menuHandleInputMain()
         menuNavigateUp();
     } else if (getKey(KEY_DOWN)) {
         menuNavigateDown();
-    } else if (getKeyOn(KEY_CROSS)) {
-        selected_item->item->execCross(selected_item->item);
-    } else if (getKeyOn(KEY_TRIANGLE)) {
-        selected_item->item->execTriangle(selected_item->item);
-    } else if (getKeyOn(KEY_CIRCLE)) {
-        selected_item->item->execCircle(selected_item->item);
-    } else if (getKeyOn(KEY_SQUARE)) {
-        selected_item->item->execSquare(selected_item->item);
-        guiSwitchScreen(GUI_SCREEN_INFO);
-    } else if (getKeyOn(KEY_START)) {
-        // reinit main menu - show/hide items valid in the active context
-        menuInitMainMenu();
-        guiSwitchScreen(GUI_SCREEN_MENU);
-    } else if (getKeyOn(KEY_SELECT)) {
-        selected_item->item->refresh(selected_item->item);
     } else if (getKey(KEY_L1)) {
         menuPrevPage();
     } else if (getKey(KEY_R1)) {
         menuNextPage();
-    } else if (getKeyOn(KEY_L2)) { // home
-        menuFirstPage();
-    } else if (getKeyOn(KEY_R2)) { // end
-        menuLastPage();
-    } else if (getKeyOn(KEY_R3)) {
-        selected_item->item->fav(selected_item->item);
     }
 
     // Last Played Auto Start
