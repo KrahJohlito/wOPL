@@ -13,6 +13,7 @@
 #include "include/common.h"
 #include "include/sound.h"
 #include "include/config_wopl.h"
+#include "include/config_migration.h" // DELETE_WITH_MIGRATION
 #include <libpad.h>
 
 #ifdef PADEMU
@@ -237,7 +238,7 @@ void init(void)
 
     padInit(0);
     int padStatus = 0;
-    configInit(NULL);
+    configInit(NULL); // DELETE_WITH_MIGRATION
 
     rmInit();
     lngInit();
@@ -293,7 +294,7 @@ void deinit(int exception, int modeSelected)
     lngEnd();
     thmEnd();
     rmEnd();
-    configEnd();
+    configEnd(); // DELETE_WITH_MIGRATION
 }
 
 void deferredInit(void)
@@ -329,7 +330,7 @@ void deferredAudioInit(void)
 void miniInit(int mode)
 {
     setDefaults();
-    configInit(NULL);
+    configInit(NULL); // DELETE_WITH_MIGRATION
 
     ioInit();
     LOG_ENABLE();
@@ -361,5 +362,5 @@ void miniDeinit()
 #endif
 
     ioEnd();
-    configEnd();
+    configEnd(); // DELETE_WITH_MIGRATION
 }
