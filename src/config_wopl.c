@@ -62,7 +62,7 @@ int gFAVFramesDelay = MENU_MIN_INACTIVE_FRAMES;
 // ---------------------------------------------------------------------------
 
 // Only log actual syntax/parse errors, not missing files (FILE_IO is normal.. no cfg yet)
-static void log_config_error(const char *path, const config_t *cfg)
+/*static void log_config_error(const char *path, const config_t *cfg)
 {
     if (config_error_type(cfg) != CONFIG_ERR_PARSE)
         return;
@@ -97,7 +97,7 @@ static void log_config_error(const char *path, const config_t *cfg)
     fprintf(f, "[%s] line %d: %s\n", path, config_error_line(cfg), config_error_text(cfg));
 
     fclose(f);
-}
+}*/
 
 void dnas_to_binary(const char *dnas, char *out, int out_size)
 {
