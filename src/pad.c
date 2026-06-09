@@ -299,7 +299,7 @@ static int readPad(struct pad_data_t *pad)
         else
             rcode = 0;
 
-        newpdata |= readLeftJoy(pad, newpdata);
+        //newpdata |= readLeftJoy(pad, newpdata);
 
         pad->oldpaddata = pad->paddata;
         pad->paddata = newpdata;
