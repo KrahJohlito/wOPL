@@ -399,6 +399,9 @@ int cfgMigrateLegacyAppTitleCfg(const char *path)
 {
     config_set_t tmp;
     config_set_t *old = configAlloc(0, &tmp, (char *)path);
+    if (!old)
+        return 0;
+
     if (!configRead(old)) {
         configClear(old);
         return 0;
@@ -422,9 +425,13 @@ int cfgMigrateLegacyAppTitleCfg(const char *path)
         }
     }
     configClear(old);
-    config_write_file(&lcfg, path);
+    char bak[256];
+    snprintf(bak, sizeof(bak), "%s.bak", path);
+    rename(path, bak);
+    int ok = config_write_file(&lcfg, path);
     config_destroy(&lcfg);
-    return 1;
+
+    return ok;
 }
 
 int cfgMigrateLegacyTheme(const char *path)
@@ -435,12 +442,22 @@ int cfgMigrateLegacyTheme(const char *path)
     fseek(f, 0, SEEK_END);
     long sz = ftell(f);
     rewind(f);
+    if (sz <= 0) {
+        fclose(f);
+        return 0;
+    }
+
     char *buf = malloc(sz);
     if (!buf) {
         fclose(f);
         return 0;
     }
-    fread(buf, 1, sz, f);
+
+    if (fread(buf, 1, sz, f) != (size_t)sz) {
+        free(buf);
+        fclose(f);
+        return 0;
+    }
     fclose(f);
 
     config_t cfg;
@@ -514,7 +531,11 @@ int cfgMigrateLegacyTheme(const char *path)
     }
 
     free(buf);
-    config_write_file(&cfg, path);
+    char bak[256];
+    snprintf(bak, sizeof(bak), "%s.bak", path);
+    rename(path, bak);
+    int ok = config_write_file(&cfg, path);
     config_destroy(&cfg);
-    return 1;
+
+    return ok;
 }
