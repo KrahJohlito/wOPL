@@ -253,6 +253,15 @@ static void sanitize_frame_delays(void)
         gFAVFramesDelay = MENU_MIN_INACTIVE_FRAMES;
 }
 
+static void sanitize_pad_sensitivity(void)
+{
+    if (gXSensitivity < 0 || gXSensitivity > 2)
+        gXSensitivity = 0;
+
+    if (gYSensitivity < 0 || gYSensitivity > 2)
+        gYSensitivity = 0;
+}
+
 static int probe_config_path(const char *filename, char *dir_out, size_t dir_len, char *path_out, size_t path_len, int for_write)
 {
     char dir[128];
@@ -416,15 +425,8 @@ static void parse_ui(config_t *cfg, int *out_theme_id, int *out_lang_id)
         *out_lang_id = lngFindGuiID(lang_name);
 
     gSelectButton = lookup_bool(cfg, "ui.swap_button", 0) ? KEY_CROSS : KEY_CIRCLE;
-
     gXSensitivity = lookup_int(cfg, "ui.x_sensitivity", gXSensitivity);
     gYSensitivity = lookup_int(cfg, "ui.y_sensitivity", gYSensitivity);
-    if (gXSensitivity < 0 || gXSensitivity > 2)
-        gXSensitivity = 0;
-
-    if (gYSensitivity < 0 || gYSensitivity > 2)
-        gYSensitivity = 0;
-
     gEnableNotifications = lookup_bool(cfg, "ui.notifications", gEnableNotifications);
     gDiscEnableArt = lookup_bool(cfg, "ui.disc_art", gDiscEnableArt);
 }
@@ -634,6 +636,7 @@ static void parse_opl_cfg(config_t *cfg, int *out_theme_id, int *out_lang_id)
     parse_frames_delay(cfg);
 
     sanitize_frame_delays();
+    sanitize_pad_sensitivity();
 }
 
 int wOPLLoad(int *out_theme_id, int *out_lang_id)
