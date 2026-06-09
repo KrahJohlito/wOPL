@@ -5,6 +5,7 @@
 #include "include/texcache.h"
 #include "include/dialogs.h"
 #include "include/menusys.h"
+#include "include/config_migration.h" // DELETE_WITH_MIGRATION
 
 typedef enum {
     // Informs gui that init is over and main gui can be rendered

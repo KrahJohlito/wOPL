@@ -443,8 +443,7 @@ static int scanApps(int (*callback)(const char *path, config_t *appConfig, void 
             if (!config_read_file(&lcfg, path)) {
                 config_destroy(&lcfg);
 
-            // DELETE_WITH_MIGRATION
-
+                // DELETE_WITH_MIGRATION
                 if (!cfgMigrateLegacyAppTitleCfg(path))
                     continue; // not found or not parseable at all
 

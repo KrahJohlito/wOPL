@@ -19,6 +19,7 @@
 #include "include/system.h"
 #include "include/themes.h"
 #include "include/config_wopl.h"
+#include "include/config_migration.h" // DELETE_WITH_MIGRATION
 #include <assert.h>
 
 #include <kernel.h>
