@@ -31,6 +31,9 @@
 #include <sys/stat.h>
 #include <errno.h>
 
+#include <fcntl.h>
+#include <unistd.h>
+
 #ifdef __DEBUG
 #include "include/debug.h"
 #endif
@@ -42,6 +45,8 @@
 #ifdef CHEAT
 #include "include/cheatman.h"
 #endif
+
+static int configReadLegacyIP(void);
 
 int cfgMigrateLegacyOPL(const char *path, int *out_theme_id, int *out_lang_id)
 {
