@@ -32,7 +32,6 @@ int gGSMXOffset;  // 0 - Off, Any other positive or negative value - Relative po
 int gGSMYOffset;  // 0 - Off, Any other positive or negative value - Relative position for Y Offset
 int gGSMFIELDFix; // Enables/disables the FIELD flipping emulation option. 0 for Off, 1 for On.
 
-
 int gGSMSource;
 
 void InitGSMConfig(const per_game_cfg_t *pgcfg)
