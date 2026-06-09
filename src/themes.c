@@ -762,13 +762,9 @@ static void drawAttributeImage(struct menu_list *menu, struct submenu_list *item
             attributeImage->currentConfigId = ctx->uid;
             attributeImage->currentValue = NULL;
 
-            const char *value = gameInfoGetAttr(ctx->gi, ctx->pg, attributeImage->value);
-            if (value) {
+            const char *value = gameInfoGetAttr(ctx->gi, ctx->pg, attributeImage->cache->suffix);
+            if (value)
                 attributeImage->currentValue = strdup(value);
-
-                if (attributeImage->currentValue && attributeImage->sizingMode == SIZING_WRAP)
-                    fntFitString(elem->font, attributeImage->currentValue, elem->width);
-            }
         }
         if (attributeImage->currentValue) {
             if (IS_DEFAULT_THEME(thmGetGuiValue())) {
