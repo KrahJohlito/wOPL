@@ -1286,40 +1286,33 @@ char *gBaseMCDir;
 static int lscstatus = CONFIG_ALL;
 static int lscret = 0;
 
-void loadConfig()
+static void loadConfig()
 {
     int themeID = -1, langID = -1;
-
-    int result = configReadMulti(lscstatus & ~CONFIG_OPL & ~CONFIG_NETWORK & ~CONFIG_GAME);
+    int result = 0;
 
     if (lscstatus & CONFIG_OPL) {
         if (wOPLLoad(&themeID, &langID))
             result |= CONFIG_OPL;
-
-        // vmode boot override
         if (getKeyPressed(KEY_TRIANGLE) && getKeyPressed(KEY_CROSS)) {
             LOG("--- Triangle+Cross held at boot - setting Video Mode to Auto ---\n");
             gVMode = 0;
         }
     }
-
     if (lscstatus & CONFIG_NETWORK) {
         if (wOPLNetLoad())
             result |= CONFIG_NETWORK;
     }
-
     if (lscstatus & CONFIG_GAME)
         if (wOPLGlobalGameLoad())
             result |= CONFIG_GAME;
 
     configApply(themeID, langID, 0);
-
     lscret = result;
     lscstatus = 0;
     showCfgPopup = 1;
 
 #ifdef PADEMU
-    // DS34 modules were skipped at boot (config not loaded yet).. Now that CONFIG_GAME is available, init PADEMU if globally enabled for the gui.
     gEnablePadEmu = gGlobalGameCfg.pademu_enable;
     sysInitPadEmu();
 #endif
