@@ -221,6 +221,7 @@ static void _menuSaveConfig()
     int result;
 
     WaitSema(menuSemaId);
+    item_list_t *list = selected_item->item->userdata;
     result = list->itemSavePgCfg(list, itemConfigId, &itemPgCfg);
     itemConfigId = -1; // to invalidate cache and force reload
     actionStatus = 0;
@@ -258,7 +259,7 @@ per_game_cfg_t *menuLoadConfig()
 }
 
 // we don't want a pop up when transitioning to or refreshing Game Menu gui.
-config_set_t *gameMenuLoadConfig(struct UIItem *ui)
+per_game_cfg_t *gameMenuLoadConfig(struct UIItem *ui)
 {
     actionStatus = 1;
     itemConfigId = -1;
