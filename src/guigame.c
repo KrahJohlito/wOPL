@@ -225,9 +225,10 @@ static int guiGameShowVMCConfig(int id, item_list_t *support, char *VMCName, int
     int result = validate ? VMC_BUTTON_CREATE : 0;
     char vmc[32];
 
-    if (strlen(VMCName))
+    if (strlen(VMCName)) {
         strncpy(vmc, VMCName, sizeof(vmc));
-    else {
+        vmc[sizeof(vmc) - 1] = '\0';
+    } else {
         if (validate)
             return 1; // nothing to validate if no user input
 
@@ -1085,9 +1086,13 @@ int guiGameSaveConfig(per_game_cfg_t *pg, item_list_t *support)
     diaGetString(diaCompatConfig, COMPAT_GAMEID, hexid, sizeof(hexid));
     diaGetString(diaCompatConfig, COMPAT_ALTSTARTUP, altStartup, sizeof(altStartup));
     strncpy(pg->dnas, hexid, sizeof(pg->dnas) - 1);
+    pg->dnas[sizeof(pg->dnas) - 1] = '\0';
     strncpy(pg->alt_startup, altStartup, sizeof(pg->alt_startup) - 1);
+    pg->alt_startup[sizeof(pg->alt_startup) - 1] = '\0';
     strncpy(pg->vmc1, vmc1, sizeof(pg->vmc1) - 1);
+    pg->vmc1[sizeof(pg->vmc1) - 1] = '\0';
     strncpy(pg->vmc2, vmc2, sizeof(pg->vmc2) - 1);
+    pg->vmc2[sizeof(pg->vmc2) - 1] = '\0';
 
     guiGameSaveOSDLanguageGameConfig(pg);
     guiGameSaveOSDLanguageGlobalConfig();
@@ -1355,10 +1360,17 @@ void guiGameLoadConfig(item_list_t *support, per_game_cfg_t *pg)
     guiGameLoadOSDLanguageConfig(pg);
 
     strncpy(hexid, pg ? pg->dnas : "", sizeof(hexid) - 1);
+    hexid[sizeof(hexid) - 1] = '\0';
+
     strncpy(altStartup, pg ? pg->alt_startup : "", sizeof(altStartup) - 1);
+    altStartup[sizeof(altStartup) - 1] = '\0';
+
     diaSetString(diaCompatConfig, COMPAT_GAMEID, hexid);
     diaSetString(diaCompatConfig, COMPAT_ALTSTARTUP, altStartup);
 
     strncpy(vmc1, pg ? pg->vmc1 : "", sizeof(vmc1) - 1);
+    vmc1[sizeof(vmc1) - 1] = '\0';
+
     strncpy(vmc2, pg ? pg->vmc2 : "", sizeof(vmc2) - 1);
+    vmc2[sizeof(vmc2) - 1] = '\0';
 }

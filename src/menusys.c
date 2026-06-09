@@ -234,6 +234,25 @@ static void _menuLoadConfig()
     SignalSema(menuSemaId);
 }
 
+static void _menuSaveConfig()
+{
+    int result = 1;
+
+    WaitSema(menuSemaId);
+    item_list_t *list = selected_item->item->userdata;
+
+    if (list && list->itemSavePgCfg)
+        result = list->itemSavePgCfg(list, itemConfigId, &itemPgCfg);
+
+    itemConfigId = -1; // to invalidate cache and force reload
+    itemCfgLoaded = 0;
+    actionStatus = 0;
+    SignalSema(menuSemaId);
+
+    if (!result)
+        guiSetErrorMessage(_STR_ERROR_SAVING_SETTINGS);
+}
+
 static void _menuRequestConfig()
 {
     WaitSema(menuSemaId);
