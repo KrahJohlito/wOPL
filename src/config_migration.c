@@ -228,10 +228,16 @@ int cfgMigrateLegacyPerGame(const char *path, per_game_cfg_t *cfg)
     configGetVMC(old, cfg->vmc1, sizeof(cfg->vmc1), 0);
     configGetVMC(old, cfg->vmc2, sizeof(cfg->vmc2), 1);
     const char *str;
-    if (configGetStr(old, CONFIG_ITEM_FORMAT, &str))
+    if (configGetStr(old, CONFIG_ITEM_FORMAT, &str)) {
         strncpy(cfg->format, str, sizeof(cfg->format) - 1);
-    if (configGetStr(old, CONFIG_ITEM_MEDIA, &str))
+        cfg->format[sizeof(cfg->format) - 1] = '\0';
+    }
+
+    if (configGetStr(old, CONFIG_ITEM_MEDIA, &str)) {
         strncpy(cfg->media, str, sizeof(cfg->media) - 1);
+        cfg->media[sizeof(cfg->media) - 1] = '\0';
+    }
+
     configGetInt(old, CONFIG_ITEM_SIZE, &cfg->size_mb);
 #ifdef GSM
     configGetInt(old, CONFIG_ITEM_GSMSOURCE, &cfg->gsm_source);
@@ -279,31 +285,37 @@ int cfgMigrateLegacyGameInfo(const char *path, game_info_t *gi)
 
     if (configGetStr(old, CONFIG_ITEM_NAME, &str)) {
         strncpy(gi->title, str, sizeof(gi->title) - 1);
+        gi->title[sizeof(gi->title) - 1] = '\0';
         found = 1;
     }
 
     if (configGetStr(old, "Genre", &str)) {
         strncpy(gi->genre, str, sizeof(gi->genre) - 1);
+        gi->genre[sizeof(gi->genre) - 1] = '\0';
         found = 1;
     }
 
     if (configGetStr(old, "Release", &str)) {
         strncpy(gi->release, str, sizeof(gi->release) - 1);
+        gi->release[sizeof(gi->release) - 1] = '\0';
         found = 1;
     }
 
     if (configGetStr(old, "Developer", &str)) {
         strncpy(gi->developer, str, sizeof(gi->developer) - 1);
+        gi->developer[sizeof(gi->developer) - 1] = '\0';
         found = 1;
     }
 
     if (configGetStr(old, "Description", &str)) {
         strncpy(gi->description, str, sizeof(gi->description) - 1);
+        gi->description[sizeof(gi->description) - 1] = '\0';
         found = 1;
     }
 
     if (configGetStr(old, "Publisher", &str)) {
         strncpy(gi->publisher, str, sizeof(gi->publisher) - 1);
+        gi->publisher[sizeof(gi->publisher) - 1] = '\0';
         found = 1;
     }
 
@@ -330,16 +342,26 @@ int cfgMigrateTARGameCfg(const char *startup, game_info_t *gi, per_game_cfg_t *p
         if (old && configReadBuffer(old, buf, (int)e->rawSize)) {
             const char *str;
             if (gi) {
-                if (configGetStr(old, CONFIG_ITEM_NAME, &str))
+                if (configGetStr(old, CONFIG_ITEM_NAME, &str)) {
                     strncpy(gi->title, str, sizeof(gi->title) - 1);
-                if (configGetStr(old, "Genre", &str))
+                    gi->title[sizeof(gi->title) - 1] = '\0';
+                }
+                if (configGetStr(old, "Genre", &str)) {
                     strncpy(gi->genre, str, sizeof(gi->genre) - 1);
-                if (configGetStr(old, "Release", &str))
+                    gi->genre[sizeof(gi->genre) - 1] = '\0';
+                }
+                if (configGetStr(old, "Release", &str)) {
                     strncpy(gi->release, str, sizeof(gi->release) - 1);
-                if (configGetStr(old, "Developer", &str))
+                    gi->release[sizeof(gi->release) - 1] = '\0';
+                }
+                if (configGetStr(old, "Developer", &str)) {
                     strncpy(gi->developer, str, sizeof(gi->developer) - 1);
-                if (configGetStr(old, "Description", &str))
+                    gi->developer[sizeof(gi->developer) - 1] = '\0';
+                }
+                if (configGetStr(old, "Description", &str)) {
                     strncpy(gi->description, str, sizeof(gi->description) - 1);
+                    gi->description[sizeof(gi->description) - 1] = '\0';
+                }
 
                 loaded = 1;
             }
@@ -354,10 +376,15 @@ int cfgMigrateTARGameCfg(const char *startup, game_info_t *gi, per_game_cfg_t *p
                 configGetVMC(old, pgcfg->vmc1, sizeof(pgcfg->vmc1), 0);
                 configGetVMC(old, pgcfg->vmc2, sizeof(pgcfg->vmc2), 1);
 
-                if (configGetStr(old, CONFIG_ITEM_FORMAT, &str))
+                if (configGetStr(old, CONFIG_ITEM_FORMAT, &str)) {
                     strncpy(pgcfg->format, str, sizeof(pgcfg->format) - 1);
-                if (configGetStr(old, CONFIG_ITEM_MEDIA, &str))
+                    pgcfg->format[sizeof(pgcfg->format) - 1] = '\0';
+                }
+                if (configGetStr(old, CONFIG_ITEM_MEDIA, &str)) {
                     strncpy(pgcfg->media, str, sizeof(pgcfg->media) - 1);
+                    pgcfg->media[sizeof(pgcfg->media) - 1] = '\0';
+                }
+
                 configGetInt(old, CONFIG_ITEM_SIZE, &pgcfg->size_mb);
 #ifdef GSM
                 configGetInt(old, CONFIG_ITEM_GSMSOURCE, &pgcfg->gsm_source);
@@ -399,6 +426,9 @@ int cfgMigrateLegacyAppTitleCfg(const char *path)
 {
     config_set_t tmp;
     config_set_t *old = configAlloc(0, &tmp, (char *)path);
+    if (!old)
+        return 0;
+
     if (!configRead(old)) {
         configClear(old);
         return 0;
@@ -422,9 +452,13 @@ int cfgMigrateLegacyAppTitleCfg(const char *path)
         }
     }
     configClear(old);
-    config_write_file(&lcfg, path);
+    char bak[256];
+    snprintf(bak, sizeof(bak), "%s.bak", path);
+    rename(path, bak);
+    int ok = config_write_file(&lcfg, path);
     config_destroy(&lcfg);
-    return 1;
+
+    return ok;
 }
 
 int cfgMigrateLegacyTheme(const char *path)
@@ -435,12 +469,22 @@ int cfgMigrateLegacyTheme(const char *path)
     fseek(f, 0, SEEK_END);
     long sz = ftell(f);
     rewind(f);
+    if (sz <= 0) {
+        fclose(f);
+        return 0;
+    }
+
     char *buf = malloc(sz);
     if (!buf) {
         fclose(f);
         return 0;
     }
-    fread(buf, 1, sz, f);
+
+    if (fread(buf, 1, sz, f) != (size_t)sz) {
+        free(buf);
+        fclose(f);
+        return 0;
+    }
     fclose(f);
 
     config_t cfg;
@@ -514,7 +558,11 @@ int cfgMigrateLegacyTheme(const char *path)
     }
 
     free(buf);
-    config_write_file(&cfg, path);
+    char bak[256];
+    snprintf(bak, sizeof(bak), "%s.bak", path);
+    rename(path, bak);
+    int ok = config_write_file(&cfg, path);
     config_destroy(&cfg);
-    return 1;
+
+    return ok;
 }
