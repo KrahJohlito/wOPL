@@ -13,7 +13,7 @@
 #include "include/themes.h"
 #include "include/pad.h"
 #include "include/util.h"
-#include "include/config.h"
+#include "include/config_wopl.h"
 #include "include/system.h"
 #include "include/ethsupport.h"
 #ifdef GSM
@@ -26,7 +26,6 @@
 #include "include/guigame.h"
 #include "include/tetris.h"
 #include "include/common.h"
-#include "include/config_wopl.h"
 #include <malloc.h>
 #include <math.h>
 #include <kernel.h>
@@ -319,6 +318,7 @@ static void guiShowNotifications(void)
         }
 
         if (showCfgPopup) {
+            const char *cfgDir = wOPLGetDir();
             snprintf(notification, sizeof(notification), _l(_STR_CFG_NOTIFICATION), wOPLGetDir());
             if ((col_pos = strchr(notification, ':')) != NULL)
                 *(col_pos + 1) = '\0';
@@ -836,28 +836,26 @@ void guiShowNetConfig(void)
 void guiShowParentalLockConfig(void)
 {
     int result;
-    char password[CONFIG_KEY_VALUE_LEN];
-    config_set_t *configOPL = configGetByType(CONFIG_OPL);
+    char password[sizeof(gParentalLockPassword)];
 
-    // Set current values
-    configGetStrCopy(configOPL, CONFIG_OPL_PARENTAL_LOCK_PWD, password, CONFIG_KEY_VALUE_LEN); // This will return the current password, or a blank string if it is not set.
+    strncpy(password, gParentalLockPassword, sizeof(password));
     diaSetString(diaParentalLockConfig, CFG_PARENLOCK_PASSWORD, password);
 
     result = diaExecuteDialog(diaParentalLockConfig, -1, 1, NULL);
     if (result) {
-        diaGetString(diaParentalLockConfig, CFG_PARENLOCK_PASSWORD, password, CONFIG_KEY_VALUE_LEN);
+        diaGetString(diaParentalLockConfig, CFG_PARENLOCK_PASSWORD, password, sizeof(password));
 
         if (strlen(password) > 0) {
-            if (strncmp(PARENTAL_LOCK_MASTER_PASS, password, CONFIG_KEY_VALUE_LEN) != 0) {
+            if (strncmp(PARENTAL_LOCK_MASTER_PASS, password, sizeof(password)) != 0) {
                 // Store password
-                configSetStr(configOPL, CONFIG_OPL_PARENTAL_LOCK_PWD, password);
+                strncpy(gParentalLockPassword, password, sizeof(gParentalLockPassword) - 1);
+                gParentalLockPassword[sizeof(gParentalLockPassword) - 1] = '\0';
             } else {
                 // Password not acceptable (i.e. master password entered).
                 guiMsgBox(_l(_STR_PARENLOCK_INVALID_PASSWORD), 0, NULL);
             }
         } else {
-            configRemoveKey(configOPL, CONFIG_OPL_PARENTAL_LOCK_PWD);
-
+            gParentalLockPassword[0] = '\0';
             guiMsgBox(_l(_STR_PARENLOCK_DISABLE_WARNING), 0, diaParentalLockConfig);
         }
 

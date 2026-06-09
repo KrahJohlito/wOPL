@@ -1,7 +1,6 @@
 #ifndef __IOSUPPORT_H
 #define __IOSUPPORT_H
 
-#include "include/config.h"
 #include <gsKit.h>
 
 struct menu_item;
@@ -20,6 +19,10 @@ struct menu_item;
 #define GAME_STARTUP_MAX       12
 
 #define ISO_GAME_FNAME_MAX (ISO_GAME_NAME_MAX + ISO_GAME_EXTENSION_MAX)
+
+#define CONFIG_SOURCE_DEFAULT 0
+#define CONFIG_SOURCE_USER    1
+#define CONFIG_SOURCE_DLOAD   2
 
 enum IO_MODES {
     BDM_MODE = 0,

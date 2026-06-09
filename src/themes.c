@@ -13,7 +13,7 @@
 #include "include/module.h"
 #include "include/guigame.h"
 #include "include/config_wopl.h"
-#include "include/config_migration.h"
+#include "include/config_migration.h" // DELETE_WITH_MIGRATION
 #include <libconfig.h>
 #include <stdio.h>
 #include <stdlib.h>

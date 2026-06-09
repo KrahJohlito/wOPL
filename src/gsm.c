@@ -12,7 +12,8 @@
 */
 
 #include "include/common.h"
-#include "include/config.h"
+#include "include/config_wopl.h"
+#include "include/guigame.h"
 #include "include/util.h"
 #include "include/system.h"
 #include "include/ioman.h"
@@ -31,14 +32,10 @@ int gGSMXOffset;  // 0 - Off, Any other positive or negative value - Relative po
 int gGSMYOffset;  // 0 - Off, Any other positive or negative value - Relative position for Y Offset
 int gGSMFIELDFix; // Enables/disables the FIELD flipping emulation option. 0 for Off, 1 for On.
 
-
 int gGSMSource;
 
-/*void InitGSMConfig(config_set_t *configSet)
+void InitGSMConfig(const per_game_cfg_t *pgcfg)
 {
-    config_set_t *configGame = configGetByType(CONFIG_GAME);
-
-    // Default values.
     gGSMSource = 0;
     gEnableGSM = 0;
     gGSMVMode = 0;
@@ -46,23 +43,21 @@ int gGSMSource;
     gGSMYOffset = 0;
     gGSMFIELDFix = 0;
 
-    if (configGetInt(configSet, CONFIG_ITEM_GSMSOURCE, &gGSMSource)) {
-        // Load the rest of the per-game GSM configuration, only if GSM is enabled.
-        if (configGetInt(configSet, CONFIG_ITEM_ENABLEGSM, &gEnableGSM) && gEnableGSM) {
-            configGetInt(configSet, CONFIG_ITEM_GSMVMODE, &gGSMVMode);
-            configGetInt(configSet, CONFIG_ITEM_GSMXOFFSET, &gGSMXOffset);
-            configGetInt(configSet, CONFIG_ITEM_GSMYOFFSET, &gGSMYOffset);
-            configGetInt(configSet, CONFIG_ITEM_GSMFIELDFIX, &gGSMFIELDFix);
-        }
+    if (pgcfg && pgcfg->gsm_source == SETTINGS_PERGAME) {
+        gGSMSource = SETTINGS_PERGAME;
+        gEnableGSM = pgcfg->gsm_enable;
+        gGSMVMode = pgcfg->gsm_vmode;
+        gGSMXOffset = pgcfg->gsm_xoffset;
+        gGSMYOffset = pgcfg->gsm_yoffset;
+        gGSMFIELDFix = pgcfg->gsm_fieldfix;
     } else {
-        if (configGetInt(configGame, CONFIG_ITEM_ENABLEGSM, &gEnableGSM) && gEnableGSM) {
-            configGetInt(configGame, CONFIG_ITEM_GSMVMODE, &gGSMVMode);
-            configGetInt(configGame, CONFIG_ITEM_GSMXOFFSET, &gGSMXOffset);
-            configGetInt(configGame, CONFIG_ITEM_GSMYOFFSET, &gGSMYOffset);
-            configGetInt(configGame, CONFIG_ITEM_GSMFIELDFIX, &gGSMFIELDFix);
-        }
+        gEnableGSM = gGlobalGameCfg.gsm_enable;
+        gGSMVMode = gGlobalGameCfg.gsm_vmode;
+        gGSMXOffset = gGlobalGameCfg.gsm_xoffset;
+        gGSMYOffset = gGlobalGameCfg.gsm_yoffset;
+        gGSMFIELDFix = gGlobalGameCfg.gsm_fieldfix;
     }
-}*/
+}
 
 int GetGSMEnabled(void)
 {

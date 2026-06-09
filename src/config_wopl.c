@@ -1,5 +1,5 @@
 #include "include/common.h"
-#include "include/config.h"
+#include "include/config_wopl.h"
 #include "include/ioman.h"
 #include "include/util.h"
 #include "include/gui.h"
@@ -11,8 +11,7 @@
 #include "include/sound.h"
 #include "include/lwnbd.h"
 #include "include/supportbase.h"
-#include "include/config_wopl.h"
-#include "include/config_migration.h"
+#include "include/config_migration.h" // DELETE_WITH_MIGRATION
 
 #include <libconfig.h>
 #include <stdio.h>
@@ -34,19 +33,23 @@
 #endif
 
 #define WOPL_FILENAME     "wopl_settings.cfg"
-#define WOPL_FILENAME_OLD "conf_wopl.cfg"
+#define WOPL_FILENAME_OLD "conf_wopl.cfg" // DELETE_WITH_MIGRATION
 
 #define NET_FILENAME     "wopl_network.cfg"
-#define NET_FILENAME_OLD "conf_network.cfg"
+#define NET_FILENAME_OLD "conf_network.cfg" // DELETE_WITH_MIGRATION
 
 #define GAME_FILENAME     "wopl_global_game.cfg"
-#define GAME_FILENAME_OLD "conf_game.cfg"
+#define GAME_FILENAME_OLD "conf_game.cfg" // DELETE_WITH_MIGRATION
 
 #define LAST_FILENAME "wopl_last_played.cfg"
 
 static char config_dir[128] = {0};
 static char last_played[256] = {0};
+
 static char s_theme_name[128] = {0};
+static char s_lang_name[128] = {0};
+
+char gParentalLockPassword[256] = {0};
 
 global_game_cfg_t gGlobalGameCfg = {0};
 
@@ -326,12 +329,15 @@ static int ensure_config_dir(void)
     if (config_dir[0])
         return 1;
 
-    if (probe_config_path(WOPL_FILENAME, dir, sizeof(dir), path, sizeof(path), 0) ||
+    if (
+        // DELETE_WITH_MIGRATION
         probe_config_path(WOPL_FILENAME_OLD, dir, sizeof(dir), path, sizeof(path), 0) ||
-        probe_config_path(NET_FILENAME, dir, sizeof(dir), path, sizeof(path), 0) ||
         probe_config_path(NET_FILENAME_OLD, dir, sizeof(dir), path, sizeof(path), 0) ||
-        probe_config_path(GAME_FILENAME, dir, sizeof(dir), path, sizeof(path), 0) ||
-        probe_config_path(GAME_FILENAME_OLD, dir, sizeof(dir), path, sizeof(path), 0)) {
+        probe_config_path(GAME_FILENAME_OLD, dir, sizeof(dir), path, sizeof(path), 0) ||
+        // DELETE_WITH_MIGRATION
+        probe_config_path(WOPL_FILENAME, dir, sizeof(dir), path, sizeof(path), 0) ||
+        probe_config_path(NET_FILENAME, dir, sizeof(dir), path, sizeof(path), 0) ||
+        probe_config_path(GAME_FILENAME, dir, sizeof(dir), path, sizeof(path), 0)) {
         copy_str(config_dir, dir, sizeof(config_dir));
 
         return 1;
@@ -389,6 +395,21 @@ static int do_save(const char *filename, void (*build)(config_setting_t *))
 // OPL config (conf_wopl.cfg)
 // ---------------------------------------------------------------------------
 
+const char *wOPLGetDir(void)
+{
+    return config_dir[0] ? config_dir : NULL;
+}
+
+const char *wOPLGetThemeName(void)
+{
+    return s_theme_name[0] ? s_theme_name : NULL;
+}
+
+const char *wOPLGetLanguageName(void)
+{
+    return s_lang_name[0] ? s_lang_name : NULL;
+}
+
 static void parse_display(config_t *cfg)
 {
     gWideScreen = lookup_bool(cfg, "display.widescreen", gWideScreen);
@@ -421,8 +442,15 @@ static void parse_ui(config_t *cfg, int *out_theme_id, int *out_lang_id)
     }
 
     const char *lang_name = lookup_str(cfg, "ui.language", NULL);
-    if (lang_name && out_lang_id)
-        *out_lang_id = lngFindGuiID(lang_name);
+    if (lang_name) {
+        copy_str(s_lang_name, lang_name, sizeof(s_lang_name));
+        if (out_lang_id)
+            *out_lang_id = lngFindGuiID(lang_name);
+    }
+
+    const char *pwd = lookup_str(cfg, "ui.parental_lock_password", NULL);
+    if (pwd)
+        copy_str(gParentalLockPassword, pwd, sizeof(gParentalLockPassword));
 
     gSelectButton = lookup_bool(cfg, "ui.swap_button", 0) ? KEY_CROSS : KEY_CIRCLE;
     gXSensitivity = lookup_int(cfg, "ui.x_sensitivity", gXSensitivity);
@@ -547,6 +575,7 @@ static void build_opl(config_setting_t *root)
     group = add_group(root, "ui");
     set_str(group, "theme", thmGetValue());
     set_str(group, "language", lngGetValue());
+    set_str(group, "parental_lock_password", gParentalLockPassword);
     set_bool(group, "swap_button", gSelectButton == KEY_CROSS);
     set_int(group, "x_sensitivity", gXSensitivity);
     set_int(group, "y_sensitivity", gYSensitivity);
@@ -663,6 +692,7 @@ int wOPLLoad(int *out_theme_id, int *out_lang_id)
         config_destroy(&cfg);
     }
 
+    // DELETE_WITH_MIGRATION
     // 2. Try old filename.. migrate to new filename and delete old
     if (probe_config_path(WOPL_FILENAME_OLD, dir, sizeof(dir), path, sizeof(path), 0)) {
         int ok = 0;
@@ -690,6 +720,7 @@ int wOPLLoad(int *out_theme_id, int *out_lang_id)
         }
         return 1;
     }
+    // DELETE_WITH_MIGRATION
 
     return 0;
 }
@@ -697,11 +728,6 @@ int wOPLLoad(int *out_theme_id, int *out_lang_id)
 int wOPLSave(void)
 {
     return do_save(WOPL_FILENAME, build_opl);
-}
-
-const char *wOPLGetDir(void)
-{
-    return config_dir[0] ? config_dir : NULL;
 }
 
 // ---------------------------------------------------------------------------
@@ -790,6 +816,7 @@ int wOPLNetLoad(void)
     }
     config_destroy(&cfg);
 
+    // DELETE_WITH_MIGRATION
     // 2. Try old filename.. migrate to new filename and delete old
     snprintf(old_path, sizeof(old_path), "%s%s", config_dir, NET_FILENAME_OLD);
     config_init(&cfg);
@@ -814,6 +841,7 @@ int wOPLNetLoad(void)
         rename(old_path, bak);
         LOG("CONFIG_NET: migrated to '%s'\n", NET_FILENAME);
     }
+    // DELETE_WITH_MIGRATION
 
     return 1;
 }
@@ -977,6 +1005,7 @@ int wOPLGlobalGameLoad(void)
     }
     config_destroy(&cfg);
 
+    // DELETE_WITH_MIGRATION
     snprintf(path, sizeof(path), "%s%s", config_dir, GAME_FILENAME_OLD);
     if (cfgMigrateLegacyGlobalGame(path)) {
         if (wOPLGlobalGameSave()) {
@@ -987,6 +1016,7 @@ int wOPLGlobalGameLoad(void)
         }
         return 1;
     }
+    // DELETE_WITH_MIGRATION
 
     return 0;
 }
@@ -1147,10 +1177,12 @@ int wOPLPerGameLoad(const char *path, per_game_cfg_t *cfg)
 
     config_destroy(&lcfg);
 
+    // DELETE_WITH_MIGRATION
     if (cfgMigrateLegacyPerGame(path, cfg)) {
         LOG("CONFIG_PERGAME: migrated from legacy '%s'\n", path);
-        return 2; // was 1.. now 2 so caller knows to resave
+        return 2;
     }
+    // DELETE_WITH_MIGRATION
 
     return 0;
 }
@@ -1260,7 +1292,154 @@ int wOPLGameInfoSave(const char *path, const game_info_t *gi)
     return ok;
 }
 
-const char *wOPLGetThemeName(void)
+// ---------------------------------------------------------------------------
+// Old config.c stuff we will still need.. may need a clean up though
+// ---------------------------------------------------------------------------
+
+#include "include/module.h"
+
+char *gBaseMCDir; // used for thm/lang even after migration
+
+static int lscstatus = CONFIG_ALL;
+static int lscret = 0;
+
+// needed in initalizer
+void loadConfig()
 {
-    return s_theme_name[0] ? s_theme_name : NULL;
+    int themeID = -1, langID = -1;
+    int result = 0;
+
+    if (lscstatus & CONFIG_OPL) {
+        if (wOPLLoad(&themeID, &langID))
+            result |= CONFIG_OPL;
+        if (getKeyPressed(KEY_TRIANGLE) && getKeyPressed(KEY_CROSS)) {
+            LOG("--- Triangle+Cross held at boot - setting Video Mode to Auto ---\n");
+            gVMode = 0;
+        }
+    }
+    if (lscstatus & CONFIG_NETWORK) {
+        if (wOPLNetLoad())
+            result |= CONFIG_NETWORK;
+    }
+    if (lscstatus & CONFIG_GAME)
+        if (wOPLGlobalGameLoad())
+            result |= CONFIG_GAME;
+
+    configApply(themeID, langID, 0);
+    lscret = result;
+    lscstatus = 0;
+    if (result)
+        showCfgPopup = 1;
+
+#ifdef PADEMU
+    gEnablePadEmu = gGlobalGameCfg.pademu_enable;
+    sysInitPadEmu();
+#endif
+}
+
+static void saveConfig()
+{
+    const char *path = wOPLGetDir();
+    if (path && !strncmp(path, "mc", 2))
+        sbCheckMCFolder();
+
+    int woplResult = 0, netResult = 0, gameResult = 0;
+
+    if (lscstatus & CONFIG_OPL)
+        woplResult = wOPLSave();
+    if (lscstatus & CONFIG_NETWORK)
+        netResult = wOPLNetSave();
+    if (lscstatus & CONFIG_GAME)
+        gameResult = wOPLGlobalGameSave();
+
+    lscret = woplResult + netResult + gameResult;
+    lscstatus = 0;
+}
+
+void configApply(int themeID, int langID, int skipDeviceRefresh)
+{
+    if (gDefaultDevice < 0 || gDefaultDevice > MMCE_MODE)
+        gDefaultDevice = APP_MODE;
+
+    guiUpdateScrollSpeed();
+
+    guiSetFrameHook(&menuUpdateHook);
+
+    guiLock();
+    int changed = rmSetMode(0);
+    guiUnlock();
+    if (changed) {
+        bgmMute();
+        // reinit the graphics...
+        thmReloadScreenExtents();
+        guiReloadScreenExtents();
+    }
+
+    // theme must be set after color, and lng after theme
+    changed = thmSetGuiValue(themeID, changed);
+    int langChanged = lngSetGuiValue(langID);
+
+    guiUpdateScreenScale();
+
+    // Check if we should refresh device support as well.
+    if (skipDeviceRefresh == 0) {
+        initAllSupport(0);
+
+        for (int i = 0; i < MODE_COUNT; i++) {
+            if (list_support[i].support == NULL)
+                continue;
+
+            moduleUpdateMenuInternal(&list_support[i], changed, langChanged);
+        }
+    } else {
+        if (changed) {
+            for (int i = 0; i < MODE_COUNT; i++) {
+                if (list_support[i].support && list_support[i].subMenu)
+                    submenuRebuildCache(list_support[i].subMenu);
+            }
+        }
+    }
+
+    bgmUnMute();
+
+#ifdef __DEBUG
+    debugApplyConfig();
+#endif
+}
+
+int configLoad(int types)
+{
+    lscstatus = types;
+    lscret = 0;
+
+    guiHandleDeferedIO(&lscstatus, _l(_STR_LOADING_SETTINGS), IO_CUSTOM_SIMPLEACTION, &loadConfig);
+
+    return lscret;
+}
+
+int configSave(int types, int showUI)
+{
+    lscstatus = types;
+    lscret = 0;
+
+    guiHandleDeferedIO(&lscstatus, _l(_STR_SAVING_SETTINGS), IO_CUSTOM_SIMPLEACTION, &saveConfig);
+
+    if (showUI) {
+        if (lscret) {
+            char notification[128];
+            char path[128] = {0};
+            const char *rawPath = wOPLGetDir();
+            if (rawPath) {
+                strncpy(path, rawPath, sizeof(path) - 1);
+                char *colpos = strchr(path, ':');
+                if (colpos != NULL)
+                    *(colpos + 1) = '\0';
+            }
+            snprintf(notification, sizeof(notification), _l(_STR_SETTINGS_SAVED), path[0] ? path : "?");
+            guiMsgBox(notification, 0, NULL);
+        } else
+            guiMsgBox(_l(_STR_ERROR_SAVING_SETTINGS), 0, NULL);
+    }
+
+    return lscret;
 }

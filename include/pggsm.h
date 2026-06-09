@@ -59,7 +59,7 @@ extern int gGSMFIELDFix;
 
 int GetGSMEnabled(void);
 
-/*void InitGSMConfig(config_set_t *configSet);*/
+void InitGSMConfig(const per_game_cfg_t *pgcfg);
 void PrepareGSM(char *cmdline, struct GsmConfig_t *config, int vmode, int xoff, int yoff, int fieldfix);
 
 #endif
