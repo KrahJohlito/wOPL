@@ -199,44 +199,31 @@ static void menuDeleteGame(submenu_list_t **submenu)
 static void _menuLoadConfig()
 {
     WaitSema(menuSemaId);
-
     if (!itemConfigPtr) {
         item_list_t *list = selected_item->item->userdata;
 
         memset(&itemGameInfo, 0, sizeof(itemGameInfo));
         memset(&itemPgCfg, 0, sizeof(itemPgCfg));
 
-        if (list->itemGetInfo)
-            list->itemGetInfo(list, itemConfigId, &itemGameInfo);
-
-        if (list->itemGetPgCfg)
-            list->itemGetPgCfg(list, itemConfigId, &itemPgCfg);
+        list->itemGetInfo(list, itemConfigId, &itemGameInfo);
+        list->itemGetPgCfg(list, itemConfigId, &itemPgCfg);
 
         itemConfig.gi = &itemGameInfo;
         itemConfig.pg = &itemPgCfg;
-        itemConfig.uid++;
-
         itemConfigPtr = &itemConfig;
     }
-
     actionStatus = 0;
     SignalSema(menuSemaId);
 }
 
 static void _menuSaveConfig()
 {
-    int result = 1;
+    int result;
 
     WaitSema(menuSemaId);
-
-    item_list_t *list = selected_item->item->userdata;
-    if (list && list->itemSavePgCfg)
-        result = list->itemSavePgCfg(list, itemConfigId, &itemPgCfg);
-
-    itemConfigId = -1;
-    itemConfigPtr = NULL;
+    result = list->itemSavePgCfg(list, itemConfigId, &itemPgCfg);
+    itemConfigId = -1; // to invalidate cache and force reload
     actionStatus = 0;
-
     SignalSema(menuSemaId);
 
     if (!result)
@@ -246,20 +233,17 @@ static void _menuSaveConfig()
 static void _menuRequestConfig()
 {
     WaitSema(menuSemaId);
-
-    if (selected_item->item->current != NULL &&
-        itemConfigId != selected_item->item->current->item.id) {
-
-        itemConfigPtr = NULL;
+    if (selected_item->item->current != NULL && itemConfigId != selected_item->item->current->item.id) {
+        if (itemConfigPtr)
+            itemConfigPtr = NULL;
 
         item_list_t *list = selected_item->item->userdata;
         if (itemConfigId == -1 || guiInactiveFrames >= list->delay) {
             itemConfigId = selected_item->item->current->item.id;
             ioPutRequest(IO_CUSTOM_SIMPLEACTION, &_menuLoadConfig);
         }
-    } else if (itemConfigPtr) {
+    } else if (itemConfigPtr)
         actionStatus = 0;
-    }
 
     SignalSema(menuSemaId);
 }
@@ -269,21 +253,18 @@ per_game_cfg_t *menuLoadConfig()
     actionStatus = 1;
     itemConfigId = -1;
     itemConfigPtr = NULL;
-
     guiHandleDeferedIO(&actionStatus, _l(_STR_LOADING_SETTINGS), IO_CUSTOM_SIMPLEACTION, &_menuRequestConfig);
-
     return &itemPgCfg;
 }
 
-per_game_cfg_t *gameMenuLoadConfig(struct UIItem *ui)
+// we don't want a pop up when transitioning to or refreshing Game Menu gui.
+config_set_t *gameMenuLoadConfig(struct UIItem *ui)
 {
     actionStatus = 1;
     itemConfigId = -1;
     itemConfigPtr = NULL;
-
     guiGameHandleDeferedIO(&actionStatus, ui, IO_CUSTOM_SIMPLEACTION, &_menuRequestConfig);
-
-    return &itemPgCfg;
+    return itemConfig;
 }
 
 void menuSaveConfig()
