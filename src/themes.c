@@ -1424,94 +1424,107 @@ static int addGUIElem(const char *themePath, config_t *themeConfig, theme_t *the
     int enabled = 1;
     char elemProp[64];
     theme_element_t *elem = NULL;
+    const char *cfgType = NULL;
+
+    if (!config_lookup(themeConfig, name))
+        return 0; // element group does not exist.. end sequential loading
 
     snprintf(elemProp, sizeof(elemProp), "%s.enabled", name);
     config_lookup_int(themeConfig, elemProp, &enabled);
 
-    if (enabled) {
+    if (!enabled)
+        return 1; // disabled element exists.. keep loading following elements
+
+    if (type)
+        cfgType = type;
+    else {
         snprintf(elemProp, sizeof(elemProp), "%s.type", name);
-        config_lookup_string(themeConfig, elemProp, &type);
-        if (type) {
-            if (!strcmp(elementsType[ELEM_TYPE_ATTRIBUTE_TEXT], type)) {
-                elem = initBasic(themePath, themeConfig, theme, name, ELEM_TYPE_ATTRIBUTE_TEXT, 0, 0, ALIGN_CENTER, DIM_UNDEF, DIM_UNDEF, SCALING_RATIO, theme->textColor, theme->fonts[0]);
-                initAttributeText(themePath, themeConfig, theme, elem, name);
-            } else if (!strcmp(elementsType[ELEM_TYPE_STATIC_TEXT], type)) {
-                elem = initBasic(themePath, themeConfig, theme, name, ELEM_TYPE_STATIC_TEXT, 0, 0, ALIGN_CENTER, DIM_UNDEF, DIM_UNDEF, SCALING_RATIO, theme->textColor, theme->fonts[0]);
-                initStaticText(themePath, themeConfig, theme, elem, name);
-            } else if (!strcmp(elementsType[ELEM_TYPE_ATTRIBUTE_IMAGE], type)) {
-                elem = initBasic(themePath, themeConfig, theme, name, ELEM_TYPE_ATTRIBUTE_IMAGE, 0, 0, ALIGN_CENTER, DIM_UNDEF, DIM_UNDEF, SCALING_RATIO, gDefaultCol, theme->fonts[0]);
-                initAttributeImage(themePath, themeConfig, theme, elem, name);
-            } else if (!strcmp(elementsType[ELEM_TYPE_GAME_IMAGE], type)) {
-                elem = initBasic(themePath, themeConfig, theme, name, ELEM_TYPE_GAME_IMAGE, 0, 0, ALIGN_CENTER, DIM_UNDEF, DIM_UNDEF, SCALING_RATIO, gDefaultCol, theme->fonts[0]);
-                initGameImage(themePath, themeConfig, theme, elem, name, NULL, 1, NULL, NULL);
-            } else if (!strcmp(elementsType[ELEM_TYPE_STATIC_IMAGE], type)) {
-                elem = initBasic(themePath, themeConfig, theme, name, ELEM_TYPE_STATIC_IMAGE, 0, 0, ALIGN_CENTER, DIM_UNDEF, DIM_UNDEF, SCALING_RATIO, gDefaultCol, theme->fonts[0]);
-                initStaticImage(themePath, themeConfig, theme, elem, name, NULL);
-            } else if (!strcmp(elementsType[ELEM_TYPE_BACKGROUND], type)) {
-                if (!elems->first) { // Background elem can only be the first one
-                    elem = initBasic(themePath, themeConfig, theme, name, ELEM_TYPE_BACKGROUND, 0, 0, ALIGN_NONE, screenWidth, screenHeight, SCALING_NONE, gDefaultCol, theme->fonts[0]);
-                    initBackground(themePath, themeConfig, theme, elem, name, NULL, 1, NULL);
-                }
-            } else if (!strcmp(elementsType[ELEM_TYPE_MENU_ICON], type)) {
-                elem = initBasic(themePath, themeConfig, theme, name, ELEM_TYPE_MENU_ICON, screenWidth >> 1, 400, ALIGN_CENTER, DIM_UNDEF, DIM_UNDEF, SCALING_RATIO, gDefaultCol, theme->fonts[0]);
-                elem->drawElem = &drawMenuIcon;
-            } else if (!strcmp(elementsType[ELEM_TYPE_MENU_TEXT], type)) {
-                elem = initBasic(themePath, themeConfig, theme, name, ELEM_TYPE_MENU_TEXT, screenWidth >> 1, 20, ALIGN_CENTER, 200, 20, SCALING_RATIO, theme->textColor, theme->fonts[0]);
-                elem->drawElem = &drawMenuText;
-            } else if (!strcmp(elementsType[ELEM_TYPE_ITEMS_LIST], type)) {
-                if (!theme->gamesItemsList) {
-                    elem = initBasic(themePath, themeConfig, theme, name, ELEM_TYPE_ITEMS_LIST, 0, 0, ALIGN_NONE, DIM_UNDEF, DIM_UNDEF, SCALING_RATIO, theme->textColor, theme->fonts[0]);
-                    initItemsList(themePath, themeConfig, theme, elem, name, NULL);
-                    theme->gamesItemsList = elem;
-                } else if (!theme->appsItemsList) {
-                    elem = initBasic(themePath, themeConfig, theme, name, ELEM_TYPE_ITEMS_LIST, 42, 42, ALIGN_NONE, 400, 360, SCALING_RATIO, theme->textColor, theme->fonts[0]);
-                    initItemsList(themePath, themeConfig, theme, elem, name, NULL);
-                    theme->appsItemsList = elem;
-                } else if (!theme->favsItemsList) {
-                    elem = initBasic(themePath, themeConfig, theme, name, ELEM_TYPE_ITEMS_LIST, 42, 42, ALIGN_NONE, 400, 360, SCALING_RATIO, theme->textColor, theme->fonts[0]);
-                    initItemsList(themePath, themeConfig, theme, elem, name, NULL);
-                    theme->favsItemsList = elem;
-                }
-            } else if (!strcmp(elementsType[ELEM_TYPE_ITEM_ICON], type) && gDiscEnableArt) {
-                elem = initBasic(themePath, themeConfig, theme, name, ELEM_TYPE_GAME_IMAGE, 0, 0, ALIGN_CENTER, 64, 64, SCALING_RATIO, gDefaultCol, theme->fonts[0]);
-                initGameImage(themePath, themeConfig, theme, elem, name, "ICO", 20, NULL, NULL);
-            } else if (!strcmp(elementsType[ELEM_TYPE_ITEM_COVER], type)) {
-                elem = initBasic(themePath, themeConfig, theme, name, ELEM_TYPE_GAME_IMAGE, 0, 0, ALIGN_CENTER, DIM_UNDEF, DIM_UNDEF, SCALING_RATIO, gDefaultCol, theme->fonts[0]);
-                initGameImage(themePath, themeConfig, theme, elem, name, "COV", 10, NULL, NULL);
-            } else if (!strcmp(elementsType[ELEM_TYPE_ITEM_TEXT], type)) {
-                elem = initBasic(themePath, themeConfig, theme, name, ELEM_TYPE_ITEM_TEXT, 0, 0, ALIGN_CENTER, DIM_UNDEF, DIM_UNDEF, SCALING_RATIO, theme->textColor, theme->fonts[0]);
-                elem->drawElem = &drawItemText;
-            } else if (!strcmp(elementsType[ELEM_TYPE_HINT_TEXT], type)) {
-                elem = initBasic(themePath, themeConfig, theme, name, ELEM_TYPE_HINT_TEXT, 16, -HINT_HEIGHT, ALIGN_NONE, 12, 20, SCALING_RATIO, theme->textColor, theme->fonts[0]);
-                elem->drawElem = &drawHintText;
-            } else if (!strcmp(elementsType[ELEM_TYPE_INFO_HINT_TEXT], type)) {
-                elem = initBasic(themePath, themeConfig, theme, name, ELEM_TYPE_INFO_HINT_TEXT, 16, -HINT_HEIGHT, ALIGN_NONE, 12, 20, SCALING_RATIO, theme->textColor, theme->fonts[0]);
-                elem->drawElem = &drawInfoHintText;
-            } else if (!strcmp(elementsType[ELEM_TYPE_LOADING_ICON], type)) {
-                if (!theme->loadingIcon)
-                    theme->loadingIcon = initBasic(themePath, themeConfig, theme, name, ELEM_TYPE_LOADING_ICON, -40, -60, ALIGN_CENTER, DIM_UNDEF, DIM_UNDEF, SCALING_RATIO, gDefaultCol, theme->fonts[0]);
-            } else if (!strcmp(elementsType[ELEM_TYPE_BDM_INDEX], type)) {
-                elem = initBasic(themePath, themeConfig, theme, name, ELEM_TYPE_BDM_INDEX, screenWidth >> 1, 355, ALIGN_CENTER, DIM_UNDEF, DIM_UNDEF, SCALING_RATIO, gDefaultCol, theme->fonts[0]);
-                elem->drawElem = &drawBDMIndex;
-            } else if (!strcmp(elementsType[ELEM_TYPE_COVERFLOW], type)) {
-                elem = initBasic(themePath, themeConfig, theme, name, ELEM_TYPE_COVERFLOW, 0, 0, ALIGN_NONE, DIM_UNDEF, DIM_UNDEF, SCALING_NONE, gDefaultCol, theme->fonts[0]);
-                initCoverflow(themePath, themeConfig, theme, elem, name, 10, NULL, NULL);
-                theme->coverflow = elem;
-            }
+        if (!config_lookup_string(themeConfig, elemProp, &cfgType)) {
+            LOG("THEMES %s: missing type\n", name);
+            return 0;
+        }
+    }
 
-            if (elem) {
-                if (!elems->first)
-                    elems->first = elem;
+    if (!strcmp(elementsType[ELEM_TYPE_ATTRIBUTE_TEXT], cfgType)) {
+        elem = initBasic(themePath, themeConfig, theme, name, ELEM_TYPE_ATTRIBUTE_TEXT, 0, 0, ALIGN_CENTER, DIM_UNDEF, DIM_UNDEF, SCALING_RATIO, theme->textColor, theme->fonts[0]);
+        initAttributeText(themePath, themeConfig, theme, elem, name);
+    } else if (!strcmp(elementsType[ELEM_TYPE_STATIC_TEXT], cfgType)) {
+        elem = initBasic(themePath, themeConfig, theme, name, ELEM_TYPE_STATIC_TEXT, 0, 0, ALIGN_CENTER, DIM_UNDEF, DIM_UNDEF, SCALING_RATIO, theme->textColor, theme->fonts[0]);
+        initStaticText(themePath, themeConfig, theme, elem, name);
+    } else if (!strcmp(elementsType[ELEM_TYPE_ATTRIBUTE_IMAGE], cfgType)) {
+        elem = initBasic(themePath, themeConfig, theme, name, ELEM_TYPE_ATTRIBUTE_IMAGE, 0, 0, ALIGN_CENTER, DIM_UNDEF, DIM_UNDEF, SCALING_RATIO, gDefaultCol, theme->fonts[0]);
+        initAttributeImage(themePath, themeConfig, theme, elem, name);
+    } else if (!strcmp(elementsType[ELEM_TYPE_GAME_IMAGE], cfgType)) {
+        elem = initBasic(themePath, themeConfig, theme, name, ELEM_TYPE_GAME_IMAGE, 0, 0, ALIGN_CENTER, DIM_UNDEF, DIM_UNDEF, SCALING_RATIO, gDefaultCol, theme->fonts[0]);
+        initGameImage(themePath, themeConfig, theme, elem, name, NULL, 1, NULL, NULL);
+    } else if (!strcmp(elementsType[ELEM_TYPE_STATIC_IMAGE], cfgType)) {
+        elem = initBasic(themePath, themeConfig, theme, name, ELEM_TYPE_STATIC_IMAGE, 0, 0, ALIGN_CENTER, DIM_UNDEF, DIM_UNDEF, SCALING_RATIO, gDefaultCol, theme->fonts[0]);
+        initStaticImage(themePath, themeConfig, theme, elem, name, NULL);
+    } else if (!strcmp(elementsType[ELEM_TYPE_BACKGROUND], cfgType)) {
+        if (!elems->first) {
+            elem = initBasic(themePath, themeConfig, theme, name, ELEM_TYPE_BACKGROUND, 0, 0, ALIGN_NONE, screenWidth, screenHeight, SCALING_NONE, gDefaultCol, theme->fonts[0]);
+            initBackground(themePath, themeConfig, theme, elem, name, NULL, 1, NULL);
+        }
+    } else if (!strcmp(elementsType[ELEM_TYPE_MENU_ICON], cfgType)) {
+        elem = initBasic(themePath, themeConfig, theme, name, ELEM_TYPE_MENU_ICON, screenWidth >> 1, 400, ALIGN_CENTER, DIM_UNDEF, DIM_UNDEF, SCALING_RATIO, gDefaultCol, theme->fonts[0]);
+        elem->drawElem = &drawMenuIcon;
+    } else if (!strcmp(elementsType[ELEM_TYPE_MENU_TEXT], cfgType)) {
+        elem = initBasic(themePath, themeConfig, theme, name, ELEM_TYPE_MENU_TEXT, screenWidth >> 1, 20, ALIGN_CENTER, 200, 20, SCALING_RATIO, theme->textColor, theme->fonts[0]);
+        elem->drawElem = &drawMenuText;
+    } else if (!strcmp(elementsType[ELEM_TYPE_ITEMS_LIST], cfgType)) {
+        if (!theme->gamesItemsList) {
+            elem = initBasic(themePath, themeConfig, theme, name, ELEM_TYPE_ITEMS_LIST, 0, 0, ALIGN_NONE, DIM_UNDEF, DIM_UNDEF, SCALING_RATIO, theme->textColor, theme->fonts[0]);
+            initItemsList(themePath, themeConfig, theme, elem, name, NULL);
+            theme->gamesItemsList = elem;
+        } else if (!theme->appsItemsList) {
+            elem = initBasic(themePath, themeConfig, theme, name, ELEM_TYPE_ITEMS_LIST, 42, 42, ALIGN_NONE, 400, 360, SCALING_RATIO, theme->textColor, theme->fonts[0]);
+            initItemsList(themePath, themeConfig, theme, elem, name, NULL);
+            theme->appsItemsList = elem;
+        } else if (!theme->favsItemsList) {
+            elem = initBasic(themePath, themeConfig, theme, name, ELEM_TYPE_ITEMS_LIST, 42, 42, ALIGN_NONE, 400, 360, SCALING_RATIO, theme->textColor, theme->fonts[0]);
+            initItemsList(themePath, themeConfig, theme, elem, name, NULL);
+            theme->favsItemsList = elem;
+        }
+    } else if (!strcmp(elementsType[ELEM_TYPE_ITEM_ICON], cfgType) && gDiscEnableArt) {
+        elem = initBasic(themePath, themeConfig, theme, name, ELEM_TYPE_GAME_IMAGE, 0, 0, ALIGN_CENTER, 64, 64, SCALING_RATIO, gDefaultCol, theme->fonts[0]);
+        initGameImage(themePath, themeConfig, theme, elem, name, "ICO", 20, NULL, NULL);
+    } else if (!strcmp(elementsType[ELEM_TYPE_ITEM_COVER], cfgType)) {
+        elem = initBasic(themePath, themeConfig, theme, name, ELEM_TYPE_GAME_IMAGE, 0, 0, ALIGN_CENTER, DIM_UNDEF, DIM_UNDEF, SCALING_RATIO, gDefaultCol, theme->fonts[0]);
+        initGameImage(themePath, themeConfig, theme, elem, name, "COV", 10, NULL, NULL);
+    } else if (!strcmp(elementsType[ELEM_TYPE_ITEM_TEXT], cfgType)) {
+        elem = initBasic(themePath, themeConfig, theme, name, ELEM_TYPE_ITEM_TEXT, 0, 0, ALIGN_CENTER, DIM_UNDEF, DIM_UNDEF, SCALING_RATIO, theme->textColor, theme->fonts[0]);
+        elem->drawElem = &drawItemText;
+    } else if (!strcmp(elementsType[ELEM_TYPE_HINT_TEXT], cfgType)) {
+        elem = initBasic(themePath, themeConfig, theme, name, ELEM_TYPE_HINT_TEXT, 16, -HINT_HEIGHT, ALIGN_NONE, 12, 20, SCALING_RATIO, theme->textColor, theme->fonts[0]);
+        elem->drawElem = &drawHintText;
+    } else if (!strcmp(elementsType[ELEM_TYPE_INFO_HINT_TEXT], cfgType)) {
+        elem = initBasic(themePath, themeConfig, theme, name, ELEM_TYPE_INFO_HINT_TEXT, 16, -HINT_HEIGHT, ALIGN_NONE, 12, 20, SCALING_RATIO, theme->textColor, theme->fonts[0]);
+        elem->drawElem = &drawInfoHintText;
+    } else if (!strcmp(elementsType[ELEM_TYPE_LOADING_ICON], cfgType)) {
+        if (!theme->loadingIcon)
+            theme->loadingIcon = initBasic(themePath, themeConfig, theme, name, ELEM_TYPE_LOADING_ICON, -40, -60, ALIGN_CENTER, DIM_UNDEF, DIM_UNDEF, SCALING_RATIO, gDefaultCol, theme->fonts[0]);
+    } else if (!strcmp(elementsType[ELEM_TYPE_BDM_INDEX], cfgType)) {
+        elem = initBasic(themePath, themeConfig, theme, name, ELEM_TYPE_BDM_INDEX, screenWidth >> 1, 355, ALIGN_CENTER, DIM_UNDEF, DIM_UNDEF, SCALING_RATIO, gDefaultCol, theme->fonts[0]);
+        elem->drawElem = &drawBDMIndex;
+    } else if (!strcmp(elementsType[ELEM_TYPE_COVERFLOW], cfgType)) {
+        elem = initBasic(themePath, themeConfig, theme, name, ELEM_TYPE_COVERFLOW, 0, 0, ALIGN_NONE, DIM_UNDEF, DIM_UNDEF, SCALING_NONE, gDefaultCol, theme->fonts[0]);
+        initCoverflow(themePath, themeConfig, theme, elem, name, 10, NULL, NULL);
+        theme->coverflow = elem;
+    } else {
+        LOG("THEMES %s: unknown type '%s'\n", name, cfgType);
+        return 1;
+    }
 
-                if (!elems->last)
-                    elems->last = elem;
-                else {
-                    elems->last->next = elem;
-                    elems->last = elem;
-                }
-            }
-        } else
-            return 0; // ends the reading of elements
+    if (elem) {
+        if (!elems->first)
+            elems->first = elem;
+
+        if (!elems->last)
+            elems->last = elem;
+        else {
+            elems->last->next = elem;
+            elems->last = elem;
+        }
     }
 
     return 1;
@@ -1708,7 +1721,8 @@ static void thmLoad(const char *themePath, int themeID)
         if (buf) {
             memcpy(buf, &theme_list_cfg, size_theme_list_cfg);
             buf[size_theme_list_cfg] = '\0';
-            config_read_string(&themeConfig, buf);
+            if (!config_read_string(&themeConfig, buf))
+                LOG("THEMES: failed to parse internal list theme: %s:%d - %s\n", config_error_file(&themeConfig), config_error_line(&themeConfig), config_error_text(&themeConfig));
             free(buf);
         }
     } else if (!themePath && themeID == 1) {
@@ -1716,16 +1730,22 @@ static void thmLoad(const char *themePath, int themeID)
         if (buf) {
             memcpy(buf, &theme_coverflow_cfg, size_theme_coverflow_cfg);
             buf[size_theme_coverflow_cfg] = '\0';
-            config_read_string(&themeConfig, buf);
+            if (!config_read_string(&themeConfig, buf))
+                LOG("THEMES: failed to parse internal coverflow theme: %s:%d - %s\n", config_error_file(&themeConfig), config_error_line(&themeConfig), config_error_text(&themeConfig));
             free(buf);
         }
     } else {
         snprintf(path, sizeof(path), "%sconf_theme.cfg", themePath);
         if (!config_read_file(&themeConfig, path)) {
+            LOG("THEMES: failed to parse theme '%s': line %d - %s\n", path, config_error_line(&themeConfig), config_error_text(&themeConfig));
+
             config_destroy(&themeConfig);
             config_init(&themeConfig);
-            if (cfgMigrateLegacyTheme(path))
-                config_read_file(&themeConfig, path);
+
+            if (cfgMigrateLegacyTheme(path)) {
+                if (!config_read_file(&themeConfig, path))
+                    LOG("THEMES: failed to parse migrated theme '%s': line %d - %s\n", path, config_error_line(&themeConfig), config_error_text(&themeConfig));
+            }
         }
     }
 
