@@ -20,7 +20,7 @@
 #include "include/hddsupport.h"
 #include "include/tar.h"
 #include "include/config_wopl.h"
-#include "include/config_migration.h"
+#include "include/config_migration.h" // DELETE_WITH_MIGRATION
 
 #define NEWLIB_PORT_AWARE
 #include <fileXio_rpc.h> // fileXioMount("iso:", ***), fileXioUmount("iso:")
@@ -1264,6 +1264,7 @@ void sbPopulateConfig(base_game_info_t *game, const char *prefix, const char *se
     if (gi) {
         int info_loaded = wOPLGameInfoLoad(info_path, gi);
 
+        // DELETE_WITH_MIGRATION
         if (!info_loaded) {
             int migrated = cfgMigrateTARGameCfg(game->startup, gi, NULL);
 
@@ -1275,6 +1276,7 @@ void sbPopulateConfig(base_game_info_t *game, const char *prefix, const char *se
             if (migrated)
                 wOPLGameInfoSave(info_path, gi);
         }
+        // DELETE_WITH_MIGRATION
 
         // fill for display.. don't save
         if (!gi->title[0]) {
@@ -1298,10 +1300,9 @@ void sbPopulateConfig(base_game_info_t *game, const char *prefix, const char *se
     if (pgcfg) {
         int need_save = 0;
 
-        // wOPLPerGameLoad() handles both libconfig (returns 1) and old key=value
-        // (returns 2 via cfgMigrateLegacyPerGame internally)
         int cfg_loaded = wOPLPerGameLoad(cfg_path, pgcfg);
 
+        // DELETE_WITH_MIGRATION
         if (!cfg_loaded) {
             // no file.. try TAR
             cfgMigrateTARGameCfg(game->startup, NULL, pgcfg);
@@ -1310,6 +1311,7 @@ void sbPopulateConfig(base_game_info_t *game, const char *prefix, const char *se
             // so cfgMigrateLegacyPerGame never runs for this game again
             need_save = 1;
         }
+        // DELETE_WITH_MIGRATION
 
         // auto determine and cache format/media/size if not set
         if (!pgcfg->format[0]) {

@@ -12,7 +12,7 @@
 #include "include/lwnbd.h"
 #include "include/supportbase.h"
 #include "include/config_wopl.h"
-#include "include/config_migration.h"
+#include "include/config_migration.h" // DELETE_WITH_MIGRATION
 
 #include <libconfig.h>
 #include <stdio.h>
@@ -34,13 +34,13 @@
 #endif
 
 #define WOPL_FILENAME     "wopl_settings.cfg"
-#define WOPL_FILENAME_OLD "conf_wopl.cfg"
+#define WOPL_FILENAME_OLD "conf_wopl.cfg" // DELETE_WITH_MIGRATION
 
 #define NET_FILENAME     "wopl_network.cfg"
-#define NET_FILENAME_OLD "conf_network.cfg"
+#define NET_FILENAME_OLD "conf_network.cfg" // DELETE_WITH_MIGRATION
 
 #define GAME_FILENAME     "wopl_global_game.cfg"
-#define GAME_FILENAME_OLD "conf_game.cfg"
+#define GAME_FILENAME_OLD "conf_game.cfg" // DELETE_WITH_MIGRATION
 
 #define LAST_FILENAME "wopl_last_played.cfg"
 
@@ -326,12 +326,15 @@ static int ensure_config_dir(void)
     if (config_dir[0])
         return 1;
 
-    if (probe_config_path(WOPL_FILENAME, dir, sizeof(dir), path, sizeof(path), 0) ||
+    if (
+        // DELETE_WITH_MIGRATION
         probe_config_path(WOPL_FILENAME_OLD, dir, sizeof(dir), path, sizeof(path), 0) ||
-        probe_config_path(NET_FILENAME, dir, sizeof(dir), path, sizeof(path), 0) ||
         probe_config_path(NET_FILENAME_OLD, dir, sizeof(dir), path, sizeof(path), 0) ||
-        probe_config_path(GAME_FILENAME, dir, sizeof(dir), path, sizeof(path), 0) ||
-        probe_config_path(GAME_FILENAME_OLD, dir, sizeof(dir), path, sizeof(path), 0)) {
+        probe_config_path(GAME_FILENAME_OLD, dir, sizeof(dir), path, sizeof(path), 0) ||
+        // DELETE_WITH_MIGRATION
+        probe_config_path(WOPL_FILENAME, dir, sizeof(dir), path, sizeof(path), 0) ||
+        probe_config_path(NET_FILENAME, dir, sizeof(dir), path, sizeof(path), 0) ||
+        probe_config_path(GAME_FILENAME, dir, sizeof(dir), path, sizeof(path), 0)) {
         copy_str(config_dir, dir, sizeof(config_dir));
 
         return 1;
@@ -663,6 +666,7 @@ int wOPLLoad(int *out_theme_id, int *out_lang_id)
         config_destroy(&cfg);
     }
 
+    // DELETE_WITH_MIGRATION
     // 2. Try old filename.. migrate to new filename and delete old
     if (probe_config_path(WOPL_FILENAME_OLD, dir, sizeof(dir), path, sizeof(path), 0)) {
         int ok = 0;
@@ -690,6 +694,7 @@ int wOPLLoad(int *out_theme_id, int *out_lang_id)
         }
         return 1;
     }
+    // DELETE_WITH_MIGRATION
 
     return 0;
 }
@@ -790,6 +795,7 @@ int wOPLNetLoad(void)
     }
     config_destroy(&cfg);
 
+    // DELETE_WITH_MIGRATION
     // 2. Try old filename.. migrate to new filename and delete old
     snprintf(old_path, sizeof(old_path), "%s%s", config_dir, NET_FILENAME_OLD);
     config_init(&cfg);
@@ -814,6 +820,7 @@ int wOPLNetLoad(void)
         rename(old_path, bak);
         LOG("CONFIG_NET: migrated to '%s'\n", NET_FILENAME);
     }
+    // DELETE_WITH_MIGRATION
 
     return 1;
 }
@@ -977,6 +984,7 @@ int wOPLGlobalGameLoad(void)
     }
     config_destroy(&cfg);
 
+    // DELETE_WITH_MIGRATION
     snprintf(path, sizeof(path), "%s%s", config_dir, GAME_FILENAME_OLD);
     if (cfgMigrateLegacyGlobalGame(path)) {
         if (wOPLGlobalGameSave()) {
@@ -987,6 +995,7 @@ int wOPLGlobalGameLoad(void)
         }
         return 1;
     }
+    // DELETE_WITH_MIGRATION
 
     return 0;
 }
@@ -1147,10 +1156,12 @@ int wOPLPerGameLoad(const char *path, per_game_cfg_t *cfg)
 
     config_destroy(&lcfg);
 
+    // DELETE_WITH_MIGRATION
     if (cfgMigrateLegacyPerGame(path, cfg)) {
         LOG("CONFIG_PERGAME: migrated from legacy '%s'\n", path);
-        return 2; // was 1.. now 2 so caller knows to resave
+        return 2;
     }
+    // DELETE_WITH_MIGRATION
 
     return 0;
 }

@@ -21,7 +21,7 @@
 #include "opl-hdd-ioctl.h"
 #include "include/initializer.h"
 #include "include/config_wopl.h"
-#include "include/config_migration.h"
+#include "include/config_migration.h" // DELETE_WITH_MIGRATION
 #include <stdlib.h>
 
 #define NEWLIB_PORT_AWARE
@@ -1159,6 +1159,7 @@ static void hddGetInfo(item_list_t *itemList, int id, game_info_t *gi)
 
     int info_loaded = wOPLGameInfoLoad(info_path, gi);
 
+    // DELETE_WITH_MIGRATION
     if (!info_loaded) {
         int migrated = cfgMigrateTARGameCfg(game->startup, gi, NULL);
         if (!migrated)
@@ -1166,6 +1167,7 @@ static void hddGetInfo(item_list_t *itemList, int id, game_info_t *gi)
         if (migrated)
             wOPLGameInfoSave(info_path, gi);
     }
+    // DELETE_WITH_MIGRATION
 
     if (!gi->title[0])
         strncpy(gi->title, game->name, sizeof(gi->title) - 1);
@@ -1191,15 +1193,16 @@ static void hddGetPgCfg(item_list_t *itemList, int id, per_game_cfg_t *cfg)
 
     snprintf(path, sizeof(path), "%sCFG/%s.cfg", gHDDPrefix, game->startup);
 
-    // wOPLPerGameLoad() handles both libconfig (1) and old key=value (2) internally
     int cfg_loaded = wOPLPerGameLoad(path, cfg);
 
+    // DELETE_WITH_MIGRATION
     if (!cfg_loaded) {
         cfgMigrateTARGameCfg(game->startup, NULL, cfg);
     } else if (cfg_loaded == 2) {
         // legacy format was migrated.. resave in libconfig format
         need_save = 1;
     }
+    // DELETE_WITH_MIGRATION
 
     if (!cfg->format[0]) {
         strcpy(cfg->format, "HDL");
