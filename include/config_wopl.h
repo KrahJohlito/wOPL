@@ -30,4 +30,11 @@ int wOPLPerGameSave(const char *path, const per_game_cfg_t *cfg);
 int wOPLGameInfoLoad(const char *path, game_info_t *gi);
 int wOPLGameInfoSave(const char *path, const game_info_t *gi);
 
+extern char *gBaseMCDir;
+
+void loadConfig();
+void configApply(int themeID, int langID, int skipDeviceRefresh);
+int configLoad(int types);
+int configSave(int types, int showUI);
+
 #endif

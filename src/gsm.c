@@ -12,7 +12,7 @@
 */
 
 #include "include/common.h"
-#include "include/config.h"
+#include "include/config_wopl.h"
 #include "include/util.h"
 #include "include/system.h"
 #include "include/ioman.h"

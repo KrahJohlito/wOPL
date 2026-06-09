@@ -13,7 +13,7 @@
 #include "include/themes.h"
 #include "include/pad.h"
 #include "include/util.h"
-#include "include/config.h"
+#include "include/config_wopl.h"
 #include "include/system.h"
 #include "include/ethsupport.h"
 #ifdef GSM
@@ -26,7 +26,6 @@
 #include "include/guigame.h"
 #include "include/tetris.h"
 #include "include/common.h"
-#include "include/config_wopl.h"
 #include <malloc.h>
 #include <math.h>
 #include <kernel.h>

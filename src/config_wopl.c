@@ -1,5 +1,5 @@
 #include "include/common.h"
-#include "include/config.h"
+#include "include/config_wopl.h"
 #include "include/ioman.h"
 #include "include/util.h"
 #include "include/gui.h"
@@ -11,7 +11,6 @@
 #include "include/sound.h"
 #include "include/lwnbd.h"
 #include "include/supportbase.h"
-#include "include/config_wopl.h"
 #include "include/config_migration.h" // DELETE_WITH_MIGRATION
 
 #include <libconfig.h>
@@ -1274,4 +1273,173 @@ int wOPLGameInfoSave(const char *path, const game_info_t *gi)
 const char *wOPLGetThemeName(void)
 {
     return s_theme_name[0] ? s_theme_name : NULL;
+}
+
+// ---------------------------------------------------------------------------
+// Old config.c stuff we will still need.. may need a clean up though
+// 
+// ---------------------------------------------------------------------------
+
+#include "include/module.h"
+
+char *gBaseMCDir;
+
+static int lscstatus = CONFIG_ALL;
+static int lscret = 0;
+
+void loadConfig()
+{
+    int themeID = -1, langID = -1;
+
+    int result = configReadMulti(lscstatus & ~CONFIG_OPL & ~CONFIG_NETWORK & ~CONFIG_GAME);
+
+    if (lscstatus & CONFIG_OPL) {
+        if (wOPLLoad(&themeID, &langID))
+            result |= CONFIG_OPL;
+
+        // vmode boot override
+        if (getKeyPressed(KEY_TRIANGLE) && getKeyPressed(KEY_CROSS)) {
+            LOG("--- Triangle+Cross held at boot - setting Video Mode to Auto ---\n");
+            gVMode = 0;
+        }
+    }
+
+    if (lscstatus & CONFIG_NETWORK) {
+        if (wOPLNetLoad())
+            result |= CONFIG_NETWORK;
+    }
+
+    if (lscstatus & CONFIG_GAME)
+        if (wOPLGlobalGameLoad())
+            result |= CONFIG_GAME;
+
+    configApply(themeID, langID, 0);
+
+    lscret = result;
+    lscstatus = 0;
+    showCfgPopup = 1;
+
+#ifdef PADEMU
+    // DS34 modules were skipped at boot (config not loaded yet).. Now that CONFIG_GAME is available, init PADEMU if globally enabled for the gui.
+    gEnablePadEmu = gGlobalGameCfg.pademu_enable;
+    sysInitPadEmu();
+#endif
+}
+
+static void saveConfig()
+{
+    char *path = configGetDir();
+    if (!strncmp(path, "mc", 2)) {
+        sbCheckMCFolder();
+        configPrepareNotifications(gBaseMCDir);
+    }
+
+    int woplResult = 0, netResult = 0, gameResult = 0;
+
+    if (lscstatus & CONFIG_OPL)
+        woplResult = wOPLSave();
+    if (lscstatus & CONFIG_NETWORK)
+        netResult = wOPLNetSave();
+    if (lscstatus & CONFIG_GAME)
+        gameResult = wOPLGlobalGameSave();
+
+    // legacy configs not yet migrated (CONFIG_APPS etc.)
+    int remaining = lscstatus & ~CONFIG_OPL & ~CONFIG_NETWORK & ~CONFIG_GAME;
+    lscret = 0;
+    if (remaining) {
+        lscret = configWriteMulti(remaining);
+        if (lscret == 0)
+            lscret = trySaveAlternateDevice(remaining);
+    }
+
+    lscret += woplResult + netResult + gameResult;
+    lscstatus = 0;
+}
+
+void configApply(int themeID, int langID, int skipDeviceRefresh)
+{
+    if (gDefaultDevice < 0 || gDefaultDevice > MMCE_MODE)
+        gDefaultDevice = APP_MODE;
+
+    guiUpdateScrollSpeed();
+
+    guiSetFrameHook(&menuUpdateHook);
+
+    guiLock();
+    int changed = rmSetMode(0);
+    guiUnlock();
+    if (changed) {
+        bgmMute();
+        // reinit the graphics...
+        thmReloadScreenExtents();
+        guiReloadScreenExtents();
+    }
+
+    // theme must be set after color, and lng after theme
+    changed = thmSetGuiValue(themeID, changed);
+    int langChanged = lngSetGuiValue(langID);
+
+    guiUpdateScreenScale();
+
+    // Check if we should refresh device support as well.
+    if (skipDeviceRefresh == 0) {
+        initAllSupport(0);
+
+        for (int i = 0; i < MODE_COUNT; i++) {
+            if (list_support[i].support == NULL)
+                continue;
+
+            moduleUpdateMenuInternal(&list_support[i], changed, langChanged);
+        }
+    } else {
+        if (changed) {
+            for (int i = 0; i < MODE_COUNT; i++) {
+                if (list_support[i].support && list_support[i].subMenu)
+                    submenuRebuildCache(list_support[i].subMenu);
+            }
+        }
+    }
+
+    bgmUnMute();
+
+#ifdef __DEBUG
+    debugApplyConfig();
+#endif
+}
+
+int configLoad(int types)
+{
+    lscstatus = types;
+    lscret = 0;
+
+    guiHandleDeferedIO(&lscstatus, _l(_STR_LOADING_SETTINGS), IO_CUSTOM_SIMPLEACTION, &loadConfig);
+
+    return lscret;
+}
+
+int configSave(int types, int showUI)
+{
+    char notification[128];
+    lscstatus = types;
+    lscret = 0;
+
+    guiHandleDeferedIO(&lscstatus, _l(_STR_SAVING_SETTINGS), IO_CUSTOM_SIMPLEACTION, &saveConfig);
+
+    if (showUI) {
+        if (lscret) {
+            char *path = configGetDir();
+            if (path != NULL) {
+                char *colpos = strchr(path, ':');
+                if (colpos != NULL)
+                    *(colpos + 1) = '\0';
+            }
+
+            snprintf(notification, sizeof(notification), _l(_STR_SETTINGS_SAVED), path);
+
+            guiMsgBox(notification, 0, NULL);
+        } else
+            guiMsgBox(_l(_STR_ERROR_SAVING_SETTINGS), 0, NULL);
+    }
+
+    return lscret;
 }

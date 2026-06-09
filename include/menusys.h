@@ -1,7 +1,7 @@
 #ifndef __MENUSYS_H
 #define __MENUSYS_H
 
-#include "include/config.h"
+#include "include/config_wopl.h"
 #include "include/dia.h"
 #include "include/iosupport.h"
 

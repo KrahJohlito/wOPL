@@ -8,14 +8,13 @@
 #include "include/ioman.h"
 #include "include/lang.h"
 #include "include/pad.h"
-#include "include/config.h"
+#include "include/config_wopl.h"
 #include "include/ethsupport.h"
 #include "include/cheatman.h"
 #include "include/system.h"
 #include "include/guigame.h"
 #include "include/vmc_groups.h"
 #include "include/supportbase.h"
-#include "include/config_wopl.h"
 
 #include <stdio.h>
 #ifdef GSM
