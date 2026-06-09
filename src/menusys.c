@@ -358,6 +358,7 @@ void menuInit()
     memset(&itemGameInfo, 0, sizeof(itemGameInfo));
     memset(&itemPgCfg, 0, sizeof(itemPgCfg));
     itemCfgLoaded = 0;
+    itemCfgGeneration = 0;
     mainMenu = NULL;
     mainMenuCurrent = NULL;
     gameMenu = NULL;
