@@ -7,7 +7,6 @@
 #include "include/sound.h"
 #include "include/supportbase.h"
 #include "include/module.h"
-#include "include/config_migration.h" // DELETE_WITH_MIGRATION
 #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
@@ -166,8 +165,8 @@ int lngAddLanguages(char *path, const char *separator, int mode)
     nLanguages += result;
     lngRebuildLangNames();
 
-    const char *temp;
-    if (configGetStr(configGetByType(CONFIG_OPL), "language_text", &temp)) {
+    const char *temp = wOPLGetLanguageName();
+    if (temp) {
         if (lngSetGuiValue(lngFindGuiID(temp)))
             moduleUpdateMenu(mode, 0, 1);
     }

@@ -45,7 +45,9 @@
 
 static char config_dir[128] = {0};
 static char last_played[256] = {0};
+
 static char s_theme_name[128] = {0};
+static char s_lang_name[128] = {0};
 
 global_game_cfg_t gGlobalGameCfg = {0};
 
@@ -391,6 +393,21 @@ static int do_save(const char *filename, void (*build)(config_setting_t *))
 // OPL config (conf_wopl.cfg)
 // ---------------------------------------------------------------------------
 
+const char *wOPLGetDir(void)
+{
+    return config_dir[0] ? config_dir : NULL;
+}
+
+const char *wOPLGetThemeName(void)
+{
+    return s_theme_name[0] ? s_theme_name : NULL;
+}
+
+const char *wOPLGetLanguageName(void)
+{
+    return s_lang_name[0] ? s_lang_name : NULL;
+}
+
 static void parse_display(config_t *cfg)
 {
     gWideScreen = lookup_bool(cfg, "display.widescreen", gWideScreen);
@@ -423,8 +440,11 @@ static void parse_ui(config_t *cfg, int *out_theme_id, int *out_lang_id)
     }
 
     const char *lang_name = lookup_str(cfg, "ui.language", NULL);
-    if (lang_name && out_lang_id)
-        *out_lang_id = lngFindGuiID(lang_name);
+    if (lang_name) {
+        copy_str(s_lang_name, lang_name, sizeof(s_lang_name));
+        if (out_lang_id)
+            *out_lang_id = lngFindGuiID(lang_name);
+    }
 
     gSelectButton = lookup_bool(cfg, "ui.swap_button", 0) ? KEY_CROSS : KEY_CIRCLE;
     gXSensitivity = lookup_int(cfg, "ui.x_sensitivity", gXSensitivity);
@@ -701,11 +721,6 @@ int wOPLLoad(int *out_theme_id, int *out_lang_id)
 int wOPLSave(void)
 {
     return do_save(WOPL_FILENAME, build_opl);
-}
-
-const char *wOPLGetDir(void)
-{
-    return config_dir[0] ? config_dir : NULL;
 }
 
 // ---------------------------------------------------------------------------
@@ -1268,11 +1283,6 @@ int wOPLGameInfoSave(const char *path, const game_info_t *gi)
     config_destroy(&cfg);
 
     return ok;
-}
-
-const char *wOPLGetThemeName(void)
-{
-    return s_theme_name[0] ? s_theme_name : NULL;
 }
 
 // ---------------------------------------------------------------------------
