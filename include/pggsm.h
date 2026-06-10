@@ -51,8 +51,6 @@ typedef struct predef_vmode_struct
 
 extern int gEnableGSM; // Enables GSM - 0 for Off, 1 for On
 extern int gGSMSource;
-
-extern int gEnableGSM;
 extern int gGSMVMode;
 extern int gGSMXOffset;
 extern int gGSMYOffset;

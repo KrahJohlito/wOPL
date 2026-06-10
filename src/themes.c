@@ -96,8 +96,8 @@ static const char *elementsType[ELEM_TYPE_COUNT] = {
 
 static const char *gameInfoGetAttr(const game_info_t *gi, const per_game_cfg_t *pg, const char *attr)
 {
-    static char s_size[16], s_players[4], s_rating[4];
-    static char s_compat[12], s_dma[8];
+    static char s_size[16], s_players[16], s_rating[16], s_aspect[16];
+    static char s_vmode[16], s_scan[16], s_device[16];
 
     if (!attr)
         return NULL;
@@ -121,23 +121,51 @@ static const char *gameInfoGetAttr(const game_info_t *gi, const per_game_cfg_t *
             return gi->publisher[0] ? gi->publisher : NULL;
         if (!strcasecmp(attr, "Description"))
             return gi->description[0] ? gi->description : NULL;
-        if (!strcasecmp(attr, "Aspect"))
-            return gi->aspect[0] ? gi->aspect : NULL;
+
         if (!strcasecmp(attr, "Parental"))
             return gi->parental[0] ? gi->parental : NULL;
+
         if (!strcasecmp(attr, "Region"))
             return gi->region[0] ? gi->region : NULL;
+
+        if (!strcasecmp(attr, "Vmode")) {
+            if (!gi->vmode[0]) return NULL;
+            snprintf(s_vmode, sizeof(s_vmode), "Vmode/%s", gi->vmode);
+            return s_vmode;
+        }
+
+        if (!strcasecmp(attr, "Scan")) {
+            if (!gi->scan[0]) return NULL;
+            snprintf(s_scan, sizeof(s_scan), "Scan/%s", gi->scan);
+            return s_scan;
+        }
+
+        if (!strcasecmp(attr, "Device")) {
+            if (!gi->device[0]) return NULL;
+            snprintf(s_device, sizeof(s_device), "Device/%s", gi->device);
+            return s_device;
+        }
+
+        if (!strcasecmp(attr, "UserRating") || !strcasecmp(attr, "Rating")) {
+            snprintf(s_rating, sizeof(s_rating), "Rating/%d", gi->user_rating);
+            return s_rating;
+        }
+
         if (!strcasecmp(attr, "Players")) {
             if (!gi->players)
                 return NULL;
-            snprintf(s_players, sizeof(s_players), "%d", gi->players);
+            snprintf(s_players, sizeof(s_players), "Players/%d", gi->players);
             return s_players;
         }
-        if (!strcasecmp(attr, "UserRating") || !strcasecmp(attr, "Rating")) {
-            snprintf(s_rating, sizeof(s_rating), "%d", gi->user_rating);
-            return s_rating;
+
+        if (!strcasecmp(attr, "Aspect")) {
+            if (!gi->aspect[0])
+                return NULL;
+            snprintf(s_aspect, sizeof(s_aspect), "Aspect/%s", gi->aspect);
+            return s_aspect;
         }
     }
+
     // per_game_cfg_t
     if (!pg)
         return NULL;
@@ -152,39 +180,21 @@ static const char *gameInfoGetAttr(const game_info_t *gi, const per_game_cfg_t *
         snprintf(s_size, sizeof(s_size), "%d", pg->size_mb);
         return s_size;
     }
-    if (!strcasecmp(attr, "VMC1"))
-        return pg->vmc1[0] ? pg->vmc1 : NULL;
-    if (!strcasecmp(attr, "VMC2"))
-        return pg->vmc2[0] ? pg->vmc2 : NULL;
-    if (!strcasecmp(attr, "Compat")) {
-        if (!pg->compat)
-            return NULL;
-        snprintf(s_compat, sizeof(s_compat), "0x%02X", pg->compat);
-        return s_compat;
-    }
-    if (!strcasecmp(attr, "DMA")) {
-        if (pg->dma == 7)
-            return NULL;
-        snprintf(s_dma, sizeof(s_dma), "%d", pg->dma);
-        return s_dma;
-    }
+
 #ifdef PADEMU
-    if (!strcasecmp(attr, "EnablePadEmu")) {
-        int en = (pg->pademu_source == SETTINGS_PERGAME) ? pg->pademu_enable : gGlobalGameCfg.pademu_enable;
-        return en ? "EnablePadEmu" : NULL;
-    }
+    if (!strcasecmp(attr, "PadEmu") ||
+        !strcasecmp(attr, "EnablePadEmu")) // DELETE_WITH_MIGRATION
+        return pg->pademu_enable ? "pademu_on" : "pademu_off";
 #endif
 #ifdef CHEAT
-    if (!strcasecmp(attr, "EnableCheat")) {
-        int en = (pg->cheat_source == SETTINGS_PERGAME) ? pg->cheat_enable : gGlobalGameCfg.cheat_enable;
-        return en ? "EnableCheat" : NULL;
-    }
+    if (!strcasecmp(attr, "Cheat") ||
+        !strcasecmp(attr, "EnableCheat")) // DELETE_WITH_MIGRATION
+        return pg->cheat_enable ? "cht_on" : "cht_off";
 #endif
 #ifdef GSM
-    if (!strcasecmp(attr, "EnableGSM")) {
-        int en = (pg->gsm_source == SETTINGS_PERGAME) ? pg->gsm_enable : gGlobalGameCfg.gsm_enable;
-        return en ? "EnableGSM" : NULL;
-    }
+    if (!strcasecmp(attr, "GSM") ||
+        !strcasecmp(attr, "EnableGSM")) // DELETE_WITH_MIGRATION
+        return pg->gsm_enable ? "gsm_on" : "gsm_off";
 #endif
 
     return NULL;

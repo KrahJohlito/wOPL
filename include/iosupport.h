@@ -160,20 +160,14 @@ typedef struct
     int osd_vmode;
 } per_game_cfg_t;
 
-typedef struct
-{
-    char title[ISO_GAME_NAME_MAX + 1];
-    char genre[64];
-    char release[32];
-    char developer[64];
-    char description[256];
-    char publisher[64];
-    char serial[16];   // "SCES-50916" formatted
-    char aspect[12];   // "standard" / "widescreen"
-    char parental[32]; // "pegi_3" / "esrb_m" etc.
-    char region[8];    // "pal" / "ntscu" / "ntscj" / "ntsca"
-    int players;       // 1-4
-    int user_rating;   // 0-5
+typedef struct {
+    char title[161]; char genre[64]; char release[32]; char developer[64];
+    char description[256]; char publisher[64]; char serial[16]; char aspect[12];
+    char parental[32]; char region[8];
+    char vmode[8];    // "ntsc", "pal", "multi", "ntscj"
+    char scan[8];     // "240p", "480i", "480p", "576i", "720p", "1080i" etc.
+    char device[8];   // "1"..."6", "all"
+    int players; int user_rating;
 } game_info_t;
 
 typedef struct
