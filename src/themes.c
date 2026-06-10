@@ -156,17 +156,17 @@ static const char *gameInfoGetAttr(const game_info_t *gi, const per_game_cfg_t *
 #ifdef PADEMU
     if (!strcasecmp(attr, "PadEmu") ||
         !strcasecmp(attr, "EnablePadEmu")) // DELETE_WITH_MIGRATION
-        return pg->pademu_enable ? "1" : NULL;
+        return pg->pademu_enable ? "pademu_on" : "pademu_off";
 #endif
 #ifdef CHEAT
     if (!strcasecmp(attr, "Cheat") ||
         !strcasecmp(attr, "EnableCheat")) // DELETE_WITH_MIGRATION
-        return pg->cheat_enable ? "1" : NULL;
+        return pg->cheat_enable ? "cht_on" : "cht_off";
 #endif
 #ifdef GSM
     if (!strcasecmp(attr, "GSM") ||
         !strcasecmp(attr, "EnableGSM")) // DELETE_WITH_MIGRATION
-        return pg->gsm_enable ? "1" : NULL;
+        return pg->gsm_enable ? "gsm_on" : "gsm_off";
 #endif
 
     return NULL;
