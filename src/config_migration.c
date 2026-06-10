@@ -137,6 +137,22 @@ int cfgMigrateLegacyOPL(const char *path, int *out_theme_id, int *out_lang_id)
     configGetInt(cfg, CONFIG_OPL_COVERFLOW_ANIM, &gCoverflowAnimSpeed);
     configGetInt(cfg, CONFIG_OPL_COVERFLOW_DIM, &gCoverflowDimCovers);
 
+    configGetStrCopy(cfg, CONFIG_OPL_PARENTAL_LOCK_PWD, gParentalLockPassword, sizeof(gParentalLockPassword));
+
+    int delay;
+    if (configGetInt(cfg, "fav_frames_delay", &delay))
+        gFAVFramesDelay = delay;
+    if (configGetInt(cfg, "usb_frames_delay", &delay)) {
+        gBDMFramesDelay = delay;
+        gMMCEFramesDelay = delay;
+    }
+    if (configGetInt(cfg, "app_frames_delay", &delay))
+        gAPPFramesDelay = delay;
+    if (configGetInt(cfg, "eth_frames_delay", &delay))
+        gETHFramesDelay = delay;
+    if (configGetInt(cfg, "hdd_frames_delay", &delay))
+        gHDDFramesDelay = delay;
+
     configClear(cfg);
     return 1;
 }
