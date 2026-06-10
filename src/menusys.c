@@ -204,8 +204,11 @@ static void _menuLoadConfig()
         memset(&itemGameInfo, 0, sizeof(itemGameInfo));
         memset(&itemPgCfg, 0, sizeof(itemPgCfg));
 
-        list->itemGetInfo(list, itemConfigId, &itemGameInfo);
-        list->itemGetPgCfg(list, itemConfigId, &itemPgCfg);
+        if (list->itemGetInfo)
+            list->itemGetInfo(list, itemConfigId, &itemGameInfo);
+
+        if (list->itemGetPgCfg)
+            list->itemGetPgCfg(list, itemConfigId, &itemPgCfg);
 
         itemConfig.gi = &itemGameInfo;
         itemConfig.pg = &itemPgCfg;
@@ -222,7 +225,7 @@ static void _menuSaveConfig()
 
     WaitSema(menuSemaId);
     item_list_t *list = selected_item->item->userdata;
-    result = list->itemSavePgCfg(list, itemConfigId, &itemPgCfg);
+    result = list->itemSavePgCfg ? list->itemSavePgCfg(list, itemConfigId, &itemPgCfg) : 1;
     itemConfigId = -1; // to invalidate cache and force reload
     actionStatus = 0;
     SignalSema(menuSemaId);
@@ -239,7 +242,7 @@ static void _menuRequestConfig()
             itemConfigPtr = NULL;
 
         item_list_t *list = selected_item->item->userdata;
-        if (itemConfigId == -1 || guiInactiveFrames >= list->delay) {
+        if (itemConfigId == -1 || actionStatus || guiInactiveFrames >= list->delay) {
             itemConfigId = selected_item->item->current->item.id;
             ioPutRequest(IO_CUSTOM_SIMPLEACTION, &_menuLoadConfig);
         }

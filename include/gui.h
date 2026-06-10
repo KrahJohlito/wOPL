@@ -142,10 +142,6 @@ void guiDrawSubMenuHints(void);
 int guiAlignMenuHints(menu_hint_item_t *hint, int font, int width);
 int guiAlignSubMenuHints(int hintCount, int *textID, int *iconID, int font, int width, int align);
 
-// Net compat was deleted?.. can't find it
-//void guiShowNetCompatUpdate(void);
-//void guiShowNetCompatUpdateSingle(int id, item_list_t *support, config_set_t *configSet);
-
 void guiShowAbout();
 void guiShowConfig();
 void guiShowUIConfig();

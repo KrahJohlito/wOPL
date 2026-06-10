@@ -241,7 +241,7 @@ static char *appGetItemName(item_list_t *itemList, int id)
 
 static int appGetItemNameLength(item_list_t *itemList, int id)
 {
-    return CONFIG_KEY_NAME_LEN;
+    return APP_TITLE_MAX;
 }
 
 static char *appGetItemStartup(item_list_t *itemList, int id)
