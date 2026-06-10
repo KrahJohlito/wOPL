@@ -1049,8 +1049,6 @@ static void parse_per_game(config_t *cfg, per_game_cfg_t *pg)
         pg->dma = val;
     if (config_lookup_int(cfg, "core_loader", &val))
         pg->core_loader = val;
-    if (config_lookup_int(cfg, "config_source", &val))
-        pg->config_source = val;
     if (config_lookup_string(cfg, "dnas", &str))
         copy_str(pg->dnas, str, sizeof(pg->dnas));
     if (config_lookup_string(cfg, "alt_startup", &str))
@@ -1117,7 +1115,6 @@ static void build_per_game(config_setting_t *root, const per_game_cfg_t *pg)
     set_int(root, "compat", pg->compat);
     set_int(root, "dma", pg->dma);
     set_int(root, "core_loader", pg->core_loader);
-    set_int(root, "config_source", pg->config_source);
     set_str(root, "dnas", pg->dnas);
     set_str(root, "alt_startup", pg->alt_startup);
     set_str(root, "vmc1", pg->vmc1);

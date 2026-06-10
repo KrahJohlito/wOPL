@@ -6,8 +6,6 @@
 
 int guiGameAltStartupNameHandler(char *text, int maxLen);
 
-char *gameConfigSource(void);
-
 int guiGameVmcNameHandler(char *text, int maxLen);
 void guiGameShowVMCMenu(int id, item_list_t *support);
 void guiGameShowCompatConfig(int id, item_list_t *support);

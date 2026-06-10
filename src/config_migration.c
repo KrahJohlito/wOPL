@@ -243,7 +243,6 @@ int cfgMigrateLegacyPerGame(const char *path, per_game_cfg_t *cfg)
     configGetInt(old, CONFIG_ITEM_COMPAT, &cfg->compat);
     configGetInt(old, CONFIG_ITEM_DMA, &cfg->dma);
     configGetInt(old, CONFIG_ITEM_CORE_LOADER, &cfg->core_loader);
-    configGetInt(old, CONFIG_ITEM_CONFIGSOURCE, &cfg->config_source);
     configGetStrCopy(old, CONFIG_ITEM_DNAS, cfg->dnas, sizeof(cfg->dnas));
     configGetStrCopy(old, CONFIG_ITEM_ALTSTARTUP, cfg->alt_startup, sizeof(cfg->alt_startup));
     configGetVMC(old, cfg->vmc1, sizeof(cfg->vmc1), 0);
@@ -391,7 +390,6 @@ int cfgMigrateTARGameCfg(const char *startup, game_info_t *gi, per_game_cfg_t *p
                 configGetInt(old, CONFIG_ITEM_COMPAT, &pgcfg->compat);
                 configGetInt(old, CONFIG_ITEM_DMA, &pgcfg->dma);
                 configGetInt(old, CONFIG_ITEM_CORE_LOADER, &pgcfg->core_loader);
-                configGetInt(old, CONFIG_ITEM_CONFIGSOURCE, &pgcfg->config_source);
                 configGetStrCopy(old, CONFIG_ITEM_DNAS, pgcfg->dnas, sizeof(pgcfg->dnas));
                 configGetStrCopy(old, CONFIG_ITEM_ALTSTARTUP, pgcfg->alt_startup, sizeof(pgcfg->alt_startup));
                 configGetVMC(old, pgcfg->vmc1, sizeof(pgcfg->vmc1), 0);
