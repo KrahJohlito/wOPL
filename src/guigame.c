@@ -350,25 +350,26 @@ static void guiGameSetGSMSettingsState(void)
 
     if (previousSource != gGSMSource) {
         if (gGSMSource == SETTINGS_GLOBAL) {
-            EnableGSM = gGlobalGameCfg.gsm_enable;
-            GSMVMode = gGlobalGameCfg.gsm_vmode;
-            GSMXOffset = gGlobalGameCfg.gsm_xoffset;
-            GSMYOffset = gGlobalGameCfg.gsm_yoffset;
-            GSMFIELDFix = gGlobalGameCfg.gsm_fieldfix;
+            gEnableGSM = gGlobalGameCfg.gsm_enable;
+            gGSMVMode = gGlobalGameCfg.gsm_vmode;
+            gGSMXOffset = gGlobalGameCfg.gsm_xoffset;
+            gGSMYOffset = gGlobalGameCfg.gsm_yoffset;
+            gGSMFIELDFix = gGlobalGameCfg.gsm_fieldfix;
         } else if (s_pgcfg) {
-            EnableGSM = s_pgcfg->gsm_enable;
-            GSMVMode = s_pgcfg->gsm_vmode;
-            GSMXOffset = s_pgcfg->gsm_xoffset;
-            GSMYOffset = s_pgcfg->gsm_yoffset;
-            GSMFIELDFix = s_pgcfg->gsm_fieldfix;
+            gEnableGSM = s_pgcfg->gsm_enable;
+            gGSMVMode = s_pgcfg->gsm_vmode;
+            gGSMXOffset = s_pgcfg->gsm_xoffset;
+            gGSMYOffset = s_pgcfg->gsm_yoffset;
+            gGSMFIELDFix = s_pgcfg->gsm_fieldfix;
         }
 
-        diaSetInt(diaGSConfig, GSMCFG_ENABLEGSM, EnableGSM);
-        diaSetInt(diaGSConfig, GSMCFG_GSMVMODE, GSMVMode);
-        diaSetInt(diaGSConfig, GSMCFG_GSMXOFFSET, GSMXOffset);
-        diaSetInt(diaGSConfig, GSMCFG_GSMYOFFSET, GSMYOffset);
-        diaSetInt(diaGSConfig, GSMCFG_GSMFIELDFIX, GSMFIELDFix);
+        diaSetInt(diaGSConfig, GSMCFG_ENABLEGSM, gEnableGSM);
+        diaSetInt(diaGSConfig, GSMCFG_GSMVMODE, gGSMVMode);
+        diaSetInt(diaGSConfig, GSMCFG_GSMXOFFSET, gGSMXOffset);
+        diaSetInt(diaGSConfig, GSMCFG_GSMYOFFSET, gGSMYOffset);
+        diaSetInt(diaGSConfig, GSMCFG_GSMFIELDFIX, gGSMFIELDFix);
     }
+
     diaGetInt(diaGSConfig, GSMCFG_ENABLEGSM, &gEnableGSM);
     diaSetEnabled(diaGSConfig, GSMCFG_GSMVMODE, gEnableGSM);
     diaSetEnabled(diaGSConfig, GSMCFG_GSMXOFFSET, gEnableGSM);
@@ -443,15 +444,16 @@ static void guiGameSetCheatSettingsState(void)
 
     if (previousSource != gCheatSource) {
         if (gCheatSource == SETTINGS_GLOBAL) {
-            EnableCheat = gGlobalGameCfg.cheat_enable;
+            gEnableCheat = gGlobalGameCfg.cheat_enable;
             CheatMode = gGlobalGameCfg.cheat_mode;
             EnableImage = gGlobalGameCfg.cheat_enable_image;
         } else if (s_pgcfg) {
-            EnableCheat = s_pgcfg->cheat_enable;
+            gEnableCheat = s_pgcfg->cheat_enable;
             CheatMode = s_pgcfg->cheat_mode;
             EnableImage = s_pgcfg->cheat_enable_image;
         }
-        diaSetInt(diaCheatConfig, CHTCFG_ENABLECHEAT, EnableCheat);
+
+        diaSetInt(diaCheatConfig, CHTCFG_ENABLECHEAT, gEnableCheat);
         diaSetInt(diaCheatConfig, CHTCFG_CHEATMODE, CheatMode);
         diaSetInt(diaCheatConfig, CHTCFG_ENABLEIMAGE, EnableImage);
     }
