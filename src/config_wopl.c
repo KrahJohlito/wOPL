@@ -1298,7 +1298,7 @@ int wOPLGameInfoSave(const char *path, const game_info_t *gi)
 
 #include "include/module.h"
 
-char *gBaseMCDir;
+char *gBaseMCDir; // used for thm/lang even after migration
 
 static int lscstatus = CONFIG_ALL;
 static int lscret = 0;
@@ -1328,7 +1328,8 @@ void loadConfig()
     configApply(themeID, langID, 0);
     lscret = result;
     lscstatus = 0;
-    showCfgPopup = 1;
+    if (result)
+        showCfgPopup = 1;
 
 #ifdef PADEMU
     gEnablePadEmu = gGlobalGameCfg.pademu_enable;
@@ -1418,7 +1419,6 @@ int configLoad(int types)
 
 int configSave(int types, int showUI)
 {
-    char notification[128];
     lscstatus = types;
     lscret = 0;
 
@@ -1426,15 +1426,16 @@ int configSave(int types, int showUI)
 
     if (showUI) {
         if (lscret) {
-            char *path = configGetDir();
-            if (path != NULL) {
+            char notification[128];
+            char path[128] = {0};
+            const char *rawPath = wOPLGetDir();
+            if (rawPath) {
+                strncpy(path, rawPath, sizeof(path) - 1);
                 char *colpos = strchr(path, ':');
                 if (colpos != NULL)
                     *(colpos + 1) = '\0';
             }
-
-            snprintf(notification, sizeof(notification), _l(_STR_SETTINGS_SAVED), path);
-
+            snprintf(notification, sizeof(notification), _l(_STR_SETTINGS_SAVED), path[0] ? path : "?");
             guiMsgBox(notification, 0, NULL);
         } else
             guiMsgBox(_l(_STR_ERROR_SAVING_SETTINGS), 0, NULL);

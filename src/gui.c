@@ -318,6 +318,7 @@ static void guiShowNotifications(void)
         }
 
         if (showCfgPopup) {
+            const char *cfgDir = wOPLGetDir();
             snprintf(notification, sizeof(notification), _l(_STR_CFG_NOTIFICATION), wOPLGetDir());
             if ((col_pos = strchr(notification, ':')) != NULL)
                 *(col_pos + 1) = '\0';
