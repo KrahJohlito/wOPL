@@ -417,7 +417,7 @@ static item_list_t appItemList = {
     &appGetItemCount, NULL, &appGetItemName, &appGetItemNameLength, &appGetItemStartup, &appDeleteItem, &appRenameItem, &appLaunchItem,
     &appGetInfo, &appGetPgCfg, &appSavePgCfg, &appGetImage, &appGetArchivedImage, &appCleanUp, &appShutdown, NULL, &appGetIconId};
 
-static int scanApps(int (*callback)(const char *path, config_t *appConfig, void *arg), void *arg, char *appsPath)
+static int scanApps(int (*callback)(const char *path, config_t *appConfig, void *arg), void *arg, char *appsPath, int exception)
 {
     struct dirent *pdirent;
     DIR *pdir;
@@ -428,6 +428,9 @@ static int scanApps(int (*callback)(const char *path, config_t *appConfig, void 
     count = 0;
     if ((pdir = opendir(appsPath)) != NULL) {
         while ((pdirent = readdir(pdir)) != NULL) {
+            if (exception && strchr(pdirent->d_name, '_') == NULL)
+                continue;
+
             if (strcmp(pdirent->d_name, ".") == 0 || strcmp(pdirent->d_name, "..") == 0)
                 continue;
 
@@ -484,14 +487,13 @@ static int oplScanApps(int (*callback)(const char *path, config_t *appConfig, vo
         if ((listSupport != NULL) && (listSupport->enabled) && (listSupport->itemGetPrefix != NULL)) {
             char *prefix = listSupport->itemGetPrefix(listSupport);
             snprintf(appsPath, sizeof(appsPath), "%sAPPS", prefix);
-            count += scanApps(callback, arg, appsPath);
+            count += scanApps(callback, arg, appsPath, 0);
         }
     }
 
-    // also check MC
     for (i = 0; i < 2; i++) {
-        snprintf(appsPath, sizeof(appsPath), "mc%d:/APPS", i);
-        count += scanApps(callback, arg, appsPath);
+        snprintf(appsPath, sizeof(appsPath), "mc%d:", i);
+        count += scanApps(callback, arg, appsPath, 1);
     }
 
     return count;
