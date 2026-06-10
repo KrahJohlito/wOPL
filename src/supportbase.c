@@ -914,23 +914,6 @@ int sbReadList(base_game_info_t **list, const char *prefix, int *fsize, int *gam
                     g->media = GameEntry.media;
                     g->format = GAME_FORMAT_USBLD;
                     g->sizeMB = 0;
-
-                    /* TODO: size calculation is very slow
-                    implmented some caching, or do not touch at all */
-
-                    // calculate total size for individual game
-                    /*int ulfd = 1;
-                    u8 part;
-                    unsigned int name_checksum = USBA_crc32(g->name);
-
-                    for (part = 0; part < g->parts && ulfd >= 0; part++) {
-                        snprintf(path, sizeof(path), "%sul.%08X.%s.%02x", prefix, name_checksum, g->startup, part);
-                        ulfd = openFile(path, O_RDONLY);
-                        if (ulfd >= 0) {
-                            g->sizeMB += (getFileSize(ulfd) >> 20);
-                            close(ulfd);
-                        }
-                    }*/
                 }
             }
         }
@@ -1348,75 +1331,6 @@ int sbSaveConfig(base_game_info_t *game, const char *prefix, const char *sep, co
 
     return wOPLPerGameSave(path, cfg);
 }
-
-/*config_set_t *sbPopulateConfig(base_game_info_t *game, const char *prefix, const char *sep)
-{
-    char path[256];
-    struct stat st;
-
-    snprintf(path, sizeof(path), "%sCFG%s%s.cfg", prefix, sep, game->startup);
-    config_set_t *config = configAlloc(0, NULL, path);
-
-    char filename[32];
-    snprintf(filename, sizeof(filename), "%s.cfg", game->startup);
-
-    if (!configRead(config)) {
-        TarEntryBase *e = tarFind(TAR_KIND_CFG, filename);
-        if (e) {
-            void *buf = malloc(e->rawSize);
-            if (buf) {
-                if (tarRead(TAR_KIND_CFG, e, buf, e->rawSize) == e->rawSize) {
-                    configReadBuffer(config, buf, e->rawSize);
-                }
-                free(buf);
-            }
-        }
-    }
-
-    // Get game size if not already set
-    if (game->sizeMB == 0) {
-        char gamepath[256];
-
-        if (game->format == GAME_FORMAT_ISO) {
-            snprintf(gamepath, sizeof(gamepath), "%s%s%s%s%s%s", prefix, sep, game->media == SCECdPS2CD ? "CD" : "DVD", sep, game->name, game->extension);
-
-            if (stat(gamepath, &st) == 0)
-                game->sizeMB = st.st_size >> 20;
-        } else if (game->format == GAME_FORMAT_OLD_ISO) {
-            snprintf(gamepath, sizeof(gamepath), "%s%s%s%s%s.%s%s", prefix, sep, game->media == SCECdPS2CD ? "CD" : "DVD", sep, game->startup, game->name, game->extension);
-
-            if (stat(gamepath, &st) == 0)
-                game->sizeMB = st.st_size >> 20;
-        } else if (game->format == GAME_FORMAT_USBLD) {
-            // Calculate total size for multi-part USBLD games
-            int part;
-            unsigned int name_checksum = USBA_crc32(game->name);
-
-            for (part = 0; part < game->parts; part++) {
-                snprintf(gamepath, sizeof(gamepath), "%sul.%08X.%s.%02x", prefix, name_checksum, game->startup, part);
-                if (stat(gamepath, &st) == 0)
-                    game->sizeMB += (st.st_size >> 20);
-            }
-        }
-    }
-
-    configSetStr(config, CONFIG_ITEM_NAME, game->name);
-    configSetInt(config, CONFIG_ITEM_SIZE, game->sizeMB);
-
-    if (game->format != GAME_FORMAT_USBLD) {
-        if (!strcmp(game->extension, ".iso"))
-            configSetStr(config, CONFIG_ITEM_FORMAT, "ISO");
-        else if (!strcmp(game->extension, ".zso"))
-            configSetStr(config, CONFIG_ITEM_FORMAT, "ZSO");
-    } else if (game->format == GAME_FORMAT_USBLD)
-        configSetStr(config, CONFIG_ITEM_FORMAT, "UL");
-
-    configSetStr(config, CONFIG_ITEM_MEDIA, game->media == SCECdPS2CD ? "CD" : "DVD");
-
-    configSetStr(config, CONFIG_ITEM_STARTUP, game->startup);
-
-    return config;
-}*/
 
 static void sbCreateFoldersFromList(const char *path, const char **folders)
 {
