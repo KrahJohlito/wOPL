@@ -1289,10 +1289,9 @@ void menuHandleInputGameMenu()
         } else if (menuID == GAME_OSD_LANGUAGE_SETTINGS) {
             guiGameShowOSDLanguageConfig(0);
         } else if (menuID == GAME_SAVE_CHANGES) {
-            if (guiGameSaveConfig(&itemPgCfg, selected_item->item->userdata))
+            guiGameSaveConfig(&itemPgCfg, selected_item->item->userdata);
             menuSaveConfig();
             wOPLGlobalGameSave();
-
             guiMsgBox(_l(_STR_GAME_SETTINGS_SAVED), 0, NULL);
             guiGameLoadConfig(selected_item->item->userdata, gameMenuLoadConfig(NULL));
         } else if (menuID == GAME_TEST_CHANGES) {
