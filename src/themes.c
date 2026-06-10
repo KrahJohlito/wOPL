@@ -152,39 +152,21 @@ static const char *gameInfoGetAttr(const game_info_t *gi, const per_game_cfg_t *
         snprintf(s_size, sizeof(s_size), "%d", pg->size_mb);
         return s_size;
     }
-    if (!strcasecmp(attr, "VMC1"))
-        return pg->vmc1[0] ? pg->vmc1 : NULL;
-    if (!strcasecmp(attr, "VMC2"))
-        return pg->vmc2[0] ? pg->vmc2 : NULL;
-    if (!strcasecmp(attr, "Compat")) {
-        if (!pg->compat)
-            return NULL;
-        snprintf(s_compat, sizeof(s_compat), "0x%02X", pg->compat);
-        return s_compat;
-    }
-    if (!strcasecmp(attr, "DMA")) {
-        if (pg->dma == 7)
-            return NULL;
-        snprintf(s_dma, sizeof(s_dma), "%d", pg->dma);
-        return s_dma;
-    }
+
 #ifdef PADEMU
-    if (!strcasecmp(attr, "EnablePadEmu")) {
-        int en = (pg->pademu_source == SETTINGS_PERGAME) ? pg->pademu_enable : gGlobalGameCfg.pademu_enable;
-        return en ? "EnablePadEmu" : NULL;
-    }
+    if (!strcasecmp(attr, "PadEmu") ||
+        !strcasecmp(attr, "EnablePadEmu")) // DELETE_WITH_MIGRATION
+        return pg->pademu_enable ? "1" : NULL;
 #endif
 #ifdef CHEAT
-    if (!strcasecmp(attr, "EnableCheat")) {
-        int en = (pg->cheat_source == SETTINGS_PERGAME) ? pg->cheat_enable : gGlobalGameCfg.cheat_enable;
-        return en ? "EnableCheat" : NULL;
-    }
+    if (!strcasecmp(attr, "Cheat") ||
+        !strcasecmp(attr, "EnableCheat")) // DELETE_WITH_MIGRATION
+        return pg->cheat_enable ? "1" : NULL;
 #endif
 #ifdef GSM
-    if (!strcasecmp(attr, "EnableGSM")) {
-        int en = (pg->gsm_source == SETTINGS_PERGAME) ? pg->gsm_enable : gGlobalGameCfg.gsm_enable;
-        return en ? "EnableGSM" : NULL;
-    }
+    if (!strcasecmp(attr, "GSM") ||
+        !strcasecmp(attr, "EnableGSM")) // DELETE_WITH_MIGRATION
+        return pg->gsm_enable ? "1" : NULL;
 #endif
 
     return NULL;
