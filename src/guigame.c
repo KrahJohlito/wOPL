@@ -32,7 +32,6 @@
 // module level pointer to currently edited per game config
 static per_game_cfg_t *s_pgcfg = NULL;
 
-static int configSourceID;
 static int dmaMode;
 static int compatMode;
 static int coreLoader;
@@ -81,7 +80,6 @@ static char altStartup[32];
 static char vmc1[32];
 static char vmc2[32];
 static char hexDiscID[15];
-static char configSource[128];
 
 // forward declarations.
 #ifdef GSM
@@ -110,12 +108,6 @@ int guiGameAltStartupNameHandler(char *text, int maxLen)
     }
 
     return result;
-}
-
-char *gameConfigSource(void)
-{
-    char *source = configSource;
-    return source;
 }
 
 // VMC
@@ -1329,9 +1321,6 @@ static void guiGameLoadOSDLanguageConfig(const per_game_cfg_t *pg)
 void guiGameLoadConfig(item_list_t *support, per_game_cfg_t *pg)
 {
     s_pgcfg = pg;
-
-    configSource[0] = '\0';
-    configSourceID = pg ? pg->config_source : CONFIG_SOURCE_DEFAULT;
 
     dmaMode = pg ? pg->dma : 7;
     if (support->flags & MODE_FLAG_COMPAT_DMA)

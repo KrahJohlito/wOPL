@@ -20,10 +20,6 @@ struct menu_item;
 
 #define ISO_GAME_FNAME_MAX (ISO_GAME_NAME_MAX + ISO_GAME_EXTENSION_MAX)
 
-#define CONFIG_SOURCE_DEFAULT 0
-#define CONFIG_SOURCE_USER    1
-#define CONFIG_SOURCE_DLOAD   2
-
 enum IO_MODES {
     BDM_MODE = 0,
     BDM_MODE1,
@@ -130,7 +126,6 @@ typedef struct
     int compat;
     int dma; // 7 = not set (device default)
     int core_loader;
-    int config_source;
     char format[8];
     char media[4];
     char dnas[32];

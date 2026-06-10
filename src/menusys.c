@@ -1219,11 +1219,7 @@ void menuRenderGameMenu()
     int cp = 0; // current position
 
     // game title
-    fntRenderString(gTheme->fonts[0], 320, 20, ALIGN_CENTER, 0, 0, selected_item->item->current->item.text, gTheme->selTextColor);
-
-    // config source
-    char *cfgSource = gameConfigSource();
-    fntRenderString(gTheme->fonts[0], 320, 40, ALIGN_CENTER, 0, 0, cfgSource, gTheme->textColor);
+    fntRenderString(gTheme->fonts[0], 320, 40, ALIGN_CENTER, 0, 0, selected_item->item->current->item.text, gTheme->selTextColor);
 
     // settings list
     for (it = gameMenu; it; it = it->next, cp++) {
@@ -1293,12 +1289,9 @@ void menuHandleInputGameMenu()
         } else if (menuID == GAME_OSD_LANGUAGE_SETTINGS) {
             guiGameShowOSDLanguageConfig(0);
         } else if (menuID == GAME_SAVE_CHANGES) {
-            if (guiGameSaveConfig(&itemPgCfg, selected_item->item->userdata))
-                itemPgCfg.config_source = CONFIG_SOURCE_USER;
-
+            guiGameSaveConfig(&itemPgCfg, selected_item->item->userdata);
             menuSaveConfig();
             wOPLGlobalGameSave();
-
             guiMsgBox(_l(_STR_GAME_SETTINGS_SAVED), 0, NULL);
             guiGameLoadConfig(selected_item->item->userdata, gameMenuLoadConfig(NULL));
         } else if (menuID == GAME_TEST_CHANGES) {
