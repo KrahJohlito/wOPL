@@ -103,15 +103,16 @@ int menuGetDevicePaths(char paths[][64], int maxCount)
     int count = 0;
     int i, j;
 
-    // Current config dir first..
     const char *cfgDir = wOPLGetDir();
     if (cfgDir && count < maxCount) {
-        strncpy(paths[count], cfgDir, 63);
-        paths[count][63] = '\0';
+        strncpy(paths[count], cfgDir, 62);
+        paths[count][62] = '\0';
+        int len = strlen(paths[count]);
+        if (len > 0 && paths[count][len - 1] != '/')
+            paths[count][len] = '/', paths[count][len + 1] = '\0';
         count++;
     }
 
-    // Enabled device prefixes
     for (i = 0; i < MODE_COUNT && count < maxCount; i++) {
         item_list_t *support = list_support[i].support;
         if (!support || !support->enabled || !support->itemGetPrefix)
@@ -121,16 +122,23 @@ int menuGetDevicePaths(char paths[][64], int maxCount)
         if (!prefix || !prefix[0])
             continue;
 
+        char norm[64];
+        strncpy(norm, prefix, 62);
+        norm[62] = '\0';
+        int len = strlen(norm);
+        if (len > 0 && norm[len - 1] != '/')
+            norm[len] = '/', norm[len + 1] = '\0';
+
         int dup = 0;
         for (j = 0; j < count; j++) {
-            if (!strcmp(paths[j], prefix)) {
+            if (!strcmp(paths[j], norm)) {
                 dup = 1;
                 break;
             }
         }
 
         if (!dup) {
-            strncpy(paths[count], prefix, 63);
+            strncpy(paths[count], norm, 63);
             paths[count][63] = '\0';
             count++;
         }
