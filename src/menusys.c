@@ -34,6 +34,7 @@ enum MENU_IDs {
     MENU_NET_CONFIG,
     MENU_START_NBD,
     MENU_ABOUT,
+    MENU_CFG_MIGRATION,  // DELETE_WITH_MIGRATION
     MENU_SAVE_CHANGES,
     MENU_EXIT,
     MENU_POWER_OFF
@@ -95,6 +96,49 @@ int gAutoRefresh;
 extern unsigned char shouldAppsUpdate;
 
 #define MENU_GENERAL_UPDATE_DELAY 60
+
+// DELETE_WITH_MIGRATION v
+int menuGetDevicePaths(char paths[][64], int maxCount)
+{
+    int count = 0;
+    int i, j;
+
+    // Current config dir first..
+    const char *cfgDir = wOPLGetDir();
+    if (cfgDir && count < maxCount) {
+        strncpy(paths[count], cfgDir, 63);
+        paths[count][63] = '\0';
+        count++;
+    }
+
+    // Enabled device prefixes
+    for (i = 0; i < MODE_COUNT && count < maxCount; i++) {
+        item_list_t *support = list_support[i].support;
+        if (!support || !support->enabled || !support->itemGetPrefix)
+            continue;
+
+        char *prefix = support->itemGetPrefix(support);
+        if (!prefix || !prefix[0])
+            continue;
+
+        int dup = 0;
+        for (j = 0; j < count; j++) {
+            if (!strcmp(paths[j], prefix)) {
+                dup = 1;
+                break;
+            }
+        }
+
+        if (!dup) {
+            strncpy(paths[count], prefix, 63);
+            paths[count][63] = '\0';
+            count++;
+        }
+    }
+
+    return count;
+}
+// DELETE_WITH_MIGRATION ^
 
 static void menuRenameGame(submenu_list_t **submenu)
 {
@@ -292,6 +336,7 @@ static void menuInitMainMenu(void)
     submenuAppendItem(&mainMenu, -1, NULL, MENU_NET_CONFIG, _STR_NETCONFIG, NULL);
     submenuAppendItem(&mainMenu, -1, NULL, MENU_START_NBD, _STR_STARTNBD, NULL);
     submenuAppendItem(&mainMenu, -1, NULL, MENU_ABOUT, _STR_ABOUT, NULL);
+    submenuAppendItem(&mainMenu, -1, "Config Migration", MENU_CFG_MIGRATION, -1, NULL); // DELETE_WITH_MIGRATION
     submenuAppendItem(&mainMenu, -1, NULL, MENU_SAVE_CHANGES, _STR_SAVE_CHANGES, NULL);
     submenuAppendItem(&mainMenu, -1, NULL, MENU_EXIT, _STR_EXIT, NULL);
     submenuAppendItem(&mainMenu, -1, NULL, MENU_POWER_OFF, _STR_POWEROFF, NULL);
@@ -1014,6 +1059,8 @@ void menuHandleInputMenu()
                 handleLwnbdSrv();
         } else if (id == MENU_ABOUT) {
             guiShowAbout();
+        } else if (id == MENU_CFG_MIGRATION) { // DELETE_WITH_MIGRATION
+            guiShowCfgMigration();             // DELETE_WITH_MIGRATION
         } else if (id == MENU_SAVE_CHANGES) {
             if (menuCheckParentalLock() == 0) {
                 guiGameSaveOSDLanguageGlobalConfig();
@@ -1021,9 +1068,7 @@ void menuHandleInputMenu()
                 guiGameSavePadEmuGlobalConfig();
                 guiGameSavePadMacroGlobalConfig();
 #endif
-                wOPLSave();
-                wOPLNetSave();
-                wOPLGlobalGameSave();
+                configSave(CONFIG_ALL, 1);
                 menuSetParentalLockCheckState(1); // Re-enable parental lock check.
             }
         } else if (id == MENU_EXIT) {

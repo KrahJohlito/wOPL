@@ -261,7 +261,7 @@ void init(void)
         padStatus = startPads();
     readPads();
     if (!getKeyPressed(KEY_START)) {
-        loadConfig(); // only try to restore config if emergency key is not being pressed
+        _loadConfig(); // only try to restore config if emergency key is not being pressed
     } else {
         LOG("--- SKIPPING OPL CONFIG LOADING\n");
         configApply(-1, -1, 0);

@@ -30,6 +30,7 @@
 #include <stdlib.h>
 #include <sys/stat.h>
 #include <errno.h>
+#include <dirent.h>
 
 #include <fcntl.h>
 #include <unistd.h>
@@ -584,6 +585,91 @@ int cfgMigrateLegacyTheme(const char *path)
     config_destroy(&cfg);
 
     return ok;
+}
+
+int cfgBatchMigratePerGame(const char *inputPrefix, const char *outputPrefix, int keepOriginals)
+{
+    char cfgDir[256];
+    snprintf(cfgDir, sizeof(cfgDir), "%sCFG", inputPrefix);
+
+    DIR *dir = opendir(cfgDir);
+    if (!dir)
+        return 0;
+
+    if (strcmp(inputPrefix, outputPrefix) != 0) {
+        char outDir[256];
+        snprintf(outDir, sizeof(outDir), "%sCFG", outputPrefix);
+        mkdir(outDir, 0777);
+    }
+
+    int count = 0;
+    struct dirent *entry;
+
+    while ((entry = readdir(dir)) != NULL) {
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
+            continue;
+
+        int len = strlen(entry->d_name);
+        if (len < 5 || strcasecmp(entry->d_name + len - 4, ".cfg") != 0)
+            continue;
+
+        char inputPath[256], outputCfgPath[256], outputInfoPath[256];
+        snprintf(inputPath, sizeof(inputPath), "%sCFG/%s", inputPrefix, entry->d_name);
+        snprintf(outputCfgPath, sizeof(outputCfgPath), "%sCFG/%s", outputPrefix, entry->d_name);
+
+        // info path.. same basename .info extension
+        char basename[128];
+        int baseLen = len - 4;
+        strncpy(basename, entry->d_name, baseLen);
+        basename[baseLen] = '\0';
+        snprintf(outputInfoPath, sizeof(outputInfoPath), "%sCFG/%s.info", outputPrefix, basename);
+
+        // only process legacy format files
+        per_game_cfg_t pgcfg;
+
+        // skip if already new format.. wOPLPerGameLoad also inits pgcfg
+        if (wOPLPerGameLoad(inputPath, &pgcfg) == 1)
+            continue;
+
+        // skip if not a readable legacy format either
+        if (!cfgMigrateLegacyPerGame(inputPath, &pgcfg))
+            continue;
+
+        // extract game info from the legacy cfg
+        game_info_t gi;
+        memset(&gi, 0, sizeof(gi));
+        int hasInfo = cfgMigrateLegacyGameInfo(inputPath, &gi);
+
+        int samePath = (strcmp(inputPath, outputCfgPath) == 0);
+        if (keepOriginals && samePath) {
+            char bakPath[256];
+            snprintf(bakPath, sizeof(bakPath), "%s.bak", inputPath);
+            rename(inputPath, bakPath);
+        }
+
+        if (wOPLPerGameSave(outputCfgPath, &pgcfg)) {
+            // only write .info if we got data and one doesn't already exist
+            if (hasInfo) {
+                FILE *f = fopen(outputInfoPath, "r");
+                int infoExists = (f != NULL);
+                if (f) fclose(f);
+                if (!infoExists)
+                    wOPLGameInfoSave(outputInfoPath, &gi);
+            }
+            if (!keepOriginals && !samePath)
+                unlink(inputPath);
+            count++;
+        } else if (keepOriginals && samePath) {
+            // cfg save failed.. restore .bak
+            char bakPath[256];
+            snprintf(bakPath, sizeof(bakPath), "%s.bak", inputPath);
+            rename(bakPath, inputPath);
+        }
+    }
+
+    closedir(dir);
+
+    return count;
 }
 
 // ---------------------------------------------------------------------------
