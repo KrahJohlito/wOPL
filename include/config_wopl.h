@@ -3,6 +3,11 @@
 
 #include "include/iosupport.h"
 
+#define CONFIG_OPL     1
+#define CONFIG_NETWORK 8
+#define CONFIG_GAME    16
+#define CONFIG_ALL     (CONFIG_OPL | CONFIG_NETWORK | CONFIG_GAME)
+
 extern int gBDMFramesDelay;
 extern int gETHFramesDelay;
 extern int gHDDFramesDelay;
@@ -37,7 +42,7 @@ int wOPLGameInfoSave(const char *path, const game_info_t *gi);
 extern char gParentalLockPassword[256];
 extern char *gBaseMCDir;
 
-void loadConfig();
+void _loadConfig();
 void configApply(int themeID, int langID, int skipDeviceRefresh);
 int configLoad(int types);
 int configSave(int types, int showUI);

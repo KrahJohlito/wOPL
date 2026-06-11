@@ -1,3 +1,9 @@
+/*
+  Copyright 2026, KrahJohlito
+  Licenced under Academic Free License version 3.0
+  Review wOPL README & LICENSE files for further details.
+*/
+
 #include "include/common.h"
 #include "include/config_wopl.h"
 #include "include/ioman.h"
@@ -12,6 +18,7 @@
 #include "include/lwnbd.h"
 #include "include/supportbase.h"
 #include "include/config_migration.h" // DELETE_WITH_MIGRATION
+#include "include/module.h"
 
 #include <libconfig.h>
 #include <stdio.h>
@@ -392,7 +399,7 @@ static int do_save(const char *filename, void (*build)(config_setting_t *))
 }
 
 // ---------------------------------------------------------------------------
-// OPL config (conf_wopl.cfg)
+// wOPL config (wopl_settings.cfg)
 // ---------------------------------------------------------------------------
 
 const char *wOPLGetDir(void)
@@ -731,7 +738,7 @@ int wOPLSave(void)
 }
 
 // ---------------------------------------------------------------------------
-// Network config (conf_network.cfg)
+// Network config (wopl_network.cfg)
 // ---------------------------------------------------------------------------
 
 static void parse_net(config_t *cfg)
@@ -770,7 +777,6 @@ static void parse_net(config_t *cfg)
 static void build_net(config_setting_t *root)
 {
     config_setting_t *group;
-    char buf[16];
 
     group = add_group(root, "eth");
     set_int(group, "link_mode", gETHOpMode);
@@ -785,8 +791,7 @@ static void build_net(config_setting_t *root)
     group = add_group(root, "smb");
     set_bool(group, "use_netbios", gPCShareAddressIsNetBIOS);
     set_str(group, "nb_address", gPCShareNBAddress);
-    ip_to_str(pc_ip, buf, sizeof(buf));
-    set_str(group, "ip", buf);
+    set_ip(group, "ip", pc_ip);
     set_int(group, "port", gPCPort);
     set_str(group, "share", gPCShareName);
     set_str(group, "username", gPCUserName);
@@ -852,7 +857,7 @@ int wOPLNetSave(void)
 }
 
 // ---------------------------------------------------------------------------
-// Last config (conf_last.cfg)
+// Last config (wopl_last_played.cfg)
 // ---------------------------------------------------------------------------
 
 // No legacy migration.. pointless
@@ -912,7 +917,7 @@ const char *wOPLLastGet(void)
 }
 
 // ---------------------------------------------------------------------------
-// Global Game config (conf_game.cfg)
+// Global Game config (wopl_global_game.cfg)
 // ---------------------------------------------------------------------------
 
 static void parse_global_game(config_t *cfg)
@@ -1174,13 +1179,6 @@ int wOPLPerGameLoad(const char *path, per_game_cfg_t *cfg)
 
     config_destroy(&lcfg);
 
-    // DELETE_WITH_MIGRATION
-    if (cfgMigrateLegacyPerGame(path, cfg)) {
-        LOG("CONFIG_PERGAME: migrated from legacy '%s'\n", path);
-        return 2;
-    }
-    // DELETE_WITH_MIGRATION
-
     return 0;
 }
 
@@ -1239,11 +1237,16 @@ static void parse_game_info(config_t *cfg, game_info_t *gi)
 
 static void build_game_info(config_setting_t *root, const game_info_t *gi)
 {
-    set_str(root, "title", gi->title);
-    set_str(root, "genre", gi->genre);
-    set_str(root, "release", gi->release);
-    set_str(root, "developer", gi->developer);
-    set_str(root, "description", gi->description);
+    if (gi->title[0])
+        set_str(root, "title", gi->title);
+    if (gi->genre[0])
+        set_str(root, "genre", gi->genre);
+    if (gi->release[0])
+        set_str(root, "release", gi->release);
+    if (gi->developer[0])
+        set_str(root, "developer", gi->developer);
+    if (gi->description[0])
+        set_str(root, "description", gi->description);
     if (gi->publisher[0])
         set_str(root, "publisher", gi->publisher);
     if (gi->serial[0])
@@ -1290,68 +1293,13 @@ int wOPLGameInfoSave(const char *path, const game_info_t *gi)
 }
 
 // ---------------------------------------------------------------------------
-// Old config.c stuff we will still need.. may need a clean up though
+// Application level config handling
 // ---------------------------------------------------------------------------
-
-#include "include/module.h"
 
 char *gBaseMCDir; // used for thm/lang even after migration
 
 static int lscstatus = CONFIG_ALL;
 static int lscret = 0;
-
-// needed in initalizer
-void loadConfig()
-{
-    int themeID = -1, langID = -1;
-    int result = 0;
-
-    if (lscstatus & CONFIG_OPL) {
-        if (wOPLLoad(&themeID, &langID))
-            result |= CONFIG_OPL;
-        if (getKeyPressed(KEY_TRIANGLE) && getKeyPressed(KEY_CROSS)) {
-            LOG("--- Triangle+Cross held at boot - setting Video Mode to Auto ---\n");
-            gVMode = 0;
-        }
-    }
-    if (lscstatus & CONFIG_NETWORK) {
-        if (wOPLNetLoad())
-            result |= CONFIG_NETWORK;
-    }
-    if (lscstatus & CONFIG_GAME)
-        if (wOPLGlobalGameLoad())
-            result |= CONFIG_GAME;
-
-    configApply(themeID, langID, 0);
-    lscret = result;
-    lscstatus = 0;
-    if (result)
-        showCfgPopup = 1;
-
-#ifdef PADEMU
-    gEnablePadEmu = gGlobalGameCfg.pademu_enable;
-    sysInitPadEmu();
-#endif
-}
-
-static void saveConfig()
-{
-    const char *path = wOPLGetDir();
-    if (path && !strncmp(path, "mc", 2))
-        sbCheckMCFolder();
-
-    int woplResult = 0, netResult = 0, gameResult = 0;
-
-    if (lscstatus & CONFIG_OPL)
-        woplResult = wOPLSave();
-    if (lscstatus & CONFIG_NETWORK)
-        netResult = wOPLNetSave();
-    if (lscstatus & CONFIG_GAME)
-        gameResult = wOPLGlobalGameSave();
-
-    lscret = woplResult + netResult + gameResult;
-    lscstatus = 0;
-}
 
 void configApply(int themeID, int langID, int skipDeviceRefresh)
 {
@@ -1404,14 +1352,66 @@ void configApply(int themeID, int langID, int skipDeviceRefresh)
 #endif
 }
 
+void _loadConfig() // called directly by initializer at boot before GUI is ready
+{
+    int themeID = -1, langID = -1;
+    int result = 0;
+
+    if (lscstatus & CONFIG_OPL) {
+        if (wOPLLoad(&themeID, &langID))
+            result |= CONFIG_OPL;
+        if (getKeyPressed(KEY_TRIANGLE) && getKeyPressed(KEY_CROSS)) {
+            LOG("--- Triangle+Cross held at boot - setting Video Mode to Auto ---\n");
+            gVMode = 0;
+        }
+    }
+    if (lscstatus & CONFIG_NETWORK) {
+        if (wOPLNetLoad())
+            result |= CONFIG_NETWORK;
+    }
+    if (lscstatus & CONFIG_GAME)
+        if (wOPLGlobalGameLoad())
+            result |= CONFIG_GAME;
+
+    configApply(themeID, langID, 0);
+    lscret = result;
+    lscstatus = 0;
+    if (result)
+        showCfgPopup = 1;
+
+#ifdef PADEMU
+    gEnablePadEmu = gGlobalGameCfg.pademu_enable;
+    sysInitPadEmu();
+#endif
+}
+
 int configLoad(int types)
 {
     lscstatus = types;
     lscret = 0;
 
-    guiHandleDeferedIO(&lscstatus, _l(_STR_LOADING_SETTINGS), IO_CUSTOM_SIMPLEACTION, &loadConfig);
+    guiHandleDeferedIO(&lscstatus, _l(_STR_LOADING_SETTINGS), IO_CUSTOM_SIMPLEACTION, &_loadConfig);
 
     return lscret;
+}
+
+static void _saveConfig()
+{
+    const char *path = wOPLGetDir();
+    if (path && !strncmp(path, "mc", 2))
+        sbCheckMCFolder();
+
+    int woplResult = 0, netResult = 0, gameResult = 0;
+
+    if (lscstatus & CONFIG_OPL)
+        woplResult = wOPLSave();
+    if (lscstatus & CONFIG_NETWORK)
+        netResult = wOPLNetSave();
+    if (lscstatus & CONFIG_GAME)
+        gameResult = wOPLGlobalGameSave();
+
+    lscret = woplResult + netResult + gameResult;
+    lscstatus = 0;
 }
 
 int configSave(int types, int showUI)
@@ -1419,7 +1419,7 @@ int configSave(int types, int showUI)
     lscstatus = types;
     lscret = 0;
 
-    guiHandleDeferedIO(&lscstatus, _l(_STR_SAVING_SETTINGS), IO_CUSTOM_SIMPLEACTION, &saveConfig);
+    guiHandleDeferedIO(&lscstatus, _l(_STR_SAVING_SETTINGS), IO_CUSTOM_SIMPLEACTION, &_saveConfig);
 
     if (showUI) {
         if (lscret) {

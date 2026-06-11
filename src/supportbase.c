@@ -21,7 +21,6 @@
 #include "include/mmcesupport.h"
 #include "include/tar.h"
 #include "include/config_wopl.h"
-#include "include/config_migration.h" // DELETE_WITH_MIGRATION
 
 #define NEWLIB_PORT_AWARE
 #include <fileXio_rpc.h> // fileXioMount("iso:", ***), fileXioUmount("iso:")
@@ -1238,21 +1237,7 @@ void sbPopulateConfig(base_game_info_t *game, const char *prefix, const char *se
     snprintf(cfg_path, sizeof(cfg_path), "%sCFG%s%s.cfg", prefix, sep, game->startup);
 
     if (gi) {
-        int info_loaded = wOPLGameInfoLoad(info_path, gi);
-
-        // DELETE_WITH_MIGRATION
-        if (!info_loaded) {
-            int migrated = cfgMigrateTARGameCfg(game->startup, gi, NULL);
-
-            // try reading display metadata from old standalone .cfg
-            if (!migrated)
-                migrated = cfgMigrateLegacyGameInfo(cfg_path, gi);
-
-            // persist migrated data as .info so this never runs again.. delete migration later
-            if (migrated)
-                wOPLGameInfoSave(info_path, gi);
-        }
-        // DELETE_WITH_MIGRATION
+        wOPLGameInfoLoad(info_path, gi);
 
         // fill for display.. don't save
         if (!gi->title[0]) {
@@ -1262,8 +1247,7 @@ void sbPopulateConfig(base_game_info_t *game, const char *prefix, const char *se
 
         if (!gi->serial[0] && game->startup[0]) {
             char *dst = gi->serial;
-            for (const char *s = game->startup;
-                 *s && (dst - gi->serial) < (int)sizeof(gi->serial) - 1; s++) {
+            for (const char *s = game->startup; *s && (dst - gi->serial) < (int)sizeof(gi->serial) - 1; s++) {
                 if (*s == '_')
                     *dst++ = '-';
                 else if (*s != '.')
@@ -1274,22 +1258,9 @@ void sbPopulateConfig(base_game_info_t *game, const char *prefix, const char *se
     }
 
     if (pgcfg) {
-        int need_save = 0;
+        wOPLPerGameLoad(cfg_path, pgcfg);
 
-        int cfg_loaded = wOPLPerGameLoad(cfg_path, pgcfg);
-
-        // DELETE_WITH_MIGRATION
-        if (!cfg_loaded) {
-            // no file.. try TAR
-            cfgMigrateTARGameCfg(game->startup, NULL, pgcfg);
-        } else if (cfg_loaded == 2) {
-            // legacy format was migrated.. resave immediately in libconfig format
-            // so cfgMigrateLegacyPerGame never runs for this game again
-            need_save = 1;
-        }
-        // DELETE_WITH_MIGRATION
-
-        // auto determine and cache format/media/size if not set
+        // auto determine format/media/size if not set
         if (!pgcfg->format[0]) {
             if (game->format == GAME_FORMAT_USBLD)
                 strcpy(pgcfg->format, "UL");
@@ -1297,13 +1268,10 @@ void sbPopulateConfig(base_game_info_t *game, const char *prefix, const char *se
                 strcpy(pgcfg->format, "ZSO");
             else
                 strcpy(pgcfg->format, "ISO");
-            need_save = 1;
         }
 
-        if (!pgcfg->media[0]) {
+        if (!pgcfg->media[0])
             strcpy(pgcfg->media, game->media == SCECdPS2CD ? "CD" : "DVD");
-            need_save = 1;
-        }
 
         if (!pgcfg->size_mb) {
             if (game->sizeMB > 0) {
@@ -1320,12 +1288,7 @@ void sbPopulateConfig(base_game_info_t *game, const char *prefix, const char *se
                         pgcfg->size_mb = st.st_size >> 20;
                 }
             }
-            if (pgcfg->size_mb)
-                need_save = 1;
         }
-
-        if (need_save)
-            wOPLPerGameSave(cfg_path, pgcfg);
     }
 }
 

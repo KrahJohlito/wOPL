@@ -2,6 +2,7 @@
 #define CONFIG_MIGRATION_H
 
 #include "include/iosupport.h"
+#include "include/config_wopl.h"
 
 // ---------------------------------------------------------------------------
 // DELETE_WITH_MIGRATION.. legacy key=value config infrastructure
@@ -21,6 +22,8 @@ int cfgMigrateLegacyTheme(const char *path);
 // gi and/or pgcfg may be NULL if caller only needs one of them
 int cfgMigrateTARGameCfg(const char *startup, game_info_t *gi, per_game_cfg_t *pgcfg);
 
+int cfgBatchMigratePerGame(const char *inputPrefix, const char *outputPrefix, int keepOriginals);
+
 // Config type bits
 enum CONFIG_INDEX {
     CONFIG_INDEX_OPL = 0,
@@ -31,12 +34,8 @@ enum CONFIG_INDEX {
     CONFIG_INDEX_COUNT
 };
 
-#define CONFIG_OPL     (1 << CONFIG_INDEX_OPL)
-#define CONFIG_LAST    (1 << CONFIG_INDEX_LAST)
-#define CONFIG_APPS    (1 << CONFIG_INDEX_APPS)
-#define CONFIG_NETWORK (1 << CONFIG_INDEX_NETWORK)
-#define CONFIG_GAME    (1 << CONFIG_INDEX_GAME)
-#define CONFIG_ALL     0xFF
+#define CONFIG_LAST (1 << CONFIG_INDEX_LAST)
+#define CONFIG_APPS (1 << CONFIG_INDEX_APPS)
 
 #define CONFIG_KEY_NAME_LEN  32
 #define CONFIG_KEY_VALUE_LEN 256

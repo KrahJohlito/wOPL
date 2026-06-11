@@ -153,6 +153,8 @@ void guiShowCoverflowConfig(void);
 
 void guiCheckNotifications(int checkTheme, int checkLang);
 
+void guiShowCfgMigration(void); // DELETE_WITH_MIGRATION
+
 /** Renders the given string on screen for the given function until it's io finishes
  * @note The ptr pointer is watched for it's value. The IO is considered finished when the value becomes zero.
  * @param ptr The finished state pointer (1 unfinished, 0 finished)
