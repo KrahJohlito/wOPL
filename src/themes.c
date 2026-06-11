@@ -129,19 +129,22 @@ static const char *gameInfoGetAttr(const game_info_t *gi, const per_game_cfg_t *
             return gi->region[0] ? gi->region : NULL;
 
         if (!strcasecmp(attr, "Vmode")) {
-            if (!gi->vmode[0]) return NULL;
+            if (!gi->vmode[0])
+                return NULL;
             snprintf(s_vmode, sizeof(s_vmode), "Vmode/%s", gi->vmode);
             return s_vmode;
         }
 
         if (!strcasecmp(attr, "Scan")) {
-            if (!gi->scan[0]) return NULL;
+            if (!gi->scan[0])
+                return NULL;
             snprintf(s_scan, sizeof(s_scan), "Scan/%s", gi->scan);
             return s_scan;
         }
 
         if (!strcasecmp(attr, "Device")) {
-            if (!gi->device[0]) return NULL;
+            if (!gi->device[0])
+                return NULL;
             snprintf(s_device, sizeof(s_device), "Device/%s", gi->device);
             return s_device;
         }

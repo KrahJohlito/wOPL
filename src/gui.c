@@ -14,6 +14,7 @@
 #include "include/pad.h"
 #include "include/util.h"
 #include "include/config_wopl.h"
+#include "include/config_migration.h" // DELETE_WITH_MIGRATION
 #include "include/system.h"
 #include "include/ethsupport.h"
 #ifdef GSM
@@ -986,6 +987,44 @@ void guiShowCoverflowConfig(void)
         diaGetInt(diaCoverflowConfig, CFG_COVERFLOW_DIM, &gCoverflowDimCovers);
     }
 }
+
+// DELETE_WITH_MIGRATION v
+void guiShowCfgMigration(void)
+{
+#define CFG_MIG_MAX_DEVICES 5
+    static char pathStorage[CFG_MIG_MAX_DEVICES][64];
+    static const char *deviceEnum[CFG_MIG_MAX_DEVICES + 1];
+
+    int count = menuGetDevicePaths(pathStorage, CFG_MIG_MAX_DEVICES);
+    if (count == 0) {
+        guiMsgBox("No accessible devices found.", 0, NULL);
+        return;
+    }
+
+    for (int i = 0; i < count; i++)
+        deviceEnum[i] = pathStorage[i];
+    deviceEnum[count] = NULL;
+
+    diaSetEnum(diaCfgMigration, CFG_MIG_INPUT, deviceEnum);
+    diaSetEnum(diaCfgMigration, CFG_MIG_OUTPUT, deviceEnum);
+    diaSetInt(diaCfgMigration, CFG_MIG_INPUT, 0);
+    diaSetInt(diaCfgMigration, CFG_MIG_OUTPUT, 0);
+    diaSetInt(diaCfgMigration, CFG_MIG_KEEP_ORIGINALS, 1);
+
+    int ret;
+    while ((ret = diaExecuteDialog(diaCfgMigration, -1, 1, NULL)) == CFG_MIG_CONVERT) {
+        int inputIdx = 0, outputIdx = 0, keepOriginals = 1;
+        diaGetInt(diaCfgMigration, CFG_MIG_INPUT, &inputIdx);
+        diaGetInt(diaCfgMigration, CFG_MIG_OUTPUT, &outputIdx);
+        diaGetInt(diaCfgMigration, CFG_MIG_KEEP_ORIGINALS, &keepOriginals);
+
+        char msg[64];
+        int converted = cfgBatchMigratePerGame(deviceEnum[inputIdx], deviceEnum[outputIdx], keepOriginals);
+        snprintf(msg, sizeof(msg), "Converted %d config file(s).", converted);
+        guiMsgBox(msg, 0, NULL);
+    }
+}
+// DELETE_WITH_MIGRATION ^
 
 int guiShowKeyboard(char *value, int maxLength)
 {
