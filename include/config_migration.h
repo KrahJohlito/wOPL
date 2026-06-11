@@ -2,6 +2,7 @@
 #define CONFIG_MIGRATION_H
 
 #include "include/iosupport.h"
+#include "include/config_wopl.h"
 
 // ---------------------------------------------------------------------------
 // DELETE_WITH_MIGRATION.. legacy key=value config infrastructure
@@ -33,12 +34,8 @@ enum CONFIG_INDEX {
     CONFIG_INDEX_COUNT
 };
 
-#define CONFIG_OPL     (1 << CONFIG_INDEX_OPL)
 #define CONFIG_LAST    (1 << CONFIG_INDEX_LAST)
 #define CONFIG_APPS    (1 << CONFIG_INDEX_APPS)
-#define CONFIG_NETWORK (1 << CONFIG_INDEX_NETWORK)
-#define CONFIG_GAME    (1 << CONFIG_INDEX_GAME)
-#define CONFIG_ALL     0xFF
 
 #define CONFIG_KEY_NAME_LEN  32
 #define CONFIG_KEY_VALUE_LEN 256

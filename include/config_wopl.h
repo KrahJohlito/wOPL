@@ -3,6 +3,11 @@
 
 #include "include/iosupport.h"
 
+#define CONFIG_OPL     1
+#define CONFIG_NETWORK 8
+#define CONFIG_GAME    16
+#define CONFIG_ALL     (CONFIG_OPL | CONFIG_NETWORK | CONFIG_GAME)
+
 extern int gBDMFramesDelay;
 extern int gETHFramesDelay;
 extern int gHDDFramesDelay;
