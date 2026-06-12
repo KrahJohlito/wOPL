@@ -626,12 +626,10 @@ int cfgBatchMigratePerGame(const char *inputPrefix, const char *outputPrefix, in
 
         // only process legacy format files
         per_game_cfg_t pgcfg;
+        memset(&pgcfg, 0, sizeof(pgcfg));
+        pgcfg.dma = 7;
 
-        // skip if already new format.. wOPLPerGameLoad also inits pgcfg
-        if (wOPLPerGameLoad(inputPath, &pgcfg) == 1)
-            continue;
-
-        // skip if not a readable legacy format either
+        // skip if not a readable legacy format
         if (!cfgMigrateLegacyPerGame(inputPath, &pgcfg))
             continue;
 

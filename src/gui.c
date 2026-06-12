@@ -1020,6 +1020,11 @@ void guiShowCfgMigration(void)
         diaGetInt(diaCfgMigration, CFG_MIG_KEEP_ORIGINALS, &keepOriginals);
 
         char msg[64];
+        if (inputIdx < 0 || inputIdx >= count || outputIdx < 0 || outputIdx >= count) {
+            guiMsgBox("Invalid migration path selected.", 0, NULL);
+            continue;
+        }
+
         int converted = cfgBatchMigratePerGame(pathStorage[inputIdx], pathStorage[outputIdx], keepOriginals);
         snprintf(msg, sizeof(msg), "Converted %d config file(s).", converted);
         guiMsgBox(msg, 0, NULL);
