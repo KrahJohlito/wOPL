@@ -254,9 +254,12 @@ int cfgMigrateLegacyPerGame(const char *path, per_game_cfg_t *cfg)
     if (configGetStrCopy(old, CONFIG_ITEM_ALTSTARTUP, cfg->alt_startup, sizeof(cfg->alt_startup)))
         found = 1;
 
-    if (configGetVMC(old, cfg->vmc1, sizeof(cfg->vmc1), 0))
+    configGetVMC(old, cfg->vmc1, sizeof(cfg->vmc1), 0);
+    if (cfg->vmc1[0] != '\0')
         found = 1;
-    if (configGetVMC(old, cfg->vmc2, sizeof(cfg->vmc2), 1))
+
+    configGetVMC(old, cfg->vmc2, sizeof(cfg->vmc2), 1);
+    if (cfg->vmc2[0] != '\0')
         found = 1;
 
     const char *str;
