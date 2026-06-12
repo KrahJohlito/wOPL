@@ -989,24 +989,45 @@ void guiShowCoverflowConfig(void)
 }
 
 // DELETE_WITH_MIGRATION v
+static int migStatus = 0;
+static int migDone = 0;
+static int migTotal = 0;
+static int migResult = 0;
+static const char *migInput = NULL;
+static const char *migOutput = NULL;
+static int migKeep = 0;
+
+static void migProgressCb(int done, int total)
+{
+    migDone = done;
+    migTotal = total;
+}
+
+static void _runBatchMigration(void)
+{
+    migResult = cfgBatchMigratePerGame(migInput, migOutput, migKeep, migProgressCb);
+    migStatus = 0;
+}
+
 void guiShowCfgMigration(void)
 {
-#define CFG_MIG_MAX_DEVICES 5
+#define CFG_MIG_MAX_DEVICES 8
     static char pathStorage[CFG_MIG_MAX_DEVICES][64];
-    static const char *deviceEnum[CFG_MIG_MAX_DEVICES + 1];
+    static char labelStorage[CFG_MIG_MAX_DEVICES][80];
+    static const char *labelEnum[CFG_MIG_MAX_DEVICES + 1];
 
-    int count = menuGetDevicePaths(pathStorage, CFG_MIG_MAX_DEVICES);
+    int count = menuGetDevicePaths(pathStorage, labelStorage, CFG_MIG_MAX_DEVICES);
     if (count == 0) {
         guiMsgBox("No accessible devices found.", 0, NULL);
         return;
     }
 
     for (int i = 0; i < count; i++)
-        deviceEnum[i] = pathStorage[i];
-    deviceEnum[count] = NULL;
+        labelEnum[i] = labelStorage[i];
+    labelEnum[count] = NULL;
 
-    diaSetEnum(diaCfgMigration, CFG_MIG_INPUT, deviceEnum);
-    diaSetEnum(diaCfgMigration, CFG_MIG_OUTPUT, deviceEnum);
+    diaSetEnum(diaCfgMigration, CFG_MIG_INPUT, labelEnum);
+    diaSetEnum(diaCfgMigration, CFG_MIG_OUTPUT, labelEnum);
     diaSetInt(diaCfgMigration, CFG_MIG_INPUT, 0);
     diaSetInt(diaCfgMigration, CFG_MIG_OUTPUT, 0);
     diaSetInt(diaCfgMigration, CFG_MIG_KEEP_ORIGINALS, 1);
@@ -1018,9 +1039,26 @@ void guiShowCfgMigration(void)
         diaGetInt(diaCfgMigration, CFG_MIG_OUTPUT, &outputIdx);
         diaGetInt(diaCfgMigration, CFG_MIG_KEEP_ORIGINALS, &keepOriginals);
 
+        migInput = pathStorage[inputIdx];
+        migOutput = pathStorage[outputIdx];
+        migKeep = keepOriginals;
+        migDone = 0;
+        migTotal = 0;
+        migStatus = 1;
+
+        ioPutRequest(IO_CUSTOM_SIMPLEACTION, &_runBatchMigration);
+
+        char progMsg[64];
+        while (migStatus) {
+            if (migTotal > 0)
+                snprintf(progMsg, sizeof(progMsg), "Converting %d / %d..", migDone, migTotal);
+            else
+                snprintf(progMsg, sizeof(progMsg), "Scanning..");
+            guiRenderTextScreen(progMsg);
+        }
+
         char msg[64];
-        int converted = cfgBatchMigratePerGame(deviceEnum[inputIdx], deviceEnum[outputIdx], keepOriginals);
-        snprintf(msg, sizeof(msg), "Converted %d config file(s).", converted);
+        snprintf(msg, sizeof(msg), "Converted %d / %d cfg file(s).", migResult, migTotal);
         guiMsgBox(msg, 0, NULL);
     }
 }

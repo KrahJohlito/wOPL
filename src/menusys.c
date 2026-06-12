@@ -98,20 +98,10 @@ extern unsigned char shouldAppsUpdate;
 #define MENU_GENERAL_UPDATE_DELAY 60
 
 // DELETE_WITH_MIGRATION v
-int menuGetDevicePaths(char paths[][64], int maxCount)
+int menuGetDevicePaths(char paths[][64], char labels[][80], int maxCount)
 {
     int count = 0;
     int i, j;
-
-    const char *cfgDir = wOPLGetDir();
-    if (cfgDir && count < maxCount) {
-        strncpy(paths[count], cfgDir, 62);
-        paths[count][62] = '\0';
-        int len = strlen(paths[count]);
-        if (len > 0 && paths[count][len - 1] != '/')
-            paths[count][len] = '/', paths[count][len + 1] = '\0';
-        count++;
-    }
 
     for (i = 0; i < MODE_COUNT && count < maxCount; i++) {
         item_list_t *support = list_support[i].support;
@@ -136,12 +126,38 @@ int menuGetDevicePaths(char paths[][64], int maxCount)
                 break;
             }
         }
+        if (dup)
+            continue;
 
-        if (!dup) {
-            strncpy(paths[count], norm, 63);
-            paths[count][63] = '\0';
-            count++;
-        }
+        strncpy(paths[count], norm, 63);
+        paths[count][63] = '\0';
+
+        int textId = support->itemTextId ? support->itemTextId(support) : -1;
+        char devLabel[32];
+
+        if (textId == _STR_USB_GAMES)
+            snprintf(devLabel, sizeof(devLabel), "USB%d", support->mode + 1);
+        else if (textId == _STR_BDM_GAMES)
+            snprintf(devLabel, sizeof(devLabel), "BDM%d", support->mode + 1);
+        else if (textId == _STR_ILINK_GAMES)
+            snprintf(devLabel, sizeof(devLabel), "iLink%d", support->mode + 1);
+        else if (textId == _STR_MX4SIO_GAMES)
+            snprintf(devLabel, sizeof(devLabel), "MX4SIO%d", support->mode + 1);
+        else if (textId == _STR_HDD_GAMES && support->mode <= BDM_MODE4)
+            snprintf(devLabel, sizeof(devLabel), "BDM HDD%d", support->mode + 1);
+        else if (textId == _STR_HDD_GAMES)
+            snprintf(devLabel, sizeof(devLabel), "HDD");
+        else if (textId == _STR_NET_GAMES)
+            snprintf(devLabel, sizeof(devLabel), "Network");
+        else if (textId >= 0) {
+            strncpy(devLabel, _l(textId), sizeof(devLabel) - 1);
+            devLabel[sizeof(devLabel) - 1] = '\0';
+        } else
+            snprintf(devLabel, sizeof(devLabel), "Device%d", support->mode + 1);
+
+        snprintf(labels[count], 80, "%s (%s)", norm, devLabel);
+        labels[count][79] = '\0';
+        count++;
     }
 
     return count;

@@ -21,7 +21,6 @@
 #include "opl-hdd-ioctl.h"
 #include "include/initializer.h"
 #include "include/config_wopl.h"
-#include "include/config_migration.h" // DELETE_WITH_MIGRATION
 #include <stdlib.h>
 
 #define NEWLIB_PORT_AWARE
@@ -1154,30 +1153,19 @@ void hddLaunchGame(item_list_t *itemList, int id, per_game_cfg_t *pgcfg)
 static void hddGetInfo(item_list_t *itemList, int id, game_info_t *gi)
 {
     hdl_game_info_t *game = &hddGames.games[id];
-    char info_path[256], cfg_path[256];
+    char info_path[256];
 
     snprintf(info_path, sizeof(info_path), "%sCFG/%s.info", gHDDPrefix, game->startup);
-    snprintf(cfg_path, sizeof(cfg_path), "%sCFG/%s.cfg", gHDDPrefix, game->startup);
 
-    int info_loaded = wOPLGameInfoLoad(info_path, gi);
+    wOPLGameInfoLoad(info_path, gi);
 
-    // DELETE_WITH_MIGRATION
-    if (!info_loaded) {
-        int migrated = cfgMigrateTARGameCfg(game->startup, gi, NULL);
-        if (!migrated)
-            migrated = cfgMigrateLegacyGameInfo(cfg_path, gi);
-        if (migrated)
-            wOPLGameInfoSave(info_path, gi);
-    }
-    // DELETE_WITH_MIGRATION
-
+    //fallback..
     if (!gi->title[0])
         strncpy(gi->title, game->name, sizeof(gi->title) - 1);
 
     if (!gi->serial[0] && game->startup[0]) {
         char *dst = gi->serial;
-        for (const char *s = game->startup;
-             *s && (dst - gi->serial) < (int)sizeof(gi->serial) - 1; s++) {
+        for (const char *s = game->startup; *s && (dst - gi->serial) < (int)sizeof(gi->serial) - 1; s++) {
             if (*s == '_')
                 *dst++ = '-';
             else if (*s != '.')
@@ -1191,37 +1179,19 @@ static void hddGetPgCfg(item_list_t *itemList, int id, per_game_cfg_t *cfg)
 {
     hdl_game_info_t *game = &hddGames.games[id];
     char path[256];
-    int need_save = 0;
 
     snprintf(path, sizeof(path), "%sCFG/%s.cfg", gHDDPrefix, game->startup);
 
-    int cfg_loaded = wOPLPerGameLoad(path, cfg);
+    wOPLPerGameLoad(path, cfg);
 
-    // DELETE_WITH_MIGRATION
-    if (!cfg_loaded) {
-        cfgMigrateTARGameCfg(game->startup, NULL, cfg);
-    } else if (cfg_loaded == 2) {
-        // legacy format was migrated.. resave in libconfig format
-        need_save = 1;
-    }
-    // DELETE_WITH_MIGRATION
-
-    if (!cfg->format[0]) {
+    if (!cfg->format[0])
         strcpy(cfg->format, "HDL");
-        need_save = 1;
-    }
-    if (!cfg->media[0]) {
-        strcpy(cfg->media, game->disctype == SCECdPS2CD ? "CD" : "DVD");
-        need_save = 1;
-    }
-    if (!cfg->size_mb) {
-        cfg->size_mb = game->total_size_in_kb >> 10;
-        if (cfg->size_mb)
-            need_save = 1;
-    }
 
-    if (need_save)
-        wOPLPerGameSave(path, cfg);
+    if (!cfg->media[0])
+        strcpy(cfg->media, game->disctype == SCECdPS2CD ? "CD" : "DVD");
+
+    if (!cfg->size_mb)
+        cfg->size_mb = game->total_size_in_kb >> 10;
 }
 
 static int hddSavePgCfg(item_list_t *itemList, int id, const per_game_cfg_t *cfg)

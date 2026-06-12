@@ -162,21 +162,21 @@ typedef struct
 
 typedef struct
 {
-    char title[161];
-    char genre[64];
-    char release[32];
-    char developer[64];
+    char title[ISO_GAME_NAME_MAX + 1];
     char description[256];
+    char developer[64];
+    char genre[64];
     char publisher[64];
     char serial[16];
-    char aspect[12];
+    char release[32];
+    char aspect[32];
     char parental[32];
-    char region[8];
-    char vmode[8];  // "ntsc", "pal", "multi", "ntscj"
-    char scan[8];   // "240p", "480i", "480p", "576i", "720p", "1080i" etc.
-    char device[8]; // "1"..."6", "all"
+    char region[32];
     int players;
     int user_rating;
+    char version[32];
+    char package[64];
+    char source[128];
 } game_info_t;
 
 typedef struct
