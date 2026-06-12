@@ -98,21 +98,12 @@ extern unsigned char shouldAppsUpdate;
 #define MENU_GENERAL_UPDATE_DELAY 60
 
 // DELETE_WITH_MIGRATION v
-int menuGetDevicePaths(char paths[][64], int maxCount)
+int menuGetDevicePaths(char paths[][64], char labels[][80], int maxCount)
 {
     int count = 0;
     int i, j;
 
-    const char *cfgDir = wOPLGetDir();
-    if (cfgDir && count < maxCount) {
-        strncpy(paths[count], cfgDir, 62);
-        paths[count][62] = '\0';
-        int len = strlen(paths[count]);
-        if (len > 0 && paths[count][len - 1] != '/')
-            paths[count][len] = '/', paths[count][len + 1] = '\0';
-        count++;
-    }
-
+    // devices first so they get proper type labels
     for (i = 0; i < MODE_COUNT && count < maxCount; i++) {
         item_list_t *support = list_support[i].support;
         if (!support || !support->enabled || !support->itemGetPrefix)
@@ -136,10 +127,46 @@ int menuGetDevicePaths(char paths[][64], int maxCount)
                 break;
             }
         }
+        if (dup)
+            continue;
 
-        if (!dup) {
-            strncpy(paths[count], norm, 63);
+        strncpy(paths[count], norm, 63);
+        paths[count][63] = '\0';
+
+        const char *devName = support->itemTextId ? _l(support->itemTextId(support)) : NULL;
+        if (devName && devName[0])
+            snprintf(labels[count], 80, "%s (%s)", norm, devName);
+        else
+            strncpy(labels[count], norm, 79);
+        labels[count][79] = '\0';
+        count++;
+    }
+
+    // if config dir isn't covered by any device (e.g. MC).. append it
+    const char *cfgDir = wOPLGetDir();
+    if (cfgDir && count < maxCount) {
+        char cfgNorm[64];
+        strncpy(cfgNorm, cfgDir, 62);
+        cfgNorm[62] = '\0';
+        int len = strlen(cfgNorm);
+        if (len > 0 && cfgNorm[len - 1] != '/')
+            cfgNorm[len] = '/', cfgNorm[len + 1] = '\0';
+
+        int found = 0;
+        for (j = 0; j < count; j++) {
+            if (!strcmp(paths[j], cfgNorm)) {
+                found = 1;
+                break;
+            }
+        }
+        if (!found) {
+            strncpy(paths[count], cfgNorm, 63);
             paths[count][63] = '\0';
+            if (!strncmp(cfgNorm, "mc", 2))
+                snprintf(labels[count], 80, "%s (MC)", cfgNorm);
+            else
+                strncpy(labels[count], cfgNorm, 79);
+            labels[count][79] = '\0';
             count++;
         }
     }

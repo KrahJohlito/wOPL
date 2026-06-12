@@ -142,6 +142,6 @@ void menuDeferredUpdate(void *data);
 
 void menuUpdateHook();
 
-int menuGetDevicePaths(char paths[][64], int maxCount); // DELETE_WITH_MIGRATION
+int menuGetDevicePaths(char paths[][64], char labels[][80], int maxCount); // DELETE_WITH_MIGRATION
 
 #endif
