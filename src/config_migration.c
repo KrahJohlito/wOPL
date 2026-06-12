@@ -234,6 +234,7 @@ int cfgMigrateLegacyGlobalGame(const char *path)
 
 int cfgMigrateLegacyPerGame(const char *path, per_game_cfg_t *cfg)
 {
+    int found = 0;
     config_set_t tmp;
     config_set_t *old = configAlloc(0, &tmp, (char *)path);
     if (!old || !configRead(old)) {
@@ -241,54 +242,95 @@ int cfgMigrateLegacyPerGame(const char *path, per_game_cfg_t *cfg)
             configClear(old);
         return 0;
     }
-    configGetInt(old, CONFIG_ITEM_COMPAT, &cfg->compat);
-    configGetInt(old, CONFIG_ITEM_DMA, &cfg->dma);
-    configGetInt(old, CONFIG_ITEM_CORE_LOADER, &cfg->core_loader);
-    configGetStrCopy(old, CONFIG_ITEM_DNAS, cfg->dnas, sizeof(cfg->dnas));
-    configGetStrCopy(old, CONFIG_ITEM_ALTSTARTUP, cfg->alt_startup, sizeof(cfg->alt_startup));
+
+    if (configGetInt(old, CONFIG_ITEM_COMPAT, &cfg->compat))
+        found = 1;
+    if (configGetInt(old, CONFIG_ITEM_DMA, &cfg->dma))
+        found = 1;
+    if (configGetInt(old, CONFIG_ITEM_CORE_LOADER, &cfg->core_loader))
+        found = 1;
+    if (configGetStrCopy(old, CONFIG_ITEM_DNAS, cfg->dnas, sizeof(cfg->dnas)))
+        found = 1;
+    if (configGetStrCopy(old, CONFIG_ITEM_ALTSTARTUP, cfg->alt_startup, sizeof(cfg->alt_startup)))
+        found = 1;
+
     configGetVMC(old, cfg->vmc1, sizeof(cfg->vmc1), 0);
+    if (cfg->vmc1[0] != '\0')
+        found = 1;
+
     configGetVMC(old, cfg->vmc2, sizeof(cfg->vmc2), 1);
+    if (cfg->vmc2[0] != '\0')
+        found = 1;
+
     const char *str;
     if (configGetStr(old, CONFIG_ITEM_FORMAT, &str)) {
         strncpy(cfg->format, str, sizeof(cfg->format) - 1);
         cfg->format[sizeof(cfg->format) - 1] = '\0';
+        found = 1;
     }
 
     if (configGetStr(old, CONFIG_ITEM_MEDIA, &str)) {
         strncpy(cfg->media, str, sizeof(cfg->media) - 1);
         cfg->media[sizeof(cfg->media) - 1] = '\0';
+        found = 1;
     }
 
-    configGetInt(old, CONFIG_ITEM_SIZE, &cfg->size_mb);
+    if (configGetInt(old, CONFIG_ITEM_SIZE, &cfg->size_mb))
+        found = 1;
+
 #ifdef GSM
-    configGetInt(old, CONFIG_ITEM_GSMSOURCE, &cfg->gsm_source);
-    configGetInt(old, CONFIG_ITEM_ENABLEGSM, &cfg->gsm_enable);
-    configGetInt(old, CONFIG_ITEM_GSMVMODE, &cfg->gsm_vmode);
-    configGetInt(old, CONFIG_ITEM_GSMXOFFSET, &cfg->gsm_xoffset);
-    configGetInt(old, CONFIG_ITEM_GSMYOFFSET, &cfg->gsm_yoffset);
-    configGetInt(old, CONFIG_ITEM_GSMFIELDFIX, &cfg->gsm_fieldfix);
+    if (configGetInt(old, CONFIG_ITEM_GSMSOURCE, &cfg->gsm_source))
+        found = 1;
+    if (configGetInt(old, CONFIG_ITEM_ENABLEGSM, &cfg->gsm_enable))
+        found = 1;
+    if (configGetInt(old, CONFIG_ITEM_GSMVMODE, &cfg->gsm_vmode))
+        found = 1;
+    if (configGetInt(old, CONFIG_ITEM_GSMXOFFSET, &cfg->gsm_xoffset))
+        found = 1;
+    if (configGetInt(old, CONFIG_ITEM_GSMYOFFSET, &cfg->gsm_yoffset))
+        found = 1;
+    if (configGetInt(old, CONFIG_ITEM_GSMFIELDFIX, &cfg->gsm_fieldfix))
+        found = 1;
 #endif
+
 #ifdef CHEAT
-    configGetInt(old, CONFIG_ITEM_CHEATSSOURCE, &cfg->cheat_source);
-    configGetInt(old, CONFIG_ITEM_ENABLECHEAT, &cfg->cheat_enable);
-    configGetInt(old, CONFIG_ITEM_CHEATMODE, &cfg->cheat_mode);
-    configGetInt(old, CONFIG_ITEM_ENABLEIMAGE, &cfg->cheat_enable_image);
+    if (configGetInt(old, CONFIG_ITEM_CHEATSSOURCE, &cfg->cheat_source))
+        found = 1;
+    if (configGetInt(old, CONFIG_ITEM_ENABLECHEAT, &cfg->cheat_enable))
+        found = 1;
+    if (configGetInt(old, CONFIG_ITEM_CHEATMODE, &cfg->cheat_mode))
+        found = 1;
+    if (configGetInt(old, CONFIG_ITEM_ENABLEIMAGE, &cfg->cheat_enable_image))
+        found = 1;
 #endif
+
 #ifdef PADEMU
-    configGetInt(old, CONFIG_ITEM_PADEMUSOURCE, &cfg->pademu_source);
-    configGetInt(old, CONFIG_ITEM_ENABLEPADEMU, &cfg->pademu_enable);
-    configGetInt(old, CONFIG_ITEM_PADEMUSETTINGS, &cfg->pademu_settings);
-    configGetInt(old, CONFIG_ITEM_PADMACROSOURCE, &cfg->padmacro_source);
-    configGetInt(old, CONFIG_ITEM_PADMACROSETTINGS, &cfg->padmacro_settings);
+    if (configGetInt(old, CONFIG_ITEM_PADEMUSOURCE, &cfg->pademu_source))
+        found = 1;
+    if (configGetInt(old, CONFIG_ITEM_ENABLEPADEMU, &cfg->pademu_enable))
+        found = 1;
+    if (configGetInt(old, CONFIG_ITEM_PADEMUSETTINGS, &cfg->pademu_settings))
+        found = 1;
+    if (configGetInt(old, CONFIG_ITEM_PADMACROSOURCE, &cfg->padmacro_source))
+        found = 1;
+    if (configGetInt(old, CONFIG_ITEM_PADMACROSETTINGS, &cfg->padmacro_settings))
+        found = 1;
 #endif
-    configGetInt(old, CONFIG_ITEM_OSD_SETTINGS_SOURCE, &cfg->osd_source);
-    configGetInt(old, CONFIG_ITEM_OSD_SETTINGS_ENABLE, &cfg->osd_enable);
-    configGetInt(old, CONFIG_ITEM_OSD_SETTINGS_LANGID, &cfg->osd_langid);
-    configGetInt(old, CONFIG_ITEM_OSD_SETTINGS_TV_ASP, &cfg->osd_tv_aspect);
-    configGetInt(old, CONFIG_ITEM_OSD_SETTINGS_VMODE, &cfg->osd_vmode);
+
+    if (configGetInt(old, CONFIG_ITEM_OSD_SETTINGS_SOURCE, &cfg->osd_source))
+        found = 1;
+    if (configGetInt(old, CONFIG_ITEM_OSD_SETTINGS_ENABLE, &cfg->osd_enable))
+        found = 1;
+    if (configGetInt(old, CONFIG_ITEM_OSD_SETTINGS_LANGID, &cfg->osd_langid))
+        found = 1;
+    if (configGetInt(old, CONFIG_ITEM_OSD_SETTINGS_TV_ASP, &cfg->osd_tv_aspect))
+        found = 1;
+    if (configGetInt(old, CONFIG_ITEM_OSD_SETTINGS_VMODE, &cfg->osd_vmode))
+        found = 1;
+
     configClear(old);
 
-    return 1;
+    return found;
 }
 
 int cfgMigrateLegacyGameInfo(const char *path, game_info_t *gi)
@@ -613,59 +655,70 @@ int cfgBatchMigratePerGame(const char *inputPrefix, const char *outputPrefix, in
         if (len < 5 || strcasecmp(entry->d_name + len - 4, ".cfg") != 0)
             continue;
 
-        char inputPath[256], outputCfgPath[256], outputInfoPath[256];
+        char inputPath[256], outputCfgPath[256], outputInfoPath[256], tmpPath[256], bakPath[256];
         snprintf(inputPath, sizeof(inputPath), "%sCFG/%s", inputPrefix, entry->d_name);
         snprintf(outputCfgPath, sizeof(outputCfgPath), "%sCFG/%s", outputPrefix, entry->d_name);
+        snprintf(tmpPath, sizeof(tmpPath), "%s.tmp", outputCfgPath);
+        snprintf(bakPath, sizeof(bakPath), "%s.bak", inputPath);
 
         // info path.. same basename .info extension
         char basename[128];
         int baseLen = len - 4;
+        if (baseLen >= (int)sizeof(basename))
+            baseLen = sizeof(basename) - 1;
         strncpy(basename, entry->d_name, baseLen);
         basename[baseLen] = '\0';
         snprintf(outputInfoPath, sizeof(outputInfoPath), "%sCFG/%s.info", outputPrefix, basename);
 
-        // only process legacy format files
         per_game_cfg_t pgcfg;
+        memset(&pgcfg, 0, sizeof(pgcfg));
+        pgcfg.dma = 7;
 
-        // skip if already new format.. wOPLPerGameLoad also inits pgcfg
-        if (wOPLPerGameLoad(inputPath, &pgcfg) == 1)
-            continue;
-
-        // skip if not a readable legacy format either
         if (!cfgMigrateLegacyPerGame(inputPath, &pgcfg))
             continue;
 
-        // extract game info from the legacy cfg
         game_info_t gi;
         memset(&gi, 0, sizeof(gi));
         int hasInfo = cfgMigrateLegacyGameInfo(inputPath, &gi);
 
         int samePath = (strcmp(inputPath, outputCfgPath) == 0);
-        if (keepOriginals && samePath) {
-            char bakPath[256];
-            snprintf(bakPath, sizeof(bakPath), "%s.bak", inputPath);
-            rename(inputPath, bakPath);
-        }
 
-        if (wOPLPerGameSave(outputCfgPath, &pgcfg)) {
-            // only write .info if we got data and one doesn't already exist
-            if (hasInfo) {
-                FILE *f = fopen(outputInfoPath, "r");
-                int infoExists = (f != NULL);
-                if (f)
-                    fclose(f);
-                if (!infoExists)
-                    wOPLGameInfoSave(outputInfoPath, &gi);
+        if (samePath && keepOriginals) {
+            unlink(tmpPath);
+
+            if (!wOPLPerGameSave(tmpPath, &pgcfg))
+                continue;
+
+            unlink(bakPath);
+            if (rename(inputPath, bakPath) != 0) {
+                unlink(tmpPath);
+                continue;
             }
+
+            if (rename(tmpPath, outputCfgPath) != 0) {
+                rename(bakPath, inputPath);
+                unlink(tmpPath);
+                continue;
+            }
+        } else {
+            if (!wOPLPerGameSave(outputCfgPath, &pgcfg))
+                continue;
+
             if (!keepOriginals && !samePath)
                 unlink(inputPath);
-            count++;
-        } else if (keepOriginals && samePath) {
-            // cfg save failed.. restore .bak
-            char bakPath[256];
-            snprintf(bakPath, sizeof(bakPath), "%s.bak", inputPath);
-            rename(bakPath, inputPath);
         }
+
+        if (hasInfo) {
+            FILE *f = fopen(outputInfoPath, "r");
+            int infoExists = (f != NULL);
+            if (f)
+                fclose(f);
+
+            if (!infoExists)
+                wOPLGameInfoSave(outputInfoPath, &gi);
+        }
+
+        count++;
     }
 
     closedir(dir);
