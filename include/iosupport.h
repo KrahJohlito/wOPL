@@ -162,7 +162,7 @@ typedef struct
 
 typedef struct
 {
-    char title[161];
+    char title[ISO_GAME_NAME_MAX + 1];
     char genre[64];
     char release[32];
     char developer[64];

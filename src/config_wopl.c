@@ -17,6 +17,8 @@
 #include "include/sound.h"
 #include "include/lwnbd.h"
 #include "include/supportbase.h"
+#include "include/bdmsupport.h"
+#include "include/hddsupport.h"
 #include "include/config_migration.h" // DELETE_WITH_MIGRATION
 #include "include/module.h"
 
@@ -26,6 +28,8 @@
 #include <stdlib.h>
 #include <sys/stat.h>
 #include <errno.h>
+#include <dirent.h>
+#include <unistd.h>
 
 #ifdef __DEBUG
 #include "include/debug.h"
@@ -238,6 +242,12 @@ static int file_exists(const char *path)
     return 1;
 }
 
+static int path_exists(const char *path)
+{
+    struct stat st;
+    return path && stat(path, &st) == 0;
+}
+
 static void copy_str(char *dst, const char *src, size_t size)
 {
     if (!size)
@@ -272,49 +282,120 @@ static void sanitize_pad_sensitivity(void)
         gYSensitivity = 0;
 }
 
+static int pick_default_config_dir(void)
+{
+    int mc = sysCheckMC();
+
+    // like old tryAlternateDevice().. first launch no config prefers mc..
+    if (mc >= 0) {
+        snprintf(config_dir, sizeof(config_dir), "mc%d:%s/", mc & 1, WOPL_CONFIG_NAME);
+        return 1;
+    }
+
+    // no mc? old logic tried mass0 next..
+    DIR *dir = opendir("mass0:/");
+    if (dir != NULL) {
+        closedir(dir);
+        copy_str(config_dir, "mass0:/", sizeof(config_dir));
+        return 1;
+    }
+
+    // last fallback is HDD..
+    if (gHDDPrefix && gHDDPrefix[0] && path_exists(gHDDPrefix)) {
+        copy_str(config_dir, gHDDPrefix, sizeof(config_dir));
+        return 1;
+    }
+
+    return 0;
+}
+
+static int probe_bdm_config_path(const char *filename, char *dir_out, size_t dir_len, char *path_out, size_t path_len, int for_write)
+{
+    char dir[64];
+    int result;
+
+    result = bdmFindPartition(dir, filename, for_write);
+    if (result == 0) {
+        if (hddLoadModules() >= 0 && bdmHDDIsPresent(5000))
+            result = bdmFindPartition(dir, filename, for_write);
+    }
+
+    if (!result)
+        return 0;
+
+    copy_str(dir_out, dir, dir_len);
+    snprintf(path_out, path_len, "%s%s", dir, filename);
+
+    return 1;
+}
+
+static int probe_hdd_config_path(const char *filename, char *dir_out, size_t dir_len, char *path_out, size_t path_len, int for_write)
+{
+    if (!gHDDPrefix || !gHDDPrefix[0])
+        return 0;
+
+    hddLoadModules();
+
+    if (for_write) {
+        if (hddCheck() != 0)
+            return 0;
+    } else
+        hddLoadSupportModules();
+
+    snprintf(path_out, path_len, "%s%s", gHDDPrefix, filename);
+
+    if (!for_write && !file_exists(path_out))
+        return 0;
+
+    copy_str(dir_out, gHDDPrefix, dir_len);
+
+    return 1;
+}
+
+static int probe_boot_config_path(const char *filename, char *dir_out, size_t dir_len, char *path_out, size_t path_len, int for_write)
+{
+    char pwd[8];
+
+    getcwd(pwd, sizeof(pwd));
+
+    if (!strncmp(pwd, "mass", 4) && (pwd[4] == ':' || pwd[5] == ':'))
+        return probe_bdm_config_path(filename, dir_out, dir_len, path_out, path_len, for_write);
+
+    if (!strncmp(pwd, "hdd", 3) && (pwd[3] == ':' || pwd[4] == ':'))
+        return probe_hdd_config_path(filename, dir_out, dir_len, path_out, path_len, for_write);
+
+    return 0;
+}
+
 static int probe_config_path(const char *filename, char *dir_out, size_t dir_len, char *path_out, size_t path_len, int for_write)
 {
     char dir[128];
     char path[256];
 
-    // 1. MC
+    // 1. current/default location mc..
     int mc = sysCheckMC();
     if (mc >= 0) {
-        snprintf(dir, sizeof(dir), "mc%d:wOPL/", mc & 1);
+        snprintf(dir, sizeof(dir), "mc%d:%s/", mc & 1, WOPL_CONFIG_NAME);
         snprintf(path, sizeof(path), "%s%s", dir, filename);
+
         if (for_write || file_exists(path)) {
             copy_str(dir_out, dir, dir_len);
-
             copy_str(path_out, path, path_len);
-
             return 1;
         }
     }
 
-    // 2. BDM.. just 0-1 for now
-    const char *mass_dirs[] = {"mass0:/", "mass1:/", NULL};
-    for (int i = 0; mass_dirs[i]; i++) {
-        snprintf(path, sizeof(path), "%s%s", mass_dirs[i], filename);
-        if (for_write || file_exists(path)) {
-            copy_str(dir_out, mass_dirs[i], dir_len);
+    // 2. first try the device OPL booted from..
+    if (probe_boot_config_path(filename, dir_out, dir_len, path_out, path_len, for_write))
+        return 1;
 
-            copy_str(path_out, path, path_len);
+    // 3. then try BDM..
+    if (probe_bdm_config_path(filename, dir_out, dir_len, path_out, path_len, for_write))
+        return 1;
 
-            return 1;
-        }
-    }
-
-    // 3. HDD.. gHDDPrefix is a char*.. null-check before use.
-    if (gHDDPrefix && gHDDPrefix[0]) {
-        snprintf(path, sizeof(path), "%s%s", gHDDPrefix, filename);
-        if (for_write || file_exists(path)) {
-            copy_str(dir_out, gHDDPrefix, dir_len);
-
-            copy_str(path_out, path, path_len);
-
-            return 1;
-        }
-    }
+    // 4. then try HDD..
+    if (probe_hdd_config_path(filename, dir_out, dir_len, path_out, path_len, for_write))
+        return 1;
 
     return 0;
 }
@@ -337,41 +418,39 @@ static int ensure_config_dir(void)
         return 1;
 
     if (
+        probe_config_path(WOPL_FILENAME, dir, sizeof(dir), path, sizeof(path), 0) ||
+        probe_config_path(NET_FILENAME, dir, sizeof(dir), path, sizeof(path), 0) ||
+        probe_config_path(GAME_FILENAME, dir, sizeof(dir), path, sizeof(path), 0) ||
         // DELETE_WITH_MIGRATION
         probe_config_path(WOPL_FILENAME_OLD, dir, sizeof(dir), path, sizeof(path), 0) ||
         probe_config_path(NET_FILENAME_OLD, dir, sizeof(dir), path, sizeof(path), 0) ||
-        probe_config_path(GAME_FILENAME_OLD, dir, sizeof(dir), path, sizeof(path), 0) ||
+        probe_config_path(GAME_FILENAME_OLD, dir, sizeof(dir), path, sizeof(path), 0)
         // DELETE_WITH_MIGRATION
-        probe_config_path(WOPL_FILENAME, dir, sizeof(dir), path, sizeof(path), 0) ||
-        probe_config_path(NET_FILENAME, dir, sizeof(dir), path, sizeof(path), 0) ||
-        probe_config_path(GAME_FILENAME, dir, sizeof(dir), path, sizeof(path), 0)) {
+    ) {
         copy_str(config_dir, dir, sizeof(config_dir));
-
         return 1;
     }
 
-    return 0;
+    return pick_default_config_dir();
 }
 
-static int do_save(const char *filename, void (*build)(config_setting_t *))
+static int do_save_at_dir(const char *dir, const char *filename, void (*build)(config_setting_t *))
 {
-    char dir[128];
     char path[256];
 
-    if (config_dir[0]) {
-        copy_str(dir, config_dir, 127);
-        snprintf(path, sizeof(path), "%s%s", dir, filename);
-    } else {
-        if (!probe_config_path(filename, dir, sizeof(dir), path, sizeof(path), 1))
-            return 0;
-    }
+    if (!dir || !dir[0])
+        return 0;
+
+    snprintf(path, sizeof(path), "%s%s", dir, filename);
 
     if (!strncmp(dir, "mc", 2)) {
         char mc_dir[128];
         copy_str(mc_dir, dir, sizeof(mc_dir));
         size_t len = strlen(mc_dir);
+
         if (len > 0 && mc_dir[len - 1] == '/')
             mc_dir[len - 1] = '\0';
+
         if (!ensure_mc_dir(mc_dir)) {
             LOG("CONFIG: failed to create MC dir '%s'\n", mc_dir);
             return 0;
@@ -392,10 +471,18 @@ static int do_save(const char *filename, void (*build)(config_setting_t *))
         return 0;
     }
 
-    copy_str(config_dir, dir, 127);
-
+    copy_str(config_dir, dir, sizeof(config_dir));
     LOG("CONFIG: saved to '%s'\n", path);
+
     return 1;
+}
+
+static int do_save(const char *filename, void (*build)(config_setting_t *))
+{
+    if (!ensure_config_dir())
+        return 0;
+
+    return do_save_at_dir(config_dir, filename, build);
 }
 
 // ---------------------------------------------------------------------------
@@ -1010,7 +1097,7 @@ int wOPLGlobalGameLoad(void)
     }
     config_destroy(&cfg);
 
-    // DELETE_WITH_MIGRATION
+    // DELETE_WITH_MIGRATION v
     snprintf(path, sizeof(path), "%s%s", config_dir, GAME_FILENAME_OLD);
     if (cfgMigrateLegacyGlobalGame(path)) {
         if (wOPLGlobalGameSave()) {
@@ -1021,7 +1108,7 @@ int wOPLGlobalGameLoad(void)
         }
         return 1;
     }
-    // DELETE_WITH_MIGRATION
+    // DELETE_WITH_MIGRATION ^
 
     return 0;
 }
@@ -1233,6 +1320,12 @@ static void parse_game_info(config_t *cfg, game_info_t *gi)
         gi->players = val;
     if (config_lookup_int(cfg, "user_rating", &val))
         gi->user_rating = val;
+    if (config_lookup_string(cfg, "vmode", &str))
+        copy_str(gi->vmode, str, sizeof(gi->vmode));
+    if (config_lookup_string(cfg, "scan", &str))
+        copy_str(gi->scan, str, sizeof(gi->scan));
+    if (config_lookup_string(cfg, "device", &str))
+        copy_str(gi->device, str, sizeof(gi->device));
 }
 
 static void build_game_info(config_setting_t *root, const game_info_t *gi)
@@ -1261,6 +1354,12 @@ static void build_game_info(config_setting_t *root, const game_info_t *gi)
         set_int(root, "players", gi->players);
     if (gi->user_rating)
         set_int(root, "user_rating", gi->user_rating);
+    if (gi->vmode[0])
+        set_str(root, "vmode", gi->vmode);
+    if (gi->scan[0])
+        set_str(root, "scan", gi->scan);
+    if (gi->device[0])
+        set_str(root, "device", gi->device);
 }
 
 int wOPLGameInfoLoad(const char *path, game_info_t *gi)
@@ -1292,9 +1391,9 @@ int wOPLGameInfoSave(const char *path, const game_info_t *gi)
     return ok;
 }
 
-// ---------------------------------------------------------------------------
-// Application level config handling
-// ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------------------------------------------------------------
+// Application level config handling.. oof i dont like the old logic.. TODO: split devices to seperate cfg change save/load logic
+// ---------------------------------------------------------------------------------------------------------------------------------
 
 char *gBaseMCDir; // used for thm/lang even after migration
 
@@ -1395,22 +1494,177 @@ int configLoad(int types)
     return lscret;
 }
 
-static void _saveConfig()
+static int config_type_count(int types)
 {
+    int count = 0;
+
+    if (types & CONFIG_OPL)
+        count++;
+    if (types & CONFIG_NETWORK)
+        count++;
+    if (types & CONFIG_GAME)
+        count++;
+
+    return count;
+}
+
+static int save_all_to_current_dir(int types) // like the old configWriteMulti()
+{
+    int result = 0;
+
+    if (!ensure_config_dir())
+        return 0;
+
     const char *path = wOPLGetDir();
     if (path && !strncmp(path, "mc", 2))
         sbCheckMCFolder();
 
-    int woplResult = 0, netResult = 0, gameResult = 0;
+    if (types & CONFIG_OPL)
+        result += do_save_at_dir(config_dir, WOPL_FILENAME, build_opl);
+    if (types & CONFIG_NETWORK)
+        result += do_save_at_dir(config_dir, NET_FILENAME, build_net);
+    if (types & CONFIG_GAME)
+        result += do_save_at_dir(config_dir, GAME_FILENAME, build_global_game);
 
-    if (lscstatus & CONFIG_OPL)
-        woplResult = wOPLSave();
-    if (lscstatus & CONFIG_NETWORK)
-        netResult = wOPLNetSave();
-    if (lscstatus & CONFIG_GAME)
-        gameResult = wOPLGlobalGameSave();
+    return result;
+}
 
-    lscret = woplResult + netResult + gameResult;
+static int save_all_to_dir(const char *dir, int types)
+{
+    int result = 0;
+    char target_dir[128];
+
+    if (!dir || !dir[0])
+        return 0;
+
+    copy_str(target_dir, dir, sizeof(target_dir));
+
+    if (!strncmp(target_dir, "mc", 2))
+        sbCheckMCFolder();
+
+    if (types & CONFIG_OPL)
+        result += do_save_at_dir(target_dir, WOPL_FILENAME, build_opl);
+    if (types & CONFIG_NETWORK)
+        result += do_save_at_dir(target_dir, NET_FILENAME, build_net);
+    if (types & CONFIG_GAME)
+        result += do_save_at_dir(target_dir, GAME_FILENAME, build_global_game);
+
+    return result;
+}
+
+static int try_save_all_boot(int types)
+{
+    char dir[128];
+    char path[256];
+
+    if (types & CONFIG_OPL) {
+        if (probe_boot_config_path(WOPL_FILENAME, dir, sizeof(dir), path, sizeof(path), 1))
+            return save_all_to_dir(dir, types);
+    }
+
+    if (types & CONFIG_NETWORK) {
+        if (probe_boot_config_path(NET_FILENAME, dir, sizeof(dir), path, sizeof(path), 1))
+            return save_all_to_dir(dir, types);
+    }
+
+    if (types & CONFIG_GAME) {
+        if (probe_boot_config_path(GAME_FILENAME, dir, sizeof(dir), path, sizeof(path), 1))
+            return save_all_to_dir(dir, types);
+    }
+
+    return 0;
+}
+
+static int try_save_all_mc(int types)
+{
+    int mc = sysCheckMC();
+
+    if (mc < 0)
+        return 0;
+
+    char dir[128];
+    snprintf(dir, sizeof(dir), "mc%d:%s/", mc & 1, WOPL_CONFIG_NAME);
+
+    return save_all_to_dir(dir, types);
+}
+
+static int try_save_all_bdm(int types)
+{
+    char dir[128];
+    char path[256];
+
+    if (types & CONFIG_OPL) {
+        if (probe_bdm_config_path(WOPL_FILENAME, dir, sizeof(dir), path, sizeof(path), 1))
+            return save_all_to_dir(dir, types);
+    }
+
+    if (types & CONFIG_NETWORK) {
+        if (probe_bdm_config_path(NET_FILENAME, dir, sizeof(dir), path, sizeof(path), 1))
+            return save_all_to_dir(dir, types);
+    }
+
+    if (types & CONFIG_GAME) {
+        if (probe_bdm_config_path(GAME_FILENAME, dir, sizeof(dir), path, sizeof(path), 1))
+            return save_all_to_dir(dir, types);
+    }
+
+    return 0;
+}
+
+static int try_save_all_hdd(int types)
+{
+    char dir[128];
+    char path[256];
+
+    if (types & CONFIG_OPL) {
+        if (probe_hdd_config_path(WOPL_FILENAME, dir, sizeof(dir), path, sizeof(path), 1))
+            return save_all_to_dir(dir, types);
+    }
+
+    if (types & CONFIG_NETWORK) {
+        if (probe_hdd_config_path(NET_FILENAME, dir, sizeof(dir), path, sizeof(path), 1))
+            return save_all_to_dir(dir, types);
+    }
+
+    if (types & CONFIG_GAME) {
+        if (probe_hdd_config_path(GAME_FILENAME, dir, sizeof(dir), path, sizeof(path), 1))
+            return save_all_to_dir(dir, types);
+    }
+
+    return 0;
+}
+
+static int save_all_with_fallback(int types)
+{
+    int result;
+    int expected = config_type_count(types);
+
+    result = save_all_to_current_dir(types);
+    if (result == expected)
+        return result;
+
+    result = try_save_all_boot(types);
+    if (result == expected)
+        return result;
+
+    result = try_save_all_mc(types);
+    if (result == expected)
+        return result;
+
+    result = try_save_all_bdm(types);
+    if (result == expected)
+        return result;
+
+    result = try_save_all_hdd(types);
+    if (result == expected)
+        return result;
+
+    return 0;
+}
+
+static void _saveConfig()
+{
+    lscret = save_all_with_fallback(lscstatus);
     lscstatus = 0;
 }
 
