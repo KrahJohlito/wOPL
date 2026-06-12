@@ -179,7 +179,7 @@ static const char *gameInfoGetAttr(const game_info_t *gi, const per_game_cfg_t *
         return pg->media[0] ? pg->media : NULL;
     if (!strcasecmp(attr, "Size")) {
         if (!pg->size_mb)
-        return NULL;
+            return NULL;
         snprintf(s_size, sizeof(s_size), "%d", pg->size_mb);
         return s_size;
     }
