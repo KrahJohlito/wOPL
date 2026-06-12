@@ -106,10 +106,8 @@ EECORE_OBJS = ee_core.o ioprp.o util.o \
 PNG_ASSETS = load0 load1 load2 load3 load4 load5 load6 load7 usb usb_bd ilk_bd \
 	m4s_bd hdd_bd hdd eth app fav mmce fav_mark cross triangle circle square select start left right \
 	settings_bg info cover cover_app disc screen ELF HDL ISO ZSO UL APPS CD DVD Aspect_s Aspect_w Aspect_w1 \
-	Aspect_w2 Device_1 Device_2 Device_3 Device_4 Device_5 Device_6 Device_all Rating_0 \
-	Rating_1 Rating_2 Rating_3 Rating_4 Rating_5 Scan_240p Scan_240p1 Scan_480i Scan_480p \
-	Scan_480p1 Scan_480p2 Scan_480p3 Scan_480p4 Scan_480p5 Scan_576i Scan_576p Scan_720p \
-	Scan_1080i Scan_1080i2 Scan_1080p Vmode_multi Vmode_ntsc Vmode_pal pademu_on pademu_off gsm_off gsm_on cht_off cht_on \
+	Aspect_w2 Rating_0 Rating_1 Rating_2 Rating_3 Rating_4 Rating_5 \
+	Region_pal Region_ntsc pademu_on pademu_off gsm_off gsm_on cht_off cht_on \
 	logo_01 logo_02 logo_03 logo_04 logo_05 logo_06 logo_07 logo_08 logo_09 logo_10 \
 	logo_11 logo_12 logo_13 logo_14 logo_15 logo_16 logo_17 logo_18 logo_19 logo_20 logo_21 \
 	case apps_case \

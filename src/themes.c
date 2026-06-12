@@ -94,10 +94,23 @@ static const char *elementsType[ELEM_TYPE_COUNT] = {
     "Coverflow",
 };
 
+static const char *formatInfoImageAttr(const char *prefix, const char *value, char *out, size_t outSize)
+{
+    if (!value || !value[0])
+        return NULL;
+
+    if (strchr(value, '/'))
+        return value;
+
+    snprintf(out, outSize, "%s/%s", prefix, value);
+    return out;
+}
+
 static const char *gameInfoGetAttr(const game_info_t *gi, const per_game_cfg_t *pg, const char *attr)
 {
-    static char s_size[16], s_players[16], s_rating[16], s_aspect[16];
-    static char s_vmode[16], s_scan[16], s_device[16];
+    static char s_size[16], s_players[16], s_rating[16];
+    static char s_aspect[32], s_parental[64], s_region[32];
+    int is_app = pg && !strcasecmp(pg->media, "APP");
 
     if (!attr)
         return NULL;
@@ -107,65 +120,55 @@ static const char *gameInfoGetAttr(const game_info_t *gi, const per_game_cfg_t *
 
     // game_info_t
     if (gi) {
-        if (!strcasecmp(attr, "Title") || !strcasecmp(attr, "Name"))
+        // shared game/app info
+        if (!strcmp(attr, "Title"))
             return gi->title[0] ? gi->title : NULL;
-        if (!strcasecmp(attr, "Serial"))
-            return gi->serial[0] ? gi->serial : NULL;
-        if (!strcasecmp(attr, "Genre"))
-            return gi->genre[0] ? gi->genre : NULL;
-        if (!strcasecmp(attr, "Release"))
-            return gi->release[0] ? gi->release : NULL;
-        if (!strcasecmp(attr, "Developer"))
-            return gi->developer[0] ? gi->developer : NULL;
-        if (!strcasecmp(attr, "Publisher"))
-            return gi->publisher[0] ? gi->publisher : NULL;
         if (!strcasecmp(attr, "Description"))
             return gi->description[0] ? gi->description : NULL;
+        if (!strcasecmp(attr, "Developer"))
+            return gi->developer[0] ? gi->developer : NULL;
+        if (!strcasecmp(attr, "Release"))
+            return gi->release[0] ? gi->release : NULL;
+
+        // app only info
+        if (!strcasecmp(attr, "Version"))
+            return (is_app && gi->version[0]) ? gi->version : NULL;
+        if (!strcasecmp(attr, "Package"))
+            return (is_app && gi->package[0]) ? gi->package : NULL;
+        if (!strcasecmp(attr, "Source"))
+            return (is_app && gi->source[0]) ? gi->source : NULL;
+
+        // game only info
+        if (!strcasecmp(attr, "Genre"))
+            return (!is_app && gi->genre[0]) ? gi->genre : NULL;
+        if (!strcasecmp(attr, "Publisher"))
+            return (!is_app && gi->publisher[0]) ? gi->publisher : NULL;
+        if (!strcasecmp(attr, "Serial"))
+            return (!is_app && gi->serial[0]) ? gi->serial : NULL;
 
         if (!strcasecmp(attr, "Parental"))
-            return gi->parental[0] ? gi->parental : NULL;
+            return !is_app ? formatInfoImageAttr("Parental", gi->parental, s_parental, sizeof(s_parental)) : NULL;
 
         if (!strcasecmp(attr, "Region"))
-            return gi->region[0] ? gi->region : NULL;
-
-        if (!strcasecmp(attr, "Vmode")) {
-            if (!gi->vmode[0])
-                return NULL;
-            snprintf(s_vmode, sizeof(s_vmode), "Vmode/%s", gi->vmode);
-            return s_vmode;
-        }
-
-        if (!strcasecmp(attr, "Scan")) {
-            if (!gi->scan[0])
-                return NULL;
-            snprintf(s_scan, sizeof(s_scan), "Scan/%s", gi->scan);
-            return s_scan;
-        }
-
-        if (!strcasecmp(attr, "Device")) {
-            if (!gi->device[0])
-                return NULL;
-            snprintf(s_device, sizeof(s_device), "Device/%s", gi->device);
-            return s_device;
-        }
-
-        if (!strcasecmp(attr, "UserRating") || !strcasecmp(attr, "Rating")) {
-            snprintf(s_rating, sizeof(s_rating), "Rating/%d", gi->user_rating);
-            return s_rating;
-        }
+            return !is_app ? formatInfoImageAttr("Region", gi->region, s_region, sizeof(s_region)) : NULL;
 
         if (!strcasecmp(attr, "Players")) {
-            if (!gi->players)
+            if (is_app || !gi->players)
                 return NULL;
+
             snprintf(s_players, sizeof(s_players), "Players/%d", gi->players);
             return s_players;
         }
 
-        if (!strcasecmp(attr, "Aspect")) {
-            if (!gi->aspect[0])
+        if (!strcasecmp(attr, "Aspect"))
+            return !is_app ? formatInfoImageAttr("Aspect", gi->aspect, s_aspect, sizeof(s_aspect)) : NULL;
+
+        if (!strcasecmp(attr, "UserRating") || !strcasecmp(attr, "Rating")) {
+            if (is_app || !gi->user_rating)
                 return NULL;
-            snprintf(s_aspect, sizeof(s_aspect), "Aspect/%s", gi->aspect);
-            return s_aspect;
+
+            snprintf(s_rating, sizeof(s_rating), "Rating/%d", gi->user_rating);
+            return s_rating;
         }
     }
 
@@ -180,9 +183,14 @@ static const char *gameInfoGetAttr(const game_info_t *gi, const per_game_cfg_t *
     if (!strcasecmp(attr, "Size")) {
         if (!pg->size_mb)
             return NULL;
+
         snprintf(s_size, sizeof(s_size), "%d", pg->size_mb);
         return s_size;
     }
+
+    // apps dont support extra features.. so dont show the icons
+    if (is_app)
+        return NULL;
 
 #ifdef PADEMU
     if (!strcasecmp(attr, "PadEmu") ||
@@ -331,6 +339,7 @@ static void initStaticText(const char *themePath, config_t *themeConfig, theme_t
 static void drawAttributeText(struct menu_list *menu, struct submenu_list *item, render_ctx_t *ctx, struct theme_element *elem)
 {
     mutable_text_t *mutableText = (mutable_text_t *)elem->extended;
+
     if (ctx) {
         if (mutableText->currentConfigId != ctx->uid) {
             if (mutableText->currentValue) {
@@ -339,42 +348,63 @@ static void drawAttributeText(struct menu_list *menu, struct submenu_list *item,
             }
 
             mutableText->currentConfigId = ctx->uid;
-            const char *value = gameInfoGetAttr(ctx->gi, ctx->pg, mutableText->value);
-            if (value) {
-                mutableText->currentValue = strdup(value);
 
-                if (mutableText->currentValue && mutableText->sizingMode == SIZING_WRAP)
-                    fntFitString(elem->font, mutableText->currentValue, elem->width);
-            }
+            const char *value = gameInfoGetAttr(ctx->gi, ctx->pg, mutableText->value);
+            if (value)
+                mutableText->currentValue = strdup(value);
         }
+
         if (mutableText->currentValue) {
-            char result[300];
+            char *result;
+            int length;
+
             if (mutableText->displayMode == DISPLAY_NEVER) {
                 if (!strncmp(mutableText->alias, _l(_STR_SIZE), strlen(_l(_STR_SIZE)))) {
-                    snprintf(result, sizeof(result), "%s MiB", mutableText->currentValue);
-                    if (mutableText->sizingMode == SIZING_NONE)
-                        fntRenderString(elem->font, elem->posX, elem->posY, elem->aligned, 0, 0, result, elem->color);
-                    else
-                        fntRenderString(elem->font, elem->posX, elem->posY, elem->aligned, elem->width, elem->height, result, elem->color);
+                    length = strlen(mutableText->currentValue) + 6;
+                    result = (char *)calloc(length, sizeof(char));
+                    if (!result)
+                        return;
+
+                    snprintf(result, length, "%s MiB", mutableText->currentValue);
                 } else {
-                    if (mutableText->sizingMode == SIZING_NONE)
-                        fntRenderString(elem->font, elem->posX, elem->posY, elem->aligned, 0, 0, mutableText->currentValue, elem->color);
-                    else
-                        fntRenderString(elem->font, elem->posX, elem->posY, elem->aligned, elem->width, elem->height, mutableText->currentValue, elem->color);
+                    length = strlen(mutableText->currentValue) + 1;
+                    result = (char *)calloc(length, sizeof(char));
+                    if (!result)
+                        return;
+
+                    snprintf(result, length, "%s", mutableText->currentValue);
                 }
             } else {
-                if (!strncmp(mutableText->alias, _l(_STR_SIZE), strlen(_l(_STR_SIZE))))
-                    snprintf(result, sizeof(result), "%s%s MiB", mutableText->alias, mutableText->currentValue);
-                else
-                    snprintf(result, sizeof(result), "%s%s", mutableText->alias, mutableText->currentValue);
-                if (mutableText->sizingMode == SIZING_NONE)
-                    fntRenderString(elem->font, elem->posX, elem->posY, elem->aligned, 0, 0, result, elem->color);
-                else
-                    fntRenderString(elem->font, elem->posX, elem->posY, elem->aligned, elem->width, elem->height, result, elem->color);
+                if (!strncmp(mutableText->alias, _l(_STR_SIZE), strlen(_l(_STR_SIZE)))) {
+                    length = strlen(mutableText->alias) + strlen(mutableText->currentValue) + 6;
+                    result = (char *)calloc(length, sizeof(char));
+                    if (!result)
+                        return;
+
+                    snprintf(result, length, "%s%s MiB", mutableText->alias, mutableText->currentValue);
+                } else {
+                    length = strlen(mutableText->alias) + strlen(mutableText->currentValue) + 1;
+                    result = (char *)calloc(length, sizeof(char));
+                    if (!result)
+                        return;
+
+                    snprintf(result, length, "%s%s", mutableText->alias, mutableText->currentValue);
+                }
             }
+
+            if (mutableText->sizingMode == SIZING_WRAP)
+                fntFitString(elem->font, result, elem->width);
+
+            if (mutableText->sizingMode == SIZING_NONE)
+                fntRenderString(elem->font, elem->posX, elem->posY, elem->aligned, 0, 0, result, elem->color);
+            else
+                fntRenderString(elem->font, elem->posX, elem->posY, elem->aligned, elem->width, elem->height, result, elem->color);
+
+            free(result);
             return;
         }
     }
+
     if (mutableText->displayMode == DISPLAY_ALWAYS) {
         if (mutableText->sizingMode == SIZING_NONE)
             fntRenderString(elem->font, elem->posX, elem->posY, elem->aligned, 0, 0, mutableText->alias, elem->color);
@@ -1734,12 +1764,18 @@ static void thmLoad(const char *themePath, int themeID)
             free(buf);
         }
     } else {
-        snprintf(path, sizeof(path), "%sconf_theme.cfg", themePath);
+        snprintf(path, sizeof(path), "%swopl_theme.cfg", themePath);
         if (!config_read_file(&themeConfig, path)) {
+            // DELETE_WITH_MIGRATION v (condition above also.. just read)
             config_destroy(&themeConfig);
             config_init(&themeConfig);
-            if (cfgMigrateLegacyTheme(path))
+
+            char oldPath[256];
+            snprintf(oldPath, sizeof(oldPath), "%sconf_theme.cfg", themePath);
+
+            if (cfgMigrateLegacyTheme(oldPath, path))
                 config_read_file(&themeConfig, path);
+            // DELETE_WITH_MIGRATION ^
         }
     }
 
@@ -1863,13 +1899,8 @@ static void thmLoad(const char *themePath, int themeID)
     for (i = BDM_ICON; i <= START_ICON; i++)
         thmLoadResource(&newT->textures[i], i, themePath, GS_PSM_CT32, newT->useDefault);
 
-    /* Not customizable icons - currently unused.
-    for (i = L1_ICON; i <= R3_ICON; i++)
-        thmLoadResource(&newT->textures[i], i, NULL, GS_PSM_CT32, 1); */
-
-    if (!themePath)
-        for (i = ELF_FORMAT; i <= VMODE_PAL; i++)
-            thmLoadResource(&newT->textures[i], i, NULL, GS_PSM_CT32, 1);
+    for (i = ELF_FORMAT; i <= RATING_5; i++)
+        thmLoadResource(&newT->textures[i], i, themePath, GS_PSM_CT32, 1);
 
     if (themePath) {
         if (config_lookup_int(&themeConfig, "use_settings_bg", &intValue)) {
