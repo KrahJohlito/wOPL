@@ -587,6 +587,18 @@ int cfgMigrateLegacyTheme(const char *path)
     return ok;
 }
 
+static int isLibconfigPerGameFile(const char *path)
+{
+    config_t cfg;
+    int ok;
+
+    config_init(&cfg);
+    ok = config_read_file(&cfg, path);
+    config_destroy(&cfg);
+
+    return ok;
+}
+
 int cfgBatchMigratePerGame(const char *inputPrefix, const char *outputPrefix, int keepOriginals)
 {
     char cfgDir[256];
@@ -613,57 +625,76 @@ int cfgBatchMigratePerGame(const char *inputPrefix, const char *outputPrefix, in
         if (len < 5 || strcasecmp(entry->d_name + len - 4, ".cfg") != 0)
             continue;
 
-        char inputPath[256], outputCfgPath[256], outputInfoPath[256];
+        char inputPath[256], outputCfgPath[256], outputInfoPath[256], tmpPath[256], bakPath[256];
         snprintf(inputPath, sizeof(inputPath), "%sCFG/%s", inputPrefix, entry->d_name);
         snprintf(outputCfgPath, sizeof(outputCfgPath), "%sCFG/%s", outputPrefix, entry->d_name);
+        snprintf(tmpPath, sizeof(tmpPath), "%s.tmp", outputCfgPath);
+        snprintf(bakPath, sizeof(bakPath), "%s.bak", inputPath);
+
+        // skip files that are already in new libconfig format..
+        if (isLibconfigPerGameFile(inputPath)) {
+            LOG("CONFIG_BATCH_MIGRATE: skipping new-format file '%s'\n", inputPath);
+            continue;
+        }
 
         // info path.. same basename .info extension
         char basename[128];
         int baseLen = len - 4;
+        if (baseLen >= (int)sizeof(basename))
+            baseLen = sizeof(basename) - 1;
         strncpy(basename, entry->d_name, baseLen);
         basename[baseLen] = '\0';
         snprintf(outputInfoPath, sizeof(outputInfoPath), "%sCFG/%s.info", outputPrefix, basename);
 
-        // only process legacy format files
         per_game_cfg_t pgcfg;
         memset(&pgcfg, 0, sizeof(pgcfg));
         pgcfg.dma = 7;
 
-        // skip if not a readable legacy format
         if (!cfgMigrateLegacyPerGame(inputPath, &pgcfg))
             continue;
 
-        // extract game info from the legacy cfg
         game_info_t gi;
         memset(&gi, 0, sizeof(gi));
         int hasInfo = cfgMigrateLegacyGameInfo(inputPath, &gi);
 
         int samePath = (strcmp(inputPath, outputCfgPath) == 0);
-        if (keepOriginals && samePath) {
-            char bakPath[256];
-            snprintf(bakPath, sizeof(bakPath), "%s.bak", inputPath);
-            rename(inputPath, bakPath);
-        }
 
-        if (wOPLPerGameSave(outputCfgPath, &pgcfg)) {
-            // only write .info if we got data and one doesn't already exist
-            if (hasInfo) {
-                FILE *f = fopen(outputInfoPath, "r");
-                int infoExists = (f != NULL);
-                if (f)
-                    fclose(f);
-                if (!infoExists)
-                    wOPLGameInfoSave(outputInfoPath, &gi);
+        if (samePath && keepOriginals) {
+            unlink(tmpPath);
+
+            if (!wOPLPerGameSave(tmpPath, &pgcfg))
+                continue;
+
+            unlink(bakPath);
+            if (rename(inputPath, bakPath) != 0) {
+                unlink(tmpPath);
+                continue;
             }
+
+            if (rename(tmpPath, outputCfgPath) != 0) {
+                rename(bakPath, inputPath);
+                unlink(tmpPath);
+                continue;
+            }
+        } else {
+            if (!wOPLPerGameSave(outputCfgPath, &pgcfg))
+                continue;
+
             if (!keepOriginals && !samePath)
                 unlink(inputPath);
-            count++;
-        } else if (keepOriginals && samePath) {
-            // cfg save failed.. restore .bak
-            char bakPath[256];
-            snprintf(bakPath, sizeof(bakPath), "%s.bak", inputPath);
-            rename(bakPath, inputPath);
         }
+
+        if (hasInfo) {
+            FILE *f = fopen(outputInfoPath, "r");
+            int infoExists = (f != NULL);
+            if (f)
+                fclose(f);
+
+            if (!infoExists)
+                wOPLGameInfoSave(outputInfoPath, &gi);
+        }
+
+        count++;
     }
 
     closedir(dir);
