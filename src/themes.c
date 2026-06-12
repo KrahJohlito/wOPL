@@ -173,17 +173,6 @@ static const char *gameInfoGetAttr(const game_info_t *gi, const per_game_cfg_t *
     if (!pg)
         return NULL;
 
-    if (!strcasecmp(attr, "Format"))
-        return pg->format[0] ? pg->format : NULL;
-    if (!strcasecmp(attr, "Media"))
-        return pg->media[0] ? pg->media : NULL;
-    if (!strcasecmp(attr, "Size")) {
-        if (!pg->size_mb)
-            return NULL;
-        snprintf(s_size, sizeof(s_size), "%d", pg->size_mb);
-        return s_size;
-    }
-
 #ifdef PADEMU
     if (!strcasecmp(attr, "PadEmu") ||
         !strcasecmp(attr, "EnablePadEmu")) // DELETE_WITH_MIGRATION

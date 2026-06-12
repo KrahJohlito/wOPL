@@ -262,22 +262,6 @@ int cfgMigrateLegacyPerGame(const char *path, per_game_cfg_t *cfg)
     if (cfg->vmc2[0] != '\0')
         found = 1;
 
-    const char *str;
-    if (configGetStr(old, CONFIG_ITEM_FORMAT, &str)) {
-        strncpy(cfg->format, str, sizeof(cfg->format) - 1);
-        cfg->format[sizeof(cfg->format) - 1] = '\0';
-        found = 1;
-    }
-
-    if (configGetStr(old, CONFIG_ITEM_MEDIA, &str)) {
-        strncpy(cfg->media, str, sizeof(cfg->media) - 1);
-        cfg->media[sizeof(cfg->media) - 1] = '\0';
-        found = 1;
-    }
-
-    if (configGetInt(old, CONFIG_ITEM_SIZE, &cfg->size_mb))
-        found = 1;
-
 #ifdef GSM
     if (configGetInt(old, CONFIG_ITEM_GSMSOURCE, &cfg->gsm_source))
         found = 1;
@@ -438,16 +422,6 @@ int cfgMigrateTARGameCfg(const char *startup, game_info_t *gi, per_game_cfg_t *p
                 configGetVMC(old, pgcfg->vmc1, sizeof(pgcfg->vmc1), 0);
                 configGetVMC(old, pgcfg->vmc2, sizeof(pgcfg->vmc2), 1);
 
-                if (configGetStr(old, CONFIG_ITEM_FORMAT, &str)) {
-                    strncpy(pgcfg->format, str, sizeof(pgcfg->format) - 1);
-                    pgcfg->format[sizeof(pgcfg->format) - 1] = '\0';
-                }
-                if (configGetStr(old, CONFIG_ITEM_MEDIA, &str)) {
-                    strncpy(pgcfg->media, str, sizeof(pgcfg->media) - 1);
-                    pgcfg->media[sizeof(pgcfg->media) - 1] = '\0';
-                }
-
-                configGetInt(old, CONFIG_ITEM_SIZE, &pgcfg->size_mb);
 #ifdef GSM
                 configGetInt(old, CONFIG_ITEM_GSMSOURCE, &pgcfg->gsm_source);
                 configGetInt(old, CONFIG_ITEM_ENABLEGSM, &pgcfg->gsm_enable);

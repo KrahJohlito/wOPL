@@ -122,12 +122,9 @@ typedef struct
 
 typedef struct
 {
-    int size_mb;
     int compat;
     int dma; // 7 = not set (device default)
     int core_loader;
-    char format[8];
-    char media[4];
     char dnas[32];
     char alt_startup[32];
     char vmc1[32];

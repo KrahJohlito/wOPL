@@ -1133,8 +1133,6 @@ static void parse_per_game(config_t *cfg, per_game_cfg_t *pg)
     int val;
     const char *str;
 
-    if (config_lookup_int(cfg, "size_mb", &val))
-        pg->size_mb = val;
     if (config_lookup_int(cfg, "compat", &val))
         pg->compat = val;
     if (config_lookup_int(cfg, "dma", &val))
@@ -1149,10 +1147,7 @@ static void parse_per_game(config_t *cfg, per_game_cfg_t *pg)
         copy_str(pg->vmc1, str, sizeof(pg->vmc1));
     if (config_lookup_string(cfg, "vmc2", &str))
         copy_str(pg->vmc2, str, sizeof(pg->vmc2));
-    if (config_lookup_string(cfg, "format", &str))
-        copy_str(pg->format, str, sizeof(pg->format));
-    if (config_lookup_string(cfg, "media", &str))
-        copy_str(pg->media, str, sizeof(pg->media));
+
 #ifdef GSM
     if (config_lookup_int(cfg, "gsm.source", &val))
         pg->gsm_source = val;
@@ -1203,7 +1198,6 @@ static void parse_per_game(config_t *cfg, per_game_cfg_t *pg)
 
 static void build_per_game(config_setting_t *root, const per_game_cfg_t *pg)
 {
-    set_int(root, "size_mb", pg->size_mb);
     set_int(root, "compat", pg->compat);
     set_int(root, "dma", pg->dma);
     set_int(root, "core_loader", pg->core_loader);
@@ -1211,10 +1205,6 @@ static void build_per_game(config_setting_t *root, const per_game_cfg_t *pg)
     set_str(root, "alt_startup", pg->alt_startup);
     set_str(root, "vmc1", pg->vmc1);
     set_str(root, "vmc2", pg->vmc2);
-    if (pg->format[0])
-        set_str(root, "format", pg->format);
-    if (pg->media[0])
-        set_str(root, "media", pg->media);
 
     config_setting_t *group;
 #ifdef GSM
