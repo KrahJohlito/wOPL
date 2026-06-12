@@ -988,6 +988,7 @@ void guiShowCoverflowConfig(void)
     }
 }
 
+// DELETE_WITH_MIGRATION v
 void guiShowCfgMigration(void)
 {
 #define CFG_MIG_MAX_DEVICES 8
@@ -1024,6 +1025,7 @@ void guiShowCfgMigration(void)
         guiMsgBox(msg, 0, NULL);
     }
 }
+// DELETE_WITH_MIGRATION ^
 
 int guiShowKeyboard(char *value, int maxLength)
 {
