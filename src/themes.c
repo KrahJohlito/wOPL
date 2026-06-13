@@ -184,6 +184,10 @@ static const char *gameInfoGetAttr(const game_info_t *gi, const per_game_cfg_t *
         return s_size;
     }
 
+    // apps dont support extra features.. so dont show the icons
+    if (!strcasecmp(pg->media, "APP"))
+        return NULL;
+
 #ifdef PADEMU
     if (!strcasecmp(attr, "PadEmu") ||
         !strcasecmp(attr, "EnablePadEmu")) // DELETE_WITH_MIGRATION
