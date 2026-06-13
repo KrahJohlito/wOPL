@@ -13,14 +13,8 @@
 int cfgMigrateLegacyOPL(const char *path, int *out_theme_id, int *out_lang_id);
 int cfgMigrateLegacyNet(const char *path);
 int cfgMigrateLegacyGlobalGame(const char *path);
-int cfgMigrateLegacyPerGame(const char *path, per_game_cfg_t *cfg);
-int cfgMigrateLegacyGameInfo(const char *path, game_info_t *gi);
 int cfgMigrateLegacyAppTitleCfg(const char *path);
 int cfgMigrateLegacyTheme(const char *path);
-
-// Returns 1 if anything was loaded from TAR.. 0 if nothing found
-// gi and/or pgcfg may be NULL if caller only needs one of them
-int cfgMigrateTARGameCfg(const char *startup, game_info_t *gi, per_game_cfg_t *pgcfg);
 
 int cfgBatchMigratePerGame(const char *inputPrefix, const char *outputPrefix, int keepOriginals);
 
