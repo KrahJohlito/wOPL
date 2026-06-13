@@ -619,7 +619,6 @@ int cfgBatchMigratePerGame(const char *inputPrefix, const char *outputPrefix, in
     }
 
     int count = 0;
-    struct dirent *entry;
     int processed = 0;
 
     while ((entry = readdir(dir)) != NULL) {
