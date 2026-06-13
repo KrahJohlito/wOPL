@@ -417,7 +417,7 @@ void mmceLaunchGame(item_list_t *itemList, int id, per_game_cfg_t *pgcfg)
 
     /* No autolaunch yet
     else {
-        miniDeinit(configSet);
+        miniDeinit();
 
         free(gAutoLaunchBDMGame);
         gAutoLaunchBDMGame = NULL;

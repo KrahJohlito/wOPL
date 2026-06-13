@@ -22,7 +22,6 @@
 #include "include/lwnbd.h"
 #include "include/supportbase.h"
 #include "include/config_migration.h"
-#include "include/tar.h"
 
 #include <libconfig.h>
 #include <stdio.h>
@@ -49,6 +48,77 @@
 
 static int configReadLegacyIP(void);
 
+#define CFG_MIG_HAS_PG   1
+#define CFG_MIG_HAS_INFO 2
+
+static void cfgClearStackConfig(config_set_t *cfg)
+{
+    if (!cfg)
+        return;
+
+    configClear(cfg);
+    free(cfg->filename);
+    cfg->filename = NULL;
+}
+
+static int cfgFileExists(const char *path)
+{
+    FILE *f = fopen(path, "r");
+    if (!f)
+        return 0;
+
+    fclose(f);
+    return 1;
+}
+
+static int cfgWriteLibconfig(config_t *cfg, const char *path, int keepBackup)
+{
+    char tmp[256];
+    char bak[256];
+    int hadOriginal;
+    int backedOriginal = 0;
+
+    snprintf(tmp, sizeof(tmp), "%s.tmp", path);
+    snprintf(bak, sizeof(bak), "%s.bak", path);
+
+    hadOriginal = cfgFileExists(path);
+
+    unlink(tmp);
+
+    if (!config_write_file(cfg, tmp)) {
+        LOG("CONFIG_MIGRATION: failed to write temp file '%s'\n", tmp);
+        unlink(tmp);
+        return 0;
+    }
+
+    if (hadOriginal) {
+        unlink(bak);
+
+        if (rename(path, bak) != 0) {
+            LOG("CONFIG_MIGRATION: failed to backup '%s' to '%s'\n", path, bak);
+            unlink(tmp);
+            return 0;
+        }
+
+        backedOriginal = 1;
+    }
+
+    if (rename(tmp, path) != 0) {
+        LOG("CONFIG_MIGRATION: failed to rename '%s' to '%s'\n", tmp, path);
+
+        if (backedOriginal)
+            rename(bak, path);
+
+        unlink(tmp);
+        return 0;
+    }
+
+    if (backedOriginal && !keepBackup)
+        unlink(bak);
+
+    return 1;
+}
+
 int cfgMigrateLegacyOPL(const char *path, int *out_theme_id, int *out_lang_id)
 {
     config_set_t legacy;
@@ -57,7 +127,7 @@ int cfgMigrateLegacyOPL(const char *path, int *out_theme_id, int *out_lang_id)
         return 0;
 
     if (!configRead(cfg)) {
-        configClear(cfg);
+        cfgClearStackConfig(cfg);
         return 0;
     }
 
@@ -154,7 +224,7 @@ int cfgMigrateLegacyOPL(const char *path, int *out_theme_id, int *out_lang_id)
     if (configGetInt(cfg, "hdd_frames_delay", &delay))
         gHDDFramesDelay = delay;
 
-    configClear(cfg);
+    cfgClearStackConfig(cfg);
     return 1;
 }
 
@@ -167,7 +237,7 @@ int cfgMigrateLegacyNet(const char *path)
         return 0;
 
     if (!configRead(cfg)) {
-        configClear(cfg);
+        cfgClearStackConfig(cfg);
         return 0;
     }
 
@@ -194,7 +264,7 @@ int cfgMigrateLegacyNet(const char *path)
     if (configGetStr(cfg, CONFIG_NET_PS2_DNS, &temp))
         sscanf(temp, "%d.%d.%d.%d", &ps2_dns[0], &ps2_dns[1], &ps2_dns[2], &ps2_dns[3]);
 
-    configClear(cfg);
+    cfgClearStackConfig(cfg);
     return 1;
 }
 
@@ -204,7 +274,7 @@ int cfgMigrateLegacyGlobalGame(const char *path)
     config_set_t *old = configAlloc(CONFIG_GAME, &tmp, (char *)path);
     if (!old || !configRead(old)) {
         if (old)
-            configClear(old);
+            cfgClearStackConfig(old);
         return 0;
     }
 #ifdef GSM
@@ -228,234 +298,8 @@ int cfgMigrateLegacyGlobalGame(const char *path)
     configGetInt(old, CONFIG_ITEM_OSD_SETTINGS_LANGID, &gGlobalGameCfg.osd_langid);
     configGetInt(old, CONFIG_ITEM_OSD_SETTINGS_TV_ASP, &gGlobalGameCfg.osd_tv_aspect);
     configGetInt(old, CONFIG_ITEM_OSD_SETTINGS_VMODE, &gGlobalGameCfg.osd_vmode);
-    configClear(old);
+    cfgClearStackConfig(old);
     return 1;
-}
-
-int cfgMigrateLegacyPerGame(const char *path, per_game_cfg_t *cfg)
-{
-    int found = 0;
-    config_set_t tmp;
-    config_set_t *old = configAlloc(0, &tmp, (char *)path);
-    if (!old || !configRead(old)) {
-        if (old)
-            configClear(old);
-        return 0;
-    }
-
-    if (configGetInt(old, CONFIG_ITEM_COMPAT, &cfg->compat))
-        found = 1;
-    if (configGetInt(old, CONFIG_ITEM_DMA, &cfg->dma))
-        found = 1;
-    if (configGetInt(old, CONFIG_ITEM_CORE_LOADER, &cfg->core_loader))
-        found = 1;
-    if (configGetStrCopy(old, CONFIG_ITEM_DNAS, cfg->dnas, sizeof(cfg->dnas)))
-        found = 1;
-    if (configGetStrCopy(old, CONFIG_ITEM_ALTSTARTUP, cfg->alt_startup, sizeof(cfg->alt_startup)))
-        found = 1;
-
-    configGetVMC(old, cfg->vmc1, sizeof(cfg->vmc1), 0);
-    if (cfg->vmc1[0] != '\0')
-        found = 1;
-
-    configGetVMC(old, cfg->vmc2, sizeof(cfg->vmc2), 1);
-    if (cfg->vmc2[0] != '\0')
-        found = 1;
-
-#ifdef GSM
-    if (configGetInt(old, CONFIG_ITEM_GSMSOURCE, &cfg->gsm_source))
-        found = 1;
-    if (configGetInt(old, CONFIG_ITEM_ENABLEGSM, &cfg->gsm_enable))
-        found = 1;
-    if (configGetInt(old, CONFIG_ITEM_GSMVMODE, &cfg->gsm_vmode))
-        found = 1;
-    if (configGetInt(old, CONFIG_ITEM_GSMXOFFSET, &cfg->gsm_xoffset))
-        found = 1;
-    if (configGetInt(old, CONFIG_ITEM_GSMYOFFSET, &cfg->gsm_yoffset))
-        found = 1;
-    if (configGetInt(old, CONFIG_ITEM_GSMFIELDFIX, &cfg->gsm_fieldfix))
-        found = 1;
-#endif
-
-#ifdef CHEAT
-    if (configGetInt(old, CONFIG_ITEM_CHEATSSOURCE, &cfg->cheat_source))
-        found = 1;
-    if (configGetInt(old, CONFIG_ITEM_ENABLECHEAT, &cfg->cheat_enable))
-        found = 1;
-    if (configGetInt(old, CONFIG_ITEM_CHEATMODE, &cfg->cheat_mode))
-        found = 1;
-    if (configGetInt(old, CONFIG_ITEM_ENABLEIMAGE, &cfg->cheat_enable_image))
-        found = 1;
-#endif
-
-#ifdef PADEMU
-    if (configGetInt(old, CONFIG_ITEM_PADEMUSOURCE, &cfg->pademu_source))
-        found = 1;
-    if (configGetInt(old, CONFIG_ITEM_ENABLEPADEMU, &cfg->pademu_enable))
-        found = 1;
-    if (configGetInt(old, CONFIG_ITEM_PADEMUSETTINGS, &cfg->pademu_settings))
-        found = 1;
-    if (configGetInt(old, CONFIG_ITEM_PADMACROSOURCE, &cfg->padmacro_source))
-        found = 1;
-    if (configGetInt(old, CONFIG_ITEM_PADMACROSETTINGS, &cfg->padmacro_settings))
-        found = 1;
-#endif
-
-    if (configGetInt(old, CONFIG_ITEM_OSD_SETTINGS_SOURCE, &cfg->osd_source))
-        found = 1;
-    if (configGetInt(old, CONFIG_ITEM_OSD_SETTINGS_ENABLE, &cfg->osd_enable))
-        found = 1;
-    if (configGetInt(old, CONFIG_ITEM_OSD_SETTINGS_LANGID, &cfg->osd_langid))
-        found = 1;
-    if (configGetInt(old, CONFIG_ITEM_OSD_SETTINGS_TV_ASP, &cfg->osd_tv_aspect))
-        found = 1;
-    if (configGetInt(old, CONFIG_ITEM_OSD_SETTINGS_VMODE, &cfg->osd_vmode))
-        found = 1;
-
-    configClear(old);
-
-    return found;
-}
-
-int cfgMigrateLegacyGameInfo(const char *path, game_info_t *gi)
-{
-    config_set_t tmp;
-    config_set_t *old = configAlloc(0, &tmp, (char *)path);
-    if (!old || !configRead(old)) {
-        if (old)
-            configClear(old);
-        return 0;
-    }
-
-    const char *str;
-    int found = 0;
-
-    if (configGetStr(old, CONFIG_ITEM_NAME, &str)) {
-        strncpy(gi->title, str, sizeof(gi->title) - 1);
-        gi->title[sizeof(gi->title) - 1] = '\0';
-        found = 1;
-    }
-
-    if (configGetStr(old, "Genre", &str)) {
-        strncpy(gi->genre, str, sizeof(gi->genre) - 1);
-        gi->genre[sizeof(gi->genre) - 1] = '\0';
-        found = 1;
-    }
-
-    if (configGetStr(old, "Release", &str)) {
-        strncpy(gi->release, str, sizeof(gi->release) - 1);
-        gi->release[sizeof(gi->release) - 1] = '\0';
-        found = 1;
-    }
-
-    if (configGetStr(old, "Developer", &str)) {
-        strncpy(gi->developer, str, sizeof(gi->developer) - 1);
-        gi->developer[sizeof(gi->developer) - 1] = '\0';
-        found = 1;
-    }
-
-    if (configGetStr(old, "Description", &str)) {
-        strncpy(gi->description, str, sizeof(gi->description) - 1);
-        gi->description[sizeof(gi->description) - 1] = '\0';
-        found = 1;
-    }
-
-    if (configGetStr(old, "Publisher", &str)) {
-        strncpy(gi->publisher, str, sizeof(gi->publisher) - 1);
-        gi->publisher[sizeof(gi->publisher) - 1] = '\0';
-        found = 1;
-    }
-
-    configClear(old);
-    return found;
-}
-
-int cfgMigrateTARGameCfg(const char *startup, game_info_t *gi, per_game_cfg_t *pgcfg)
-{
-    char tarname[32];
-    snprintf(tarname, sizeof(tarname), "%s.cfg", startup);
-    TarEntryBase *e = tarFind(TAR_KIND_CFG, tarname);
-    if (!e)
-        return 0;
-
-    void *buf = malloc(e->rawSize);
-    if (!buf)
-        return 0;
-
-    int loaded = 0;
-    if (tarRead(TAR_KIND_CFG, e, buf, e->rawSize) == e->rawSize) {
-        config_set_t tmp;
-        config_set_t *old = configAlloc(0, &tmp, NULL);
-        if (old && configReadBuffer(old, buf, (int)e->rawSize)) {
-            const char *str;
-            if (gi) {
-                if (configGetStr(old, CONFIG_ITEM_NAME, &str)) {
-                    strncpy(gi->title, str, sizeof(gi->title) - 1);
-                    gi->title[sizeof(gi->title) - 1] = '\0';
-                }
-                if (configGetStr(old, "Genre", &str)) {
-                    strncpy(gi->genre, str, sizeof(gi->genre) - 1);
-                    gi->genre[sizeof(gi->genre) - 1] = '\0';
-                }
-                if (configGetStr(old, "Release", &str)) {
-                    strncpy(gi->release, str, sizeof(gi->release) - 1);
-                    gi->release[sizeof(gi->release) - 1] = '\0';
-                }
-                if (configGetStr(old, "Developer", &str)) {
-                    strncpy(gi->developer, str, sizeof(gi->developer) - 1);
-                    gi->developer[sizeof(gi->developer) - 1] = '\0';
-                }
-                if (configGetStr(old, "Description", &str)) {
-                    strncpy(gi->description, str, sizeof(gi->description) - 1);
-                    gi->description[sizeof(gi->description) - 1] = '\0';
-                }
-
-                loaded = 1;
-            }
-
-            if (pgcfg) {
-                configGetInt(old, CONFIG_ITEM_COMPAT, &pgcfg->compat);
-                configGetInt(old, CONFIG_ITEM_DMA, &pgcfg->dma);
-                configGetInt(old, CONFIG_ITEM_CORE_LOADER, &pgcfg->core_loader);
-                configGetStrCopy(old, CONFIG_ITEM_DNAS, pgcfg->dnas, sizeof(pgcfg->dnas));
-                configGetStrCopy(old, CONFIG_ITEM_ALTSTARTUP, pgcfg->alt_startup, sizeof(pgcfg->alt_startup));
-                configGetVMC(old, pgcfg->vmc1, sizeof(pgcfg->vmc1), 0);
-                configGetVMC(old, pgcfg->vmc2, sizeof(pgcfg->vmc2), 1);
-
-#ifdef GSM
-                configGetInt(old, CONFIG_ITEM_GSMSOURCE, &pgcfg->gsm_source);
-                configGetInt(old, CONFIG_ITEM_ENABLEGSM, &pgcfg->gsm_enable);
-                configGetInt(old, CONFIG_ITEM_GSMVMODE, &pgcfg->gsm_vmode);
-                configGetInt(old, CONFIG_ITEM_GSMXOFFSET, &pgcfg->gsm_xoffset);
-                configGetInt(old, CONFIG_ITEM_GSMYOFFSET, &pgcfg->gsm_yoffset);
-                configGetInt(old, CONFIG_ITEM_GSMFIELDFIX, &pgcfg->gsm_fieldfix);
-#endif
-#ifdef CHEAT
-                configGetInt(old, CONFIG_ITEM_CHEATSSOURCE, &pgcfg->cheat_source);
-                configGetInt(old, CONFIG_ITEM_ENABLECHEAT, &pgcfg->cheat_enable);
-                configGetInt(old, CONFIG_ITEM_CHEATMODE, &pgcfg->cheat_mode);
-                configGetInt(old, CONFIG_ITEM_ENABLEIMAGE, &pgcfg->cheat_enable_image);
-#endif
-#ifdef PADEMU
-                configGetInt(old, CONFIG_ITEM_PADEMUSOURCE, &pgcfg->pademu_source);
-                configGetInt(old, CONFIG_ITEM_ENABLEPADEMU, &pgcfg->pademu_enable);
-                configGetInt(old, CONFIG_ITEM_PADEMUSETTINGS, &pgcfg->pademu_settings);
-                configGetInt(old, CONFIG_ITEM_PADMACROSOURCE, &pgcfg->padmacro_source);
-                configGetInt(old, CONFIG_ITEM_PADMACROSETTINGS, &pgcfg->padmacro_settings);
-#endif
-                configGetInt(old, CONFIG_ITEM_OSD_SETTINGS_SOURCE, &pgcfg->osd_source);
-                configGetInt(old, CONFIG_ITEM_OSD_SETTINGS_ENABLE, &pgcfg->osd_enable);
-                configGetInt(old, CONFIG_ITEM_OSD_SETTINGS_LANGID, &pgcfg->osd_langid);
-                configGetInt(old, CONFIG_ITEM_OSD_SETTINGS_TV_ASP, &pgcfg->osd_tv_aspect);
-                configGetInt(old, CONFIG_ITEM_OSD_SETTINGS_VMODE, &pgcfg->osd_vmode);
-                loaded = 1;
-            }
-            configClear(old);
-        }
-    }
-
-    free(buf);
-    return loaded;
 }
 
 int cfgMigrateLegacyAppTitleCfg(const char *path)
@@ -466,7 +310,7 @@ int cfgMigrateLegacyAppTitleCfg(const char *path)
         return 0;
 
     if (!configRead(old)) {
-        configClear(old);
+        cfgClearStackConfig(old);
         return 0;
     }
 
@@ -480,18 +324,27 @@ int cfgMigrateLegacyAppTitleCfg(const char *path)
         "Version", "Release", "Package", "Source",
         NULL};
     const char *value;
-    for (int f = 0; fields[f]; f++) {
+    int found = 0;
+    int f;
+
+    for (f = 0; fields[f]; f++) {
         if (configGetStr(old, fields[f], &value)) {
             config_setting_t *s = config_setting_add(root, fields[f], CONFIG_TYPE_STRING);
-            if (s)
+            if (s) {
                 config_setting_set_string(s, value);
+                found = 1;
+            }
         }
     }
-    configClear(old);
-    char bak[256];
-    snprintf(bak, sizeof(bak), "%s.bak", path);
-    rename(path, bak);
-    int ok = config_write_file(&lcfg, path);
+
+    cfgClearStackConfig(old);
+
+    if (!found) {
+        config_destroy(&lcfg);
+        return 0;
+    }
+
+    int ok = cfgWriteLibconfig(&lcfg, path, 1);
     config_destroy(&lcfg);
 
     return ok;
@@ -594,21 +447,168 @@ int cfgMigrateLegacyTheme(const char *path)
     }
 
     free(buf);
-    char bak[256];
-    snprintf(bak, sizeof(bak), "%s.bak", path);
-    rename(path, bak);
-    int ok = config_write_file(&cfg, path);
+    int ok = cfgWriteLibconfig(&cfg, path, 1);
     config_destroy(&cfg);
 
     return ok;
 }
 
-int cfgBatchMigratePerGame(const char *inputPrefix, const char *outputPrefix, int keepOriginals)
+static int cfgMigrateLegacyPerGame(const char *path, per_game_cfg_t *pgcfg, game_info_t *gi)
+{
+    int flags = 0;
+    const char *str;
+
+    config_set_t tmp;
+    config_set_t *old = configAlloc(0, &tmp, (char *)path);
+    if (!old || !configRead(old)) {
+        if (old)
+            cfgClearStackConfig(old);
+        return 0;
+    }
+
+    if (pgcfg) {
+        if (configGetInt(old, CONFIG_ITEM_COMPAT, &pgcfg->compat))
+            flags |= CFG_MIG_HAS_PG;
+        if (configGetInt(old, CONFIG_ITEM_DMA, &pgcfg->dma))
+            flags |= CFG_MIG_HAS_PG;
+        if (configGetInt(old, CONFIG_ITEM_CORE_LOADER, &pgcfg->core_loader))
+            flags |= CFG_MIG_HAS_PG;
+        if (configGetStrCopy(old, CONFIG_ITEM_DNAS, pgcfg->dnas, sizeof(pgcfg->dnas)))
+            flags |= CFG_MIG_HAS_PG;
+        if (configGetStrCopy(old, CONFIG_ITEM_ALTSTARTUP, pgcfg->alt_startup, sizeof(pgcfg->alt_startup)))
+            flags |= CFG_MIG_HAS_PG;
+
+        configGetVMC(old, pgcfg->vmc1, sizeof(pgcfg->vmc1), 0);
+        if (pgcfg->vmc1[0] != '\0')
+            flags |= CFG_MIG_HAS_PG;
+
+        configGetVMC(old, pgcfg->vmc2, sizeof(pgcfg->vmc2), 1);
+        if (pgcfg->vmc2[0] != '\0')
+            flags |= CFG_MIG_HAS_PG;
+
+#ifdef GSM
+        if (configGetInt(old, CONFIG_ITEM_GSMSOURCE, &pgcfg->gsm_source))
+            flags |= CFG_MIG_HAS_PG;
+        if (configGetInt(old, CONFIG_ITEM_ENABLEGSM, &pgcfg->gsm_enable))
+            flags |= CFG_MIG_HAS_PG;
+        if (configGetInt(old, CONFIG_ITEM_GSMVMODE, &pgcfg->gsm_vmode))
+            flags |= CFG_MIG_HAS_PG;
+        if (configGetInt(old, CONFIG_ITEM_GSMXOFFSET, &pgcfg->gsm_xoffset))
+            flags |= CFG_MIG_HAS_PG;
+        if (configGetInt(old, CONFIG_ITEM_GSMYOFFSET, &pgcfg->gsm_yoffset))
+            flags |= CFG_MIG_HAS_PG;
+        if (configGetInt(old, CONFIG_ITEM_GSMFIELDFIX, &pgcfg->gsm_fieldfix))
+            flags |= CFG_MIG_HAS_PG;
+#endif
+
+#ifdef CHEAT
+        if (configGetInt(old, CONFIG_ITEM_CHEATSSOURCE, &pgcfg->cheat_source))
+            flags |= CFG_MIG_HAS_PG;
+        if (configGetInt(old, CONFIG_ITEM_ENABLECHEAT, &pgcfg->cheat_enable))
+            flags |= CFG_MIG_HAS_PG;
+        if (configGetInt(old, CONFIG_ITEM_CHEATMODE, &pgcfg->cheat_mode))
+            flags |= CFG_MIG_HAS_PG;
+        if (configGetInt(old, CONFIG_ITEM_ENABLEIMAGE, &pgcfg->cheat_enable_image))
+            flags |= CFG_MIG_HAS_PG;
+#endif
+
+#ifdef PADEMU
+        if (configGetInt(old, CONFIG_ITEM_PADEMUSOURCE, &pgcfg->pademu_source))
+            flags |= CFG_MIG_HAS_PG;
+        if (configGetInt(old, CONFIG_ITEM_ENABLEPADEMU, &pgcfg->pademu_enable))
+            flags |= CFG_MIG_HAS_PG;
+        if (configGetInt(old, CONFIG_ITEM_PADEMUSETTINGS, &pgcfg->pademu_settings))
+            flags |= CFG_MIG_HAS_PG;
+        if (configGetInt(old, CONFIG_ITEM_PADMACROSOURCE, &pgcfg->padmacro_source))
+            flags |= CFG_MIG_HAS_PG;
+        if (configGetInt(old, CONFIG_ITEM_PADMACROSETTINGS, &pgcfg->padmacro_settings))
+            flags |= CFG_MIG_HAS_PG;
+#endif
+
+        if (configGetInt(old, CONFIG_ITEM_OSD_SETTINGS_SOURCE, &pgcfg->osd_source))
+            flags |= CFG_MIG_HAS_PG;
+        if (configGetInt(old, CONFIG_ITEM_OSD_SETTINGS_ENABLE, &pgcfg->osd_enable))
+            flags |= CFG_MIG_HAS_PG;
+        if (configGetInt(old, CONFIG_ITEM_OSD_SETTINGS_LANGID, &pgcfg->osd_langid))
+            flags |= CFG_MIG_HAS_PG;
+        if (configGetInt(old, CONFIG_ITEM_OSD_SETTINGS_TV_ASP, &pgcfg->osd_tv_aspect))
+            flags |= CFG_MIG_HAS_PG;
+        if (configGetInt(old, CONFIG_ITEM_OSD_SETTINGS_VMODE, &pgcfg->osd_vmode))
+            flags |= CFG_MIG_HAS_PG;
+    }
+
+    if (gi) {
+        if (configGetStr(old, CONFIG_ITEM_NAME, &str)) {
+            strncpy(gi->title, str, sizeof(gi->title) - 1);
+            gi->title[sizeof(gi->title) - 1] = '\0';
+            flags |= CFG_MIG_HAS_INFO;
+        }
+
+        if (configGetStr(old, "Genre", &str)) {
+            strncpy(gi->genre, str, sizeof(gi->genre) - 1);
+            gi->genre[sizeof(gi->genre) - 1] = '\0';
+            flags |= CFG_MIG_HAS_INFO;
+        }
+
+        if (configGetStr(old, "Release", &str)) {
+            strncpy(gi->release, str, sizeof(gi->release) - 1);
+            gi->release[sizeof(gi->release) - 1] = '\0';
+            flags |= CFG_MIG_HAS_INFO;
+        }
+
+        if (configGetStr(old, "Developer", &str)) {
+            strncpy(gi->developer, str, sizeof(gi->developer) - 1);
+            gi->developer[sizeof(gi->developer) - 1] = '\0';
+            flags |= CFG_MIG_HAS_INFO;
+        }
+
+        if (configGetStr(old, "Description", &str)) {
+            strncpy(gi->description, str, sizeof(gi->description) - 1);
+            gi->description[sizeof(gi->description) - 1] = '\0';
+            flags |= CFG_MIG_HAS_INFO;
+        }
+
+        if (configGetStr(old, "Publisher", &str)) {
+            strncpy(gi->publisher, str, sizeof(gi->publisher) - 1);
+            gi->publisher[sizeof(gi->publisher) - 1] = '\0';
+            flags |= CFG_MIG_HAS_INFO;
+        }
+    }
+
+    cfgClearStackConfig(old);
+
+    return flags;
+}
+
+int cfgBatchMigratePerGame(const char *inputPrefix, const char *outputPrefix, int keepOriginals, void (*progressCb)(int done, int total))
 {
     char cfgDir[256];
     snprintf(cfgDir, sizeof(cfgDir), "%sCFG", inputPrefix);
 
+    // count cfg files so we can show x/total in gui..
+    int total = 0;
     DIR *dir = opendir(cfgDir);
+    if (!dir)
+        return 0;
+
+    struct dirent *entry;
+    while ((entry = readdir(dir)) != NULL) {
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
+            continue;
+        int l = strlen(entry->d_name);
+        if (l >= 5 && strcasecmp(entry->d_name + l - 4, ".cfg") == 0)
+            total++;
+    }
+    closedir(dir);
+
+    if (progressCb)
+        progressCb(0, total);
+
+    if (total == 0)
+        return 0;
+
+    // lets go..
+    dir = opendir(cfgDir);
     if (!dir)
         return 0;
 
@@ -619,7 +619,7 @@ int cfgBatchMigratePerGame(const char *inputPrefix, const char *outputPrefix, in
     }
 
     int count = 0;
-    struct dirent *entry;
+    int processed = 0;
 
     while ((entry = readdir(dir)) != NULL) {
         if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
@@ -629,67 +629,116 @@ int cfgBatchMigratePerGame(const char *inputPrefix, const char *outputPrefix, in
         if (len < 5 || strcasecmp(entry->d_name + len - 4, ".cfg") != 0)
             continue;
 
-        char inputPath[256], outputCfgPath[256], outputInfoPath[256], tmpPath[256], bakPath[256];
+        if (progressCb)
+            progressCb(++processed, total);
+
+        char inputPath[256];
+        char outputCfgPath[256];
+        char outputInfoPath[256];
+        char tmpCfgPath[256];
+        char tmpInfoPath[256];
+        char bakPath[256];
+
         snprintf(inputPath, sizeof(inputPath), "%sCFG/%s", inputPrefix, entry->d_name);
         snprintf(outputCfgPath, sizeof(outputCfgPath), "%sCFG/%s", outputPrefix, entry->d_name);
-        snprintf(tmpPath, sizeof(tmpPath), "%s.tmp", outputCfgPath);
+        snprintf(tmpCfgPath, sizeof(tmpCfgPath), "%s.tmp", outputCfgPath);
         snprintf(bakPath, sizeof(bakPath), "%s.bak", inputPath);
 
-        // info path.. same basename .info extension
         char basename[128];
         int baseLen = len - 4;
         if (baseLen >= (int)sizeof(basename))
             baseLen = sizeof(basename) - 1;
+
         strncpy(basename, entry->d_name, baseLen);
         basename[baseLen] = '\0';
+
         snprintf(outputInfoPath, sizeof(outputInfoPath), "%sCFG/%s.info", outputPrefix, basename);
+        snprintf(tmpInfoPath, sizeof(tmpInfoPath), "%s.tmp", outputInfoPath);
 
         per_game_cfg_t pgcfg;
         memset(&pgcfg, 0, sizeof(pgcfg));
         pgcfg.dma = 7;
 
-        if (!cfgMigrateLegacyPerGame(inputPath, &pgcfg))
-            continue;
-
         game_info_t gi;
         memset(&gi, 0, sizeof(gi));
-        int hasInfo = cfgMigrateLegacyGameInfo(inputPath, &gi);
 
+        int flags = cfgMigrateLegacyPerGame(inputPath, &pgcfg, &gi);
+        if (!flags)
+            continue;
+
+        int hasPg = (flags & CFG_MIG_HAS_PG) != 0;
+        int hasInfo = (flags & CFG_MIG_HAS_INFO) != 0;
         int samePath = (strcmp(inputPath, outputCfgPath) == 0);
+        int wroteInfoTmp = 0;
+        int backedOriginal = 0;
 
-        if (samePath && keepOriginals) {
-            unlink(tmpPath);
+        unlink(tmpCfgPath);
+        unlink(tmpInfoPath);
 
-            if (!wOPLPerGameSave(tmpPath, &pgcfg))
-                continue;
-
-            unlink(bakPath);
-            if (rename(inputPath, bakPath) != 0) {
-                unlink(tmpPath);
-                continue;
-            }
-
-            if (rename(tmpPath, outputCfgPath) != 0) {
-                rename(bakPath, inputPath);
-                unlink(tmpPath);
+        if (hasPg) {
+            if (!wOPLPerGameSave(tmpCfgPath, &pgcfg)) {
+                unlink(tmpCfgPath);
+                unlink(tmpInfoPath);
                 continue;
             }
-        } else {
-            if (!wOPLPerGameSave(outputCfgPath, &pgcfg))
-                continue;
-
-            if (!keepOriginals && !samePath)
-                unlink(inputPath);
         }
 
         if (hasInfo) {
-            FILE *f = fopen(outputInfoPath, "r");
-            int infoExists = (f != NULL);
-            if (f)
-                fclose(f);
+            if (!wOPLGameInfoSave(tmpInfoPath, &gi)) {
+                unlink(tmpCfgPath);
+                unlink(tmpInfoPath);
+                continue;
+            }
 
-            if (!infoExists)
-                wOPLGameInfoSave(outputInfoPath, &gi);
+            wroteInfoTmp = 1;
+        }
+
+        if (wroteInfoTmp) {
+            unlink(outputInfoPath);
+
+            if (rename(tmpInfoPath, outputInfoPath) != 0) {
+                LOG("CONFIG_MIGRATION: failed to rename '%s' to '%s'\n", tmpInfoPath, outputInfoPath);
+                unlink(tmpCfgPath);
+                unlink(tmpInfoPath);
+                continue;
+            }
+        }
+
+        // if converting in same place.. move the old cfg out of the way before
+        // replacing it.. If keepOriginals is off.. delete the backup after
+        if (samePath) {
+            unlink(bakPath);
+
+            if (rename(inputPath, bakPath) != 0) {
+                LOG("CONFIG_MIGRATION: failed to backup '%s' to '%s'\n", inputPath, bakPath);
+                unlink(tmpCfgPath);
+                continue;
+            }
+
+            backedOriginal = 1;
+        } else if (hasPg) {
+            unlink(outputCfgPath);
+        }
+
+        if (hasPg) {
+            if (rename(tmpCfgPath, outputCfgPath) != 0) {
+                LOG("CONFIG_MIGRATION: failed to rename '%s' to '%s'\n", tmpCfgPath, outputCfgPath);
+
+                if (backedOriginal)
+                    rename(bakPath, inputPath);
+
+                unlink(tmpCfgPath);
+                continue;
+            }
+        }
+
+        if (!keepOriginals) {
+            if (samePath) {
+                if (backedOriginal)
+                    unlink(bakPath);
+            } else {
+                unlink(inputPath);
+            }
         }
 
         count++;
