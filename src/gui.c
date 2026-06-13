@@ -989,6 +989,26 @@ void guiShowCoverflowConfig(void)
 }
 
 // DELETE_WITH_MIGRATION v
+static int migStatus = 0;
+static int migDone = 0;
+static int migTotal = 0;
+static int migResult = 0;
+static const char *migInput = NULL;
+static const char *migOutput = NULL;
+static int migKeep = 0;
+
+static void migProgressCb(int done, int total)
+{
+    migDone = done;
+    migTotal = total;
+}
+
+static void _runBatchMigration(void)
+{
+    migResult = cfgBatchMigratePerGame(migInput, migOutput, migKeep, migProgressCb);
+    migStatus = 0;
+}
+
 void guiShowCfgMigration(void)
 {
 #define CFG_MIG_MAX_DEVICES 8
@@ -1019,14 +1039,26 @@ void guiShowCfgMigration(void)
         diaGetInt(diaCfgMigration, CFG_MIG_OUTPUT, &outputIdx);
         diaGetInt(diaCfgMigration, CFG_MIG_KEEP_ORIGINALS, &keepOriginals);
 
-        char msg[64];
-        if (inputIdx < 0 || inputIdx >= count || outputIdx < 0 || outputIdx >= count) {
-            guiMsgBox("Invalid migration path selected.", 0, NULL);
-            continue;
+        migInput = pathStorage[inputIdx];
+        migOutput = pathStorage[outputIdx];
+        migKeep = keepOriginals;
+        migDone = 0;
+        migTotal = 0;
+        migStatus = 1;
+
+        ioPutRequest(IO_CUSTOM_SIMPLEACTION, &_runBatchMigration);
+
+        char progMsg[64];
+        while (migStatus) {
+            if (migTotal > 0)
+                snprintf(progMsg, sizeof(progMsg), "Converting %d / %d..", migDone, migTotal);
+            else
+                snprintf(progMsg, sizeof(progMsg), "Scanning..");
+            guiRenderTextScreen(progMsg);
         }
 
-        int converted = cfgBatchMigratePerGame(pathStorage[inputIdx], pathStorage[outputIdx], keepOriginals);
-        snprintf(msg, sizeof(msg), "Converted %d config file(s).", converted);
+        char msg[64];
+        snprintf(msg, sizeof(msg), "Converted %d / %d cfg file(s).", migResult, migTotal);
         guiMsgBox(msg, 0, NULL);
     }
 }

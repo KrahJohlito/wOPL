@@ -16,7 +16,7 @@ int cfgMigrateLegacyGlobalGame(const char *path);
 int cfgMigrateLegacyAppTitleCfg(const char *path);
 int cfgMigrateLegacyTheme(const char *path);
 
-int cfgBatchMigratePerGame(const char *inputPrefix, const char *outputPrefix, int keepOriginals);
+int cfgBatchMigratePerGame(const char *inputPrefix, const char *outputPrefix, int keepOriginals, void (*progressCb)(int done, int total));
 
 // Config type bits
 enum CONFIG_INDEX {

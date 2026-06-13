@@ -580,12 +580,35 @@ static int cfgMigrateLegacyPerGame(const char *path, per_game_cfg_t *pgcfg, game
     return flags;
 }
 
-int cfgBatchMigratePerGame(const char *inputPrefix, const char *outputPrefix, int keepOriginals)
+int cfgBatchMigratePerGame(const char *inputPrefix, const char *outputPrefix, int keepOriginals, void (*progressCb)(int done, int total))
 {
     char cfgDir[256];
     snprintf(cfgDir, sizeof(cfgDir), "%sCFG", inputPrefix);
 
+    // count cfg files so we can show x/total in gui..
+    int total = 0;
     DIR *dir = opendir(cfgDir);
+    if (!dir)
+        return 0;
+
+    struct dirent *entry;
+    while ((entry = readdir(dir)) != NULL) {
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
+            continue;
+        int l = strlen(entry->d_name);
+        if (l >= 5 && strcasecmp(entry->d_name + l - 4, ".cfg") == 0)
+            total++;
+    }
+    closedir(dir);
+
+    if (progressCb)
+        progressCb(0, total);
+
+    if (total == 0)
+        return 0;
+
+    // lets go..
+    dir = opendir(cfgDir);
     if (!dir)
         return 0;
 
@@ -597,6 +620,7 @@ int cfgBatchMigratePerGame(const char *inputPrefix, const char *outputPrefix, in
 
     int count = 0;
     struct dirent *entry;
+    int processed = 0;
 
     while ((entry = readdir(dir)) != NULL) {
         if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
@@ -605,6 +629,9 @@ int cfgBatchMigratePerGame(const char *inputPrefix, const char *outputPrefix, in
         int len = strlen(entry->d_name);
         if (len < 5 || strcasecmp(entry->d_name + len - 4, ".cfg") != 0)
             continue;
+
+        if (progressCb)
+            progressCb(++processed, total);
 
         char inputPath[256];
         char outputCfgPath[256];
