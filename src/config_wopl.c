@@ -1281,75 +1281,98 @@ int wOPLPerGameSave(const char *path, const per_game_cfg_t *cfg)
 // Per Game info (SLES1234.info)
 // ---------------------------------------------------------------------------
 
-static void parse_game_info(config_t *cfg, game_info_t *gi)
+static int lookup_info_int(config_t *cfg, const char *key, int *out)
 {
     const char *str;
     int val;
 
-    if (config_lookup_string(cfg, "title", &str))
+    if (config_lookup_int(cfg, key, &val)) {
+        *out = val;
+        return 1;
+    }
+
+    if (config_lookup_string(cfg, key, &str)) {
+        const char *slash = strrchr(str, '/');
+
+        if (slash && slash[1])
+            str = slash + 1;
+
+        *out = atoi(str);
+        return 1;
+    }
+
+    return 0;
+}
+
+static void parse_game_info(config_t *cfg, game_info_t *gi)
+{
+    const char *str;
+
+    if (config_lookup_string(cfg, "Title", &str))
         copy_str(gi->title, str, sizeof(gi->title));
-    if (config_lookup_string(cfg, "genre", &str))
-        copy_str(gi->genre, str, sizeof(gi->genre));
-    if (config_lookup_string(cfg, "release", &str))
-        copy_str(gi->release, str, sizeof(gi->release));
-    if (config_lookup_string(cfg, "developer", &str))
-        copy_str(gi->developer, str, sizeof(gi->developer));
-    if (config_lookup_string(cfg, "description", &str))
-        copy_str(gi->description, str, sizeof(gi->description));
-    if (config_lookup_string(cfg, "publisher", &str))
-        copy_str(gi->publisher, str, sizeof(gi->publisher));
-    if (config_lookup_string(cfg, "serial", &str))
+    if (config_lookup_string(cfg, "Serial", &str))
         copy_str(gi->serial, str, sizeof(gi->serial));
-    if (config_lookup_string(cfg, "aspect", &str))
+    if (config_lookup_string(cfg, "Description", &str))
+        copy_str(gi->description, str, sizeof(gi->description));
+    if (config_lookup_string(cfg, "Developer", &str))
+        copy_str(gi->developer, str, sizeof(gi->developer));
+    if (config_lookup_string(cfg, "Genre", &str))
+        copy_str(gi->genre, str, sizeof(gi->genre));
+    if (config_lookup_string(cfg, "Publisher", &str))
+        copy_str(gi->publisher, str, sizeof(gi->publisher));
+    if (config_lookup_string(cfg, "Release", &str))
+        copy_str(gi->release, str, sizeof(gi->release));
+    if (config_lookup_string(cfg, "Aspect", &str))
         copy_str(gi->aspect, str, sizeof(gi->aspect));
-    if (config_lookup_string(cfg, "parental", &str))
+    if (config_lookup_string(cfg, "Parental", &str))
         copy_str(gi->parental, str, sizeof(gi->parental));
-    if (config_lookup_string(cfg, "region", &str))
+    if (config_lookup_string(cfg, "Region", &str))
         copy_str(gi->region, str, sizeof(gi->region));
-    if (config_lookup_int(cfg, "players", &val))
-        gi->players = val;
-    if (config_lookup_int(cfg, "user_rating", &val))
-        gi->user_rating = val;
-    if (config_lookup_string(cfg, "version", &str))
+
+    lookup_info_int(cfg, "Players", &gi->players);
+    lookup_info_int(cfg, "UserRating", &gi->user_rating);
+
+    if (config_lookup_string(cfg, "Version", &str))
         copy_str(gi->version, str, sizeof(gi->version));
-    if (config_lookup_string(cfg, "package", &str))
+    if (config_lookup_string(cfg, "Package", &str))
         copy_str(gi->package, str, sizeof(gi->package));
-    if (config_lookup_string(cfg, "source", &str))
+    if (config_lookup_string(cfg, "Source", &str))
         copy_str(gi->source, str, sizeof(gi->source));
 }
 
 static void build_game_info(config_setting_t *root, const game_info_t *gi)
 {
     if (gi->title[0])
-        set_str(root, "title", gi->title);
-    if (gi->genre[0])
-        set_str(root, "genre", gi->genre);
-    if (gi->release[0])
-        set_str(root, "release", gi->release);
-    if (gi->developer[0])
-        set_str(root, "developer", gi->developer);
-    if (gi->description[0])
-        set_str(root, "description", gi->description);
-    if (gi->publisher[0])
-        set_str(root, "publisher", gi->publisher);
+        set_str(root, "Title", gi->title);
     if (gi->serial[0])
-        set_str(root, "serial", gi->serial);
+        set_str(root, "Serial", gi->serial);
+    if (gi->description[0])
+        set_str(root, "Description", gi->description);
+    if (gi->developer[0])
+        set_str(root, "Developer", gi->developer);
+    if (gi->genre[0])
+        set_str(root, "Genre", gi->genre);
+    if (gi->publisher[0])
+        set_str(root, "Publisher", gi->publisher);
+    if (gi->release[0])
+        set_str(root, "Release", gi->release);
     if (gi->aspect[0])
-        set_str(root, "aspect", gi->aspect);
+        set_str(root, "Aspect", gi->aspect);
     if (gi->parental[0])
-        set_str(root, "parental", gi->parental);
-    if (gi->region[0])
-        set_str(root, "region", gi->region);
+        set_str(root, "Parental", gi->parental);
     if (gi->players)
-        set_int(root, "players", gi->players);
+        set_int(root, "Players", gi->players);
+    if (gi->region[0])
+        set_str(root, "Region", gi->region);
     if (gi->user_rating)
-        set_int(root, "user_rating", gi->user_rating);
+        set_int(root, "UserRating", gi->user_rating);
+
     if (gi->version[0])
-        set_str(root, "version", gi->version);
+        set_str(root, "Version", gi->version);
     if (gi->package[0])
-        set_str(root, "package", gi->package);
+        set_str(root, "Package", gi->package);
     if (gi->source[0])
-        set_str(root, "source", gi->source);
+        set_str(root, "Source", gi->source);
 }
 
 int wOPLGameInfoLoad(const char *path, game_info_t *gi)

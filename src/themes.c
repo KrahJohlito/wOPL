@@ -136,6 +136,10 @@ static const char *gameInfoGetAttr(const game_info_t *gi, const per_game_cfg_t *
         if (!strcasecmp(attr, "Aspect")) {
             if (!gi->aspect[0])
                 return NULL;
+
+            if (strchr(gi->aspect, '/'))
+                return gi->aspect;
+
             snprintf(s_aspect, sizeof(s_aspect), "Aspect/%s", gi->aspect);
             return s_aspect;
         }
@@ -321,6 +325,7 @@ static void initStaticText(const char *themePath, config_t *themeConfig, theme_t
 static void drawAttributeText(struct menu_list *menu, struct submenu_list *item, render_ctx_t *ctx, struct theme_element *elem)
 {
     mutable_text_t *mutableText = (mutable_text_t *)elem->extended;
+
     if (ctx) {
         if (mutableText->currentConfigId != ctx->uid) {
             if (mutableText->currentValue) {
@@ -329,42 +334,63 @@ static void drawAttributeText(struct menu_list *menu, struct submenu_list *item,
             }
 
             mutableText->currentConfigId = ctx->uid;
-            const char *value = gameInfoGetAttr(ctx->gi, ctx->pg, mutableText->value);
-            if (value) {
-                mutableText->currentValue = strdup(value);
 
-                if (mutableText->currentValue && mutableText->sizingMode == SIZING_WRAP)
-                    fntFitString(elem->font, mutableText->currentValue, elem->width);
-            }
+            const char *value = gameInfoGetAttr(ctx->gi, ctx->pg, mutableText->value);
+            if (value)
+                mutableText->currentValue = strdup(value);
         }
+
         if (mutableText->currentValue) {
-            char result[300];
+            char *result;
+            int length;
+
             if (mutableText->displayMode == DISPLAY_NEVER) {
                 if (!strncmp(mutableText->alias, _l(_STR_SIZE), strlen(_l(_STR_SIZE)))) {
-                    snprintf(result, sizeof(result), "%s MiB", mutableText->currentValue);
-                    if (mutableText->sizingMode == SIZING_NONE)
-                        fntRenderString(elem->font, elem->posX, elem->posY, elem->aligned, 0, 0, result, elem->color);
-                    else
-                        fntRenderString(elem->font, elem->posX, elem->posY, elem->aligned, elem->width, elem->height, result, elem->color);
+                    length = strlen(mutableText->currentValue) + 6;
+                    result = (char *)calloc(length, sizeof(char));
+                    if (!result)
+                        return;
+
+                    snprintf(result, length, "%s MiB", mutableText->currentValue);
                 } else {
-                    if (mutableText->sizingMode == SIZING_NONE)
-                        fntRenderString(elem->font, elem->posX, elem->posY, elem->aligned, 0, 0, mutableText->currentValue, elem->color);
-                    else
-                        fntRenderString(elem->font, elem->posX, elem->posY, elem->aligned, elem->width, elem->height, mutableText->currentValue, elem->color);
+                    length = strlen(mutableText->currentValue) + 1;
+                    result = (char *)calloc(length, sizeof(char));
+                    if (!result)
+                        return;
+
+                    snprintf(result, length, "%s", mutableText->currentValue);
                 }
             } else {
-                if (!strncmp(mutableText->alias, _l(_STR_SIZE), strlen(_l(_STR_SIZE))))
-                    snprintf(result, sizeof(result), "%s%s MiB", mutableText->alias, mutableText->currentValue);
-                else
-                    snprintf(result, sizeof(result), "%s%s", mutableText->alias, mutableText->currentValue);
-                if (mutableText->sizingMode == SIZING_NONE)
-                    fntRenderString(elem->font, elem->posX, elem->posY, elem->aligned, 0, 0, result, elem->color);
-                else
-                    fntRenderString(elem->font, elem->posX, elem->posY, elem->aligned, elem->width, elem->height, result, elem->color);
+                if (!strncmp(mutableText->alias, _l(_STR_SIZE), strlen(_l(_STR_SIZE)))) {
+                    length = strlen(mutableText->alias) + strlen(mutableText->currentValue) + 6;
+                    result = (char *)calloc(length, sizeof(char));
+                    if (!result)
+                        return;
+
+                    snprintf(result, length, "%s%s MiB", mutableText->alias, mutableText->currentValue);
+                } else {
+                    length = strlen(mutableText->alias) + strlen(mutableText->currentValue) + 1;
+                    result = (char *)calloc(length, sizeof(char));
+                    if (!result)
+                        return;
+
+                    snprintf(result, length, "%s%s", mutableText->alias, mutableText->currentValue);
+                }
             }
+
+            if (mutableText->sizingMode == SIZING_WRAP)
+                fntFitString(elem->font, result, elem->width);
+
+            if (mutableText->sizingMode == SIZING_NONE)
+                fntRenderString(elem->font, elem->posX, elem->posY, elem->aligned, 0, 0, result, elem->color);
+            else
+                fntRenderString(elem->font, elem->posX, elem->posY, elem->aligned, elem->width, elem->height, result, elem->color);
+
+            free(result);
             return;
         }
     }
+
     if (mutableText->displayMode == DISPLAY_ALWAYS) {
         if (mutableText->sizingMode == SIZING_NONE)
             fntRenderString(elem->font, elem->posX, elem->posY, elem->aligned, 0, 0, mutableText->alias, elem->color);
@@ -1726,10 +1752,10 @@ static void thmLoad(const char *themePath, int themeID)
     } else {
         snprintf(path, sizeof(path), "%swopl_theme.cfg", themePath);
         if (!config_read_file(&themeConfig, path)) {
+            // DELETE_WITH_MIGRATION v (condition above also.. just read)
             config_destroy(&themeConfig);
             config_init(&themeConfig);
 
-            // DELETE_WITH_MIGRATION v
             char oldPath[256];
             snprintf(oldPath, sizeof(oldPath), "%sconf_theme.cfg", themePath);
 
