@@ -104,7 +104,7 @@ static const char *gameInfoGetAttr(const game_info_t *gi, const per_game_cfg_t *
     if (attr[0] == '#' || attr[0] == '$')
         attr++;
 
-// game_info_t
+    // game_info_t
     if (gi) {
         // shared
         if (!strcmp(attr, "Title"))
