@@ -1159,6 +1159,7 @@ static void hddGetInfo(item_list_t *itemList, int id, game_info_t *gi)
 
     wOPLGameInfoLoad(info_path, gi);
 
+    //fallback..
     if (!gi->title[0])
         strncpy(gi->title, game->name, sizeof(gi->title) - 1);
 

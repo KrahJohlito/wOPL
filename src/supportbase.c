@@ -1239,7 +1239,7 @@ void sbPopulateConfig(base_game_info_t *game, const char *prefix, const char *se
     if (gi) {
         wOPLGameInfoLoad(info_path, gi);
 
-        // fill for display.. don't save
+        // fallback if not set.. fill for display.. don't save
         if (!gi->title[0]) {
             strncpy(gi->title, game->name, sizeof(gi->title) - 1);
             gi->title[sizeof(gi->title) - 1] = '\0';

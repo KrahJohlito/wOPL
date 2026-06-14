@@ -332,8 +332,12 @@ static void appGetInfo(item_list_t *itemList, int id, game_info_t *gi)
             strncpy(gi->developer, str, sizeof(gi->developer) - 1);
         if (config_lookup_string(&cfg, "Release", &str))
             strncpy(gi->release, str, sizeof(gi->release) - 1);
+        if (config_lookup_string(&cfg, "Version", &str))
+            strncpy(gi->version, str, sizeof(gi->version) - 1);
         if (config_lookup_string(&cfg, "Package", &str))
-            strncpy(gi->publisher, str, sizeof(gi->publisher) - 1);
+            strncpy(gi->package, str, sizeof(gi->package) - 1);
+        if (config_lookup_string(&cfg, "Source", &str))
+            strncpy(gi->source, str, sizeof(gi->source) - 1);
     }
     config_destroy(&cfg);
 
