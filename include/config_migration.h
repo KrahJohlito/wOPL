@@ -14,7 +14,7 @@ int cfgMigrateLegacyOPL(const char *path, int *out_theme_id, int *out_lang_id);
 int cfgMigrateLegacyNet(const char *path);
 int cfgMigrateLegacyGlobalGame(const char *path);
 int cfgMigrateLegacyAppTitleCfg(const char *path);
-int cfgMigrateLegacyTheme(const char *path);
+int cfgMigrateLegacyTheme(const char *oldPath, const char *newPath);
 
 int cfgBatchMigratePerGame(const char *inputPrefix, const char *outputPrefix, int keepOriginals, void (*progressCb)(int done, int total));
 

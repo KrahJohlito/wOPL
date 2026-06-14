@@ -1724,12 +1724,18 @@ static void thmLoad(const char *themePath, int themeID)
             free(buf);
         }
     } else {
-        snprintf(path, sizeof(path), "%sconf_theme.cfg", themePath);
+        snprintf(path, sizeof(path), "%swopl_theme.cfg", themePath);
         if (!config_read_file(&themeConfig, path)) {
             config_destroy(&themeConfig);
             config_init(&themeConfig);
-            if (cfgMigrateLegacyTheme(path))
+
+            // DELETE_WITH_MIGRATION v
+            char oldPath[256];
+            snprintf(oldPath, sizeof(oldPath), "%sconf_theme.cfg", themePath);
+
+            if (cfgMigrateLegacyTheme(oldPath, path))
                 config_read_file(&themeConfig, path);
+            // DELETE_WITH_MIGRATION ^
         }
     }
 
