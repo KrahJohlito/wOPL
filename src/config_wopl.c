@@ -1310,12 +1310,12 @@ static void parse_game_info(config_t *cfg, game_info_t *gi)
         gi->players = val;
     if (config_lookup_int(cfg, "user_rating", &val))
         gi->user_rating = val;
-    if (config_lookup_string(cfg, "vmode", &str))
-        copy_str(gi->vmode, str, sizeof(gi->vmode));
-    if (config_lookup_string(cfg, "scan", &str))
-        copy_str(gi->scan, str, sizeof(gi->scan));
-    if (config_lookup_string(cfg, "device", &str))
-        copy_str(gi->device, str, sizeof(gi->device));
+    if (config_lookup_string(cfg, "version", &str))
+        copy_str(gi->version, str, sizeof(gi->version));
+    if (config_lookup_string(cfg, "package", &str))
+        copy_str(gi->package, str, sizeof(gi->package));
+    if (config_lookup_string(cfg, "source", &str))
+        copy_str(gi->source, str, sizeof(gi->source));
 }
 
 static void build_game_info(config_setting_t *root, const game_info_t *gi)
@@ -1344,12 +1344,12 @@ static void build_game_info(config_setting_t *root, const game_info_t *gi)
         set_int(root, "players", gi->players);
     if (gi->user_rating)
         set_int(root, "user_rating", gi->user_rating);
-    if (gi->vmode[0])
-        set_str(root, "vmode", gi->vmode);
-    if (gi->scan[0])
-        set_str(root, "scan", gi->scan);
-    if (gi->device[0])
-        set_str(root, "device", gi->device);
+    if (gi->version[0])
+        set_str(root, "version", gi->version);
+    if (gi->package[0])
+        set_str(root, "package", gi->package);
+    if (gi->source[0])
+        set_str(root, "source", gi->source);
 }
 
 int wOPLGameInfoLoad(const char *path, game_info_t *gi)

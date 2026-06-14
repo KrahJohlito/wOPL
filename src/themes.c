@@ -97,7 +97,6 @@ static const char *elementsType[ELEM_TYPE_COUNT] = {
 static const char *gameInfoGetAttr(const game_info_t *gi, const per_game_cfg_t *pg, const char *attr)
 {
     static char s_size[16], s_players[16], s_rating[16], s_aspect[16];
-    static char s_vmode[16], s_scan[16], s_device[16];
 
     if (!attr)
         return NULL;
@@ -107,66 +106,53 @@ static const char *gameInfoGetAttr(const game_info_t *gi, const per_game_cfg_t *
 
     // game_info_t
     if (gi) {
-        if (!strcasecmp(attr, "Title") || !strcasecmp(attr, "Name"))
+        // shared
+        if (!strcmp(attr, "Title"))
             return gi->title[0] ? gi->title : NULL;
-        if (!strcasecmp(attr, "Serial"))
-            return gi->serial[0] ? gi->serial : NULL;
-        if (!strcasecmp(attr, "Genre"))
-            return gi->genre[0] ? gi->genre : NULL;
-        if (!strcasecmp(attr, "Release"))
-            return gi->release[0] ? gi->release : NULL;
-        if (!strcasecmp(attr, "Developer"))
-            return gi->developer[0] ? gi->developer : NULL;
-        if (!strcasecmp(attr, "Publisher"))
-            return gi->publisher[0] ? gi->publisher : NULL;
         if (!strcasecmp(attr, "Description"))
             return gi->description[0] ? gi->description : NULL;
+        if (!strcasecmp(attr, "Developer"))
+            return gi->developer[0] ? gi->developer : NULL;
+        if (!strcasecmp(attr, "Release"))
+            return gi->release[0] ? gi->release : NULL;
 
+        // games only
+        if (!strcasecmp(attr, "Genre"))
+            return gi->genre[0] ? gi->genre : NULL;
+        if (!strcasecmp(attr, "Publisher"))
+            return gi->publisher[0] ? gi->publisher : NULL;
+        if (!strcasecmp(attr, "Serial"))
+            return gi->serial[0] ? gi->serial : NULL;
         if (!strcasecmp(attr, "Parental"))
             return gi->parental[0] ? gi->parental : NULL;
-
         if (!strcasecmp(attr, "Region"))
             return gi->region[0] ? gi->region : NULL;
-
-        if (!strcasecmp(attr, "Vmode")) {
-            if (!gi->vmode[0])
-                return NULL;
-            snprintf(s_vmode, sizeof(s_vmode), "Vmode/%s", gi->vmode);
-            return s_vmode;
-        }
-
-        if (!strcasecmp(attr, "Scan")) {
-            if (!gi->scan[0])
-                return NULL;
-            snprintf(s_scan, sizeof(s_scan), "Scan/%s", gi->scan);
-            return s_scan;
-        }
-
-        if (!strcasecmp(attr, "Device")) {
-            if (!gi->device[0])
-                return NULL;
-            snprintf(s_device, sizeof(s_device), "Device/%s", gi->device);
-            return s_device;
-        }
-
-        if (!strcasecmp(attr, "UserRating") || !strcasecmp(attr, "Rating")) {
-            snprintf(s_rating, sizeof(s_rating), "Rating/%d", gi->user_rating);
-            return s_rating;
-        }
-
         if (!strcasecmp(attr, "Players")) {
             if (!gi->players)
                 return NULL;
             snprintf(s_players, sizeof(s_players), "Players/%d", gi->players);
             return s_players;
         }
-
         if (!strcasecmp(attr, "Aspect")) {
             if (!gi->aspect[0])
                 return NULL;
             snprintf(s_aspect, sizeof(s_aspect), "Aspect/%s", gi->aspect);
             return s_aspect;
         }
+        if (!strcasecmp(attr, "UserRating") || !strcasecmp(attr, "Rating")) {
+            if (pg && !strcasecmp(pg->media, "APP"))
+                return NULL;
+            snprintf(s_rating, sizeof(s_rating), "Rating/%d", gi->user_rating);
+            return s_rating;
+        }
+
+        // apps only
+        if (!strcasecmp(attr, "Version"))
+            return (pg && !strcasecmp(pg->media, "APP") && gi->version[0]) ? gi->version : NULL;
+        if (!strcasecmp(attr, "Package"))
+            return (pg && !strcasecmp(pg->media, "APP") && gi->package[0]) ? gi->package : NULL;
+        if (!strcasecmp(attr, "Source"))
+            return (pg && !strcasecmp(pg->media, "APP") && gi->source[0]) ? gi->source : NULL;
     }
 
     // per_game_cfg_t
@@ -1867,13 +1853,8 @@ static void thmLoad(const char *themePath, int themeID)
     for (i = BDM_ICON; i <= START_ICON; i++)
         thmLoadResource(&newT->textures[i], i, themePath, GS_PSM_CT32, newT->useDefault);
 
-    /* Not customizable icons - currently unused.
-    for (i = L1_ICON; i <= R3_ICON; i++)
-        thmLoadResource(&newT->textures[i], i, NULL, GS_PSM_CT32, 1); */
-
-    if (!themePath)
-        for (i = ELF_FORMAT; i <= VMODE_PAL; i++)
-            thmLoadResource(&newT->textures[i], i, NULL, GS_PSM_CT32, 1);
+    for (i = ELF_FORMAT; i <= RATING_5; i++)
+        thmLoadResource(&newT->textures[i], i, themePath, GS_PSM_CT32, 1);
 
     if (themePath) {
         if (config_lookup_int(&themeConfig, "use_settings_bg", &intValue)) {
