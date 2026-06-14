@@ -94,9 +94,22 @@ static const char *elementsType[ELEM_TYPE_COUNT] = {
     "Coverflow",
 };
 
+static const char *formatInfoImageAttr(const char *prefix, const char *value, char *out, size_t outSize)
+{
+    if (!value || !value[0])
+        return NULL;
+
+    if (strchr(value, '/'))
+        return value;
+
+    snprintf(out, outSize, "%s/%s", prefix, value);
+    return out;
+}
+
 static const char *gameInfoGetAttr(const game_info_t *gi, const per_game_cfg_t *pg, const char *attr)
 {
-    static char s_size[16], s_players[16], s_rating[16], s_aspect[16];
+    static char s_size[16], s_players[16], s_rating[16];
+    static char s_aspect[32], s_parental[64], s_region[32];
 
     if (!attr)
         return NULL;
@@ -123,29 +136,31 @@ static const char *gameInfoGetAttr(const game_info_t *gi, const per_game_cfg_t *
             return gi->publisher[0] ? gi->publisher : NULL;
         if (!strcasecmp(attr, "Serial"))
             return gi->serial[0] ? gi->serial : NULL;
+
         if (!strcasecmp(attr, "Parental"))
-            return gi->parental[0] ? gi->parental : NULL;
+            return formatInfoImageAttr("Parental", gi->parental, s_parental, sizeof(s_parental));
+
         if (!strcasecmp(attr, "Region"))
-            return gi->region[0] ? gi->region : NULL;
+            return formatInfoImageAttr("Region", gi->region, s_region, sizeof(s_region));
+
         if (!strcasecmp(attr, "Players")) {
             if (!gi->players)
                 return NULL;
+
             snprintf(s_players, sizeof(s_players), "Players/%d", gi->players);
             return s_players;
         }
-        if (!strcasecmp(attr, "Aspect")) {
-            if (!gi->aspect[0])
-                return NULL;
 
-            if (strchr(gi->aspect, '/'))
-                return gi->aspect;
+        if (!strcasecmp(attr, "Aspect"))
+            return formatInfoImageAttr("Aspect", gi->aspect, s_aspect, sizeof(s_aspect));
 
-            snprintf(s_aspect, sizeof(s_aspect), "Aspect/%s", gi->aspect);
-            return s_aspect;
-        }
         if (!strcasecmp(attr, "UserRating") || !strcasecmp(attr, "Rating")) {
             if (pg && !strcasecmp(pg->media, "APP"))
                 return NULL;
+
+            if (!gi->user_rating)
+                return NULL;
+
             snprintf(s_rating, sizeof(s_rating), "Rating/%d", gi->user_rating);
             return s_rating;
         }
@@ -170,6 +185,7 @@ static const char *gameInfoGetAttr(const game_info_t *gi, const per_game_cfg_t *
     if (!strcasecmp(attr, "Size")) {
         if (!pg->size_mb)
             return NULL;
+
         snprintf(s_size, sizeof(s_size), "%d", pg->size_mb);
         return s_size;
     }
