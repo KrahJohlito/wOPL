@@ -1197,17 +1197,24 @@ void menuHandleInputMain()
 void menuRenderInfo(void)
 {
     item_list_t *list = selected_item->item->userdata;
+    item_list_t *source = list;
 
-    if (list->mode == APP_MODE) {
-        menuRenderElements(gTheme->appsInfoElems.first);
+    if (list->mode == FAV_MODE && selected_item->item->current && selected_item->item->current->item.owner)
+        source = (item_list_t *)selected_item->item->current->item.owner;
+
+    if (list->mode == APP_MODE)
         gTheme->itemsList = gTheme->appsItemsList;
-    } else if (list->mode == FAV_MODE) {
-        menuRenderElements(gTheme->favsInfoElems.first);
+    else if (list->mode == FAV_MODE)
         gTheme->itemsList = gTheme->favsItemsList;
-    } else {
-        menuRenderElements(gTheme->infoElems.first);
+    else
         gTheme->itemsList = gTheme->gamesItemsList;
-    }
+
+    if (source->mode == APP_MODE)
+        menuRenderElements(gTheme->appsInfoElems.first);
+    else if (list->mode == FAV_MODE)
+        menuRenderElements(gTheme->favsInfoElems.first);
+    else
+        menuRenderElements(gTheme->infoElems.first);
 }
 
 void menuHandleInputInfo()

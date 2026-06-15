@@ -110,6 +110,7 @@ static const char *gameInfoGetAttr(const game_info_t *gi, const per_game_cfg_t *
 {
     static char s_size[16], s_players[16], s_rating[16];
     static char s_aspect[32], s_parental[64], s_region[32];
+    int is_app = pg && !strcasecmp(pg->media, "APP");
 
     if (!attr)
         return NULL;
@@ -119,7 +120,7 @@ static const char *gameInfoGetAttr(const game_info_t *gi, const per_game_cfg_t *
 
     // game_info_t
     if (gi) {
-        // shared
+        // shared game/app info
         if (!strcmp(attr, "Title"))
             return gi->title[0] ? gi->title : NULL;
         if (!strcasecmp(attr, "Description"))
@@ -129,22 +130,30 @@ static const char *gameInfoGetAttr(const game_info_t *gi, const per_game_cfg_t *
         if (!strcasecmp(attr, "Release"))
             return gi->release[0] ? gi->release : NULL;
 
-        // games only
+        // app only info
+        if (!strcasecmp(attr, "Version"))
+            return (is_app && gi->version[0]) ? gi->version : NULL;
+        if (!strcasecmp(attr, "Package"))
+            return (is_app && gi->package[0]) ? gi->package : NULL;
+        if (!strcasecmp(attr, "Source"))
+            return (is_app && gi->source[0]) ? gi->source : NULL;
+
+        // game only info
         if (!strcasecmp(attr, "Genre"))
-            return gi->genre[0] ? gi->genre : NULL;
+            return (!is_app && gi->genre[0]) ? gi->genre : NULL;
         if (!strcasecmp(attr, "Publisher"))
-            return gi->publisher[0] ? gi->publisher : NULL;
+            return (!is_app && gi->publisher[0]) ? gi->publisher : NULL;
         if (!strcasecmp(attr, "Serial"))
-            return gi->serial[0] ? gi->serial : NULL;
+            return (!is_app && gi->serial[0]) ? gi->serial : NULL;
 
         if (!strcasecmp(attr, "Parental"))
-            return formatInfoImageAttr("Parental", gi->parental, s_parental, sizeof(s_parental));
+            return !is_app ? formatInfoImageAttr("Parental", gi->parental, s_parental, sizeof(s_parental)) : NULL;
 
         if (!strcasecmp(attr, "Region"))
-            return formatInfoImageAttr("Region", gi->region, s_region, sizeof(s_region));
+            return !is_app ? formatInfoImageAttr("Region", gi->region, s_region, sizeof(s_region)) : NULL;
 
         if (!strcasecmp(attr, "Players")) {
-            if (!gi->players)
+            if (is_app || !gi->players)
                 return NULL;
 
             snprintf(s_players, sizeof(s_players), "Players/%d", gi->players);
@@ -152,26 +161,15 @@ static const char *gameInfoGetAttr(const game_info_t *gi, const per_game_cfg_t *
         }
 
         if (!strcasecmp(attr, "Aspect"))
-            return formatInfoImageAttr("Aspect", gi->aspect, s_aspect, sizeof(s_aspect));
+            return !is_app ? formatInfoImageAttr("Aspect", gi->aspect, s_aspect, sizeof(s_aspect)) : NULL;
 
         if (!strcasecmp(attr, "UserRating") || !strcasecmp(attr, "Rating")) {
-            if (pg && !strcasecmp(pg->media, "APP"))
-                return NULL;
-
-            if (!gi->user_rating)
+            if (is_app || !gi->user_rating)
                 return NULL;
 
             snprintf(s_rating, sizeof(s_rating), "Rating/%d", gi->user_rating);
             return s_rating;
         }
-
-        // apps only
-        if (!strcasecmp(attr, "Version"))
-            return (pg && !strcasecmp(pg->media, "APP") && gi->version[0]) ? gi->version : NULL;
-        if (!strcasecmp(attr, "Package"))
-            return (pg && !strcasecmp(pg->media, "APP") && gi->package[0]) ? gi->package : NULL;
-        if (!strcasecmp(attr, "Source"))
-            return (pg && !strcasecmp(pg->media, "APP") && gi->source[0]) ? gi->source : NULL;
     }
 
     // per_game_cfg_t
@@ -191,7 +189,7 @@ static const char *gameInfoGetAttr(const game_info_t *gi, const per_game_cfg_t *
     }
 
     // apps dont support extra features.. so dont show the icons
-    if (!strcasecmp(pg->media, "APP"))
+    if (is_app)
         return NULL;
 
 #ifdef PADEMU
