@@ -215,7 +215,7 @@ static int guiGameShowVMCConfig(int id, item_list_t *support, char *VMCName, int
     char vmc[32];
 
     if (strlen(VMCName)) {
-        strncpy(vmc, VMCName, sizeof(vmc));
+        strncpy(vmc, VMCName, sizeof(vmc) - 1);
         vmc[sizeof(vmc) - 1] = '\0';
     } else {
         if (validate)
@@ -1327,6 +1327,12 @@ static void guiGameLoadOSDLanguageConfig(const per_game_cfg_t *pg)
 void guiGameLoadConfig(item_list_t *support, per_game_cfg_t *pg)
 {
     s_pgcfg = pg;
+
+    forceGlobalOSDLanguage = 0;
+#ifdef PADEMU
+    forceGlobalPadEmu = 0;
+    forceGlobalPadMacro = 0;
+#endif
 
     dmaMode = pg ? pg->dma : 7;
     if (support->flags & MODE_FLAG_COMPAT_DMA)
