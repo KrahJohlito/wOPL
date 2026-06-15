@@ -1213,6 +1213,15 @@ static void guiDrawBusy(int alpha)
     }
 }
 
+static void guiDrawBootVersion(int alpha)
+{
+    char version[128];
+
+    snprintf(version, sizeof(version), "wOPL %s", WOPL_VERSION);
+
+    fntRenderString(gTheme->fonts[0], screenWidth - 10, gTheme->usedHeight - 24, ALIGN_RIGHT, 0, 0, version, GS_SETREG_RGBA(0x60, 0x60, 0x60, alpha));
+}
+
 static void guiRenderGreeting(int alpha)
 {
     u64 mycolor = GS_SETREG_RGBA(0x00, 0x00, 0x00, alpha);
@@ -1223,6 +1232,8 @@ static void guiRenderGreeting(int alpha)
         mycolor = GS_SETREG_RGBA(0xFF, 0xFF, 0xFF, alpha);
         rmDrawPixmap(logo, screenWidth >> 1, gTheme->usedHeight >> 1, ALIGN_CENTER, logo->Width, logo->Height, SCALING_RATIO, mycolor, 0);
     }
+
+    guiDrawBootVersion(alpha);
 }
 
 static float mix(float a, float b, float t)
