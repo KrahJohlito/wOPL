@@ -325,20 +325,34 @@ static void appGetInfo(item_list_t *itemList, int id, game_info_t *gi)
     if (config_read_file(&cfg, cfgPath)) {
         cfgValidateBegin(cfgPath);
         const char *str;
-        if (cfgGetStr(&cfg, "Title", &str))
+        if (cfgGetStr(&cfg, "Title", &str)) {
             strncpy(gi->title, str, sizeof(gi->title) - 1);
-        if (cfgGetStr(&cfg, "Description", &str))
+            gi->title[sizeof(gi->title) - 1] = '\0';
+        }
+        if (cfgGetStr(&cfg, "Description", &str)) {
             strncpy(gi->description, str, sizeof(gi->description) - 1);
-        if (cfgGetStr(&cfg, "Developer", &str))
+            gi->description[sizeof(gi->description) - 1] = '\0';
+        }
+        if (cfgGetStr(&cfg, "Developer", &str)) {
             strncpy(gi->developer, str, sizeof(gi->developer) - 1);
-        if (cfgGetStr(&cfg, "Release", &str))
+            gi->developer[sizeof(gi->developer) - 1] = '\0';
+        }
+        if (cfgGetStr(&cfg, "Release", &str)) {
             strncpy(gi->release, str, sizeof(gi->release) - 1);
-        if (cfgGetStr(&cfg, "Version", &str))
+            gi->release[sizeof(gi->release) - 1] = '\0';
+        }
+        if (cfgGetStr(&cfg, "Version", &str)) {
             strncpy(gi->version, str, sizeof(gi->version) - 1);
-        if (cfgGetStr(&cfg, "Package", &str))
+            gi->version[sizeof(gi->version) - 1] = '\0';
+        }
+        if (cfgGetStr(&cfg, "Package", &str)) {
             strncpy(gi->package, str, sizeof(gi->package) - 1);
-        if (cfgGetStr(&cfg, "Source", &str))
+            gi->package[sizeof(gi->package) - 1] = '\0';
+        }
+        if (cfgGetStr(&cfg, "Source", &str)) {
             strncpy(gi->source, str, sizeof(gi->source) - 1);
+            gi->source[sizeof(gi->source) - 1] = '\0';
+        }
         cfgValidateEnd();
     } else
         log_config_error(cfgPath, &cfg);
@@ -346,8 +360,10 @@ static void appGetInfo(item_list_t *itemList, int id, game_info_t *gi)
     config_destroy(&cfg);
 
     // fall back to menu title if no display Title set
-    if (!gi->title[0])
+    if (!gi->title[0]) {
         strncpy(gi->title, appsList[id].title, sizeof(gi->title) - 1);
+        gi->title[sizeof(gi->title) - 1] = '\0';
+    }
 }
 
 static void appGetPgCfg(item_list_t *itemList, int id, per_game_cfg_t *cfg)

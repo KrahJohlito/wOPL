@@ -255,10 +255,12 @@ static int lookup_int(config_t *cfg, const char *path, int def)
     int value;
     return cfgGetInt(cfg, path, &value) ? value : def;
 }
+
 static int lookup_bool(config_t *cfg, const char *path, int def)
 {
     return lookup_int(cfg, path, def) != 0;
 }
+
 static const char *lookup_str(config_t *cfg, const char *path, const char *def)
 {
     const char *value;

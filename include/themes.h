@@ -56,7 +56,7 @@ typedef struct
     char *alias;
     int displayMode;
 
-    int currentConfigId; // was: u32 currentConfigId (config->uid)
+    int currentConfigId;
     char *currentValue;
 } mutable_text_t;
 

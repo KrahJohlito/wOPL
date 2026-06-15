@@ -1081,10 +1081,13 @@ void hddLaunchGame(item_list_t *itemList, int id, per_game_cfg_t *pgcfg)
     // patch start_sector
     settings->lba_start = game->start_sector;
 
-    if (pgcfg->alt_startup[0])
+    if (pgcfg->alt_startup[0]) {
         strncpy(filename, pgcfg->alt_startup, sizeof(filename) - 1);
-    else
-        strcpy(filename, game->startup);
+        filename[sizeof(filename) - 1] = '\0';
+    } else {
+        strncpy(filename, game->startup, sizeof(filename) - 1);
+        filename[sizeof(filename) - 1] = '\0';
+    }
 
     if (gPS2Logo)
         EnablePS2Logo = CheckPS2Logo(0, game->start_sector + OPL_HDD_MODE_PS2LOGO_OFFSET);
@@ -1160,8 +1163,10 @@ static void hddGetInfo(item_list_t *itemList, int id, game_info_t *gi)
     wOPLGameInfoLoad(info_path, gi);
 
     //fallback..
-    if (!gi->title[0])
+    if (!gi->title[0]) {
         strncpy(gi->title, game->name, sizeof(gi->title) - 1);
+        gi->title[sizeof(gi->title) - 1] = '\0';
+    }
 
     if (!gi->serial[0] && game->startup[0]) {
         char *dst = gi->serial;

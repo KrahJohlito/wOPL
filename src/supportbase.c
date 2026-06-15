@@ -805,7 +805,8 @@ static int scanForISO(char *path, char type, struct game_list_t **glist)
             next->next = *glist;
             *glist = next;
             base_game_info_t *game = &next->gameinfo;
-            strcpy(next->filename, dirent->d_name);
+            strncpy(next->filename, dirent->d_name, sizeof(next->filename) - 1);
+            next->filename[sizeof(next->filename) - 1] = '\0';
             memset(game, 0, sizeof(base_game_info_t));
 
             if (format == GAME_FORMAT_OLD_ISO) {
