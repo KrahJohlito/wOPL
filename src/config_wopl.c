@@ -114,8 +114,10 @@ void log_config_error(const char *path, const config_t *cfg)
     if (config_error_type(cfg) != CONFIG_ERR_PARSE)
         return;
 
+    const char *label = path ? path : "?";
+
     char msg[512];
-    snprintf(msg, sizeof(msg), "[%s] line %d: %s\n", path, config_error_line(cfg), config_error_text(cfg));
+    snprintf(msg, sizeof(msg), "[%s] line %d: %s\n", label, config_error_line(cfg), config_error_text(cfg));
     LOG("CONFIG: parse error %s", msg);
     write_config_log(path, msg);
 }
