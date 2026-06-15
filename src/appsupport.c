@@ -340,7 +340,9 @@ static void appGetInfo(item_list_t *itemList, int id, game_info_t *gi)
         if (cfgGetStr(&cfg, "Source", &str))
             strncpy(gi->source, str, sizeof(gi->source) - 1);
         cfgValidateEnd();
-    }
+    } else
+        log_config_error(cfgPath, &cfg);
+
     config_destroy(&cfg);
 
     // fall back to menu title if no display Title set

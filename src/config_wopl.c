@@ -74,7 +74,7 @@ int gFAVFramesDelay = MENU_MIN_INACTIVE_FRAMES;
 // Config error logging
 // ---------------------------------------------------------------------------
 
-static const char *log_label = NULL; // file source label for entry logging
+static char log_label[256]; // file source label for entry logging
 
 static void write_config_log(const char *path, const char *msg)
 {
@@ -127,19 +127,27 @@ static void log_config_entry(const config_setting_t *setting, const char *expect
         return;
 
     const char *name = config_setting_name(setting);
+    const char *label = log_label[0] ? log_label : "?";
+
     char msg[256];
-    snprintf(msg, sizeof(msg), "[%s] line %d: '%s' wrong type, expected %s\n", log_label ? log_label : "?", config_setting_source_line(setting), name ? name : "?", expected);
+    snprintf(msg, sizeof(msg), "[%s] line %d: '%s' wrong type, expected %s\n", label, config_setting_source_line(setting), name ? name : "?", expected);
+
     LOG("CONFIG: %s", msg);
-    write_config_log(log_label, msg);
+    write_config_log(log_label[0] ? log_label : NULL, msg);
 }
 
 void cfgValidateBegin(const char *label)
 {
-    log_label = label;
+    if (label) {
+        strncpy(log_label, label, sizeof(log_label) - 1);
+        log_label[sizeof(log_label) - 1] = '\0';
+    } else
+        log_label[0] = '\0';
 }
+
 void cfgValidateEnd(void)
 {
-    log_label = NULL;
+    log_label[0] = '\0';
 }
 
 // Checked getters..
@@ -1331,6 +1339,7 @@ int wOPLPerGameLoad(const char *path, per_game_cfg_t *cfg)
         return 1;
     }
 
+    log_config_error(path, &lcfg);
     config_destroy(&lcfg);
 
     return 0;
@@ -1360,25 +1369,32 @@ int wOPLPerGameSave(const char *path, const per_game_cfg_t *cfg)
 
 static int lookup_info_int(config_t *cfg, const char *key, int *out)
 {
-    const char *str;
-    int val;
+    const config_setting_t *setting = config_lookup(cfg, key);
 
-    if (cfgGetInt(cfg, key, &val)) {
-        *out = val;
-        return 1;
+    if (!setting)
+        return 0;
+
+    switch (config_setting_type(setting)) {
+        case CONFIG_TYPE_INT:
+            *out = config_setting_get_int(setting);
+            return 1;
+        case CONFIG_TYPE_BOOL:
+            *out = config_setting_get_bool(setting) ? 1 : 0;
+            return 1;
+        case CONFIG_TYPE_STRING: {
+            const char *str = config_setting_get_string(setting);
+            const char *slash = strrchr(str, '/');
+
+            if (slash && slash[1])
+                str = slash + 1;
+
+            *out = atoi(str);
+            return 1;
+        }
+        default:
+            cfgCheckExists(cfg, key, "integer or string");
+            return 0;
     }
-
-    if (cfgGetStr(cfg, key, &str)) {
-        const char *slash = strrchr(str, '/');
-
-        if (slash && slash[1])
-            str = slash + 1;
-
-        *out = atoi(str);
-        return 1;
-    }
-
-    return 0;
 }
 
 static void parse_game_info(config_t *cfg, game_info_t *gi)

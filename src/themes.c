@@ -1774,15 +1774,19 @@ static void thmLoad(const char *themePath, int themeID)
     } else {
         snprintf(path, sizeof(path), "%swopl_theme.cfg", themePath);
         if (!config_read_file(&themeConfig, path)) {
-            // DELETE_WITH_MIGRATION v (condition above also.. just read)
+            log_config_error(path, &themeConfig);
+
+            // DELETE_WITH_MIGRATION v
             config_destroy(&themeConfig);
             config_init(&themeConfig);
 
             char oldPath[256];
             snprintf(oldPath, sizeof(oldPath), "%sconf_theme.cfg", themePath);
 
-            if (cfgMigrateLegacyTheme(oldPath, path))
-                config_read_file(&themeConfig, path);
+            if (cfgMigrateLegacyTheme(oldPath, path)) {
+                if (!config_read_file(&themeConfig, path))
+                    log_config_error(path, &themeConfig);
+            }
             // DELETE_WITH_MIGRATION ^
         }
     }
