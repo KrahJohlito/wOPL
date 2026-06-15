@@ -147,7 +147,7 @@ static int appScanCallback(const char *path, config_t *appConfig, void *arg)
     struct app_info_linked *app;
     const char *title = NULL, *boot = NULL, *argv1 = NULL;
 
-    if (config_lookup_string(appConfig, "title", &title) == CONFIG_TRUE && config_lookup_string(appConfig, "boot", &boot) == CONFIG_TRUE) {
+    if (cfgGetStr(appConfig, "title", &title) == CONFIG_TRUE && cfgGetStr(appConfig, "boot", &boot) == CONFIG_TRUE) {
         if (*appsLinkedList == NULL) {
             *appsLinkedList = malloc(sizeof(struct app_info_linked));
             app = *appsLinkedList;
@@ -172,7 +172,7 @@ static int appScanCallback(const char *path, config_t *appConfig, void *arg)
         strncpy(app->app.path, path, APP_PATH_MAX);
         app->app.path[APP_PATH_MAX] = '\0';
         app->app.argv1[0] = '\0';
-        if (config_lookup_string(appConfig, "argv1", &argv1) == CONFIG_TRUE) {
+        if (cfgGetStr(appConfig, "argv1", &argv1) == CONFIG_TRUE) {
             strncpy(app->app.argv1, argv1, APP_ARGV1_MAX);
             app->app.argv1[APP_ARGV1_MAX] = '\0';
         }
@@ -323,22 +323,26 @@ static void appGetInfo(item_list_t *itemList, int id, game_info_t *gi)
     config_t cfg;
     config_init(&cfg);
     if (config_read_file(&cfg, cfgPath)) {
+        cfgValidateBegin(cfgPath);
         const char *str;
-        if (config_lookup_string(&cfg, "Title", &str))
+        if (cfgGetStr(&cfg, "Title", &str))
             strncpy(gi->title, str, sizeof(gi->title) - 1);
-        if (config_lookup_string(&cfg, "Description", &str))
+        if (cfgGetStr(&cfg, "Description", &str))
             strncpy(gi->description, str, sizeof(gi->description) - 1);
-        if (config_lookup_string(&cfg, "Developer", &str))
+        if (cfgGetStr(&cfg, "Developer", &str))
             strncpy(gi->developer, str, sizeof(gi->developer) - 1);
-        if (config_lookup_string(&cfg, "Release", &str))
+        if (cfgGetStr(&cfg, "Release", &str))
             strncpy(gi->release, str, sizeof(gi->release) - 1);
-        if (config_lookup_string(&cfg, "Version", &str))
+        if (cfgGetStr(&cfg, "Version", &str))
             strncpy(gi->version, str, sizeof(gi->version) - 1);
-        if (config_lookup_string(&cfg, "Package", &str))
+        if (cfgGetStr(&cfg, "Package", &str))
             strncpy(gi->package, str, sizeof(gi->package) - 1);
-        if (config_lookup_string(&cfg, "Source", &str))
+        if (cfgGetStr(&cfg, "Source", &str))
             strncpy(gi->source, str, sizeof(gi->source) - 1);
-    }
+        cfgValidateEnd();
+    } else
+        log_config_error(cfgPath, &cfg);
+
     config_destroy(&cfg);
 
     // fall back to menu title if no display Title set
@@ -463,7 +467,9 @@ static int scanApps(int (*callback)(const char *path, config_t *appConfig, void 
             }
             // DELETE_WITH_MIGRATION ^
 
+            cfgValidateBegin(path);
             ret = callback(dir, &lcfg, arg);
+            cfgValidateEnd();
             config_destroy(&lcfg);
 
             if (ret == 0)
