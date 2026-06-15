@@ -169,9 +169,9 @@ typedef struct
     char publisher[64];
     char serial[16];
     char release[32];
-    char aspect[12];
+    char aspect[32];
     char parental[32];
-    char region[8];
+    char region[32];
     int players;
     int user_rating;
     char version[32];

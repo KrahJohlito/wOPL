@@ -572,9 +572,23 @@ static int cfgMigrateLegacyPerGame(const char *path, per_game_cfg_t *pgcfg, game
     }
 
     if (gi) {
-        if (configGetStr(old, CONFIG_ITEM_NAME, &str)) {
+        int val;
+
+        if (configGetStr(old, CONFIG_ITEM_NAME, &str) || configGetStr(old, "Title", &str)) {
             strncpy(gi->title, str, sizeof(gi->title) - 1);
             gi->title[sizeof(gi->title) - 1] = '\0';
+            flags |= CFG_MIG_HAS_INFO;
+        }
+
+        if (configGetStr(old, "Description", &str)) {
+            strncpy(gi->description, str, sizeof(gi->description) - 1);
+            gi->description[sizeof(gi->description) - 1] = '\0';
+            flags |= CFG_MIG_HAS_INFO;
+        }
+
+        if (configGetStr(old, "Developer", &str)) {
+            strncpy(gi->developer, str, sizeof(gi->developer) - 1);
+            gi->developer[sizeof(gi->developer) - 1] = '\0';
             flags |= CFG_MIG_HAS_INFO;
         }
 
@@ -590,21 +604,52 @@ static int cfgMigrateLegacyPerGame(const char *path, per_game_cfg_t *pgcfg, game
             flags |= CFG_MIG_HAS_INFO;
         }
 
-        if (configGetStr(old, "Developer", &str)) {
-            strncpy(gi->developer, str, sizeof(gi->developer) - 1);
-            gi->developer[sizeof(gi->developer) - 1] = '\0';
+        if (configGetStr(old, "Aspect", &str)) {
+            strncpy(gi->aspect, str, sizeof(gi->aspect) - 1);
+            gi->aspect[sizeof(gi->aspect) - 1] = '\0';
             flags |= CFG_MIG_HAS_INFO;
         }
 
-        if (configGetStr(old, "Description", &str)) {
-            strncpy(gi->description, str, sizeof(gi->description) - 1);
-            gi->description[sizeof(gi->description) - 1] = '\0';
+        if (configGetStr(old, "Parental", &str)) {
+            strncpy(gi->parental, str, sizeof(gi->parental) - 1);
+            gi->parental[sizeof(gi->parental) - 1] = '\0';
             flags |= CFG_MIG_HAS_INFO;
         }
 
-        if (configGetStr(old, "Publisher", &str)) {
-            strncpy(gi->publisher, str, sizeof(gi->publisher) - 1);
-            gi->publisher[sizeof(gi->publisher) - 1] = '\0';
+        if (configGetInt(old, "Players", &val)) {
+            gi->players = val;
+            flags |= CFG_MIG_HAS_INFO;
+        } else if (configGetStr(old, "Players", &str)) {
+            const char *slash = strrchr(str, '/');
+
+            if (slash && slash[1])
+                str = slash + 1;
+
+            gi->players = atoi(str);
+            flags |= CFG_MIG_HAS_INFO;
+        }
+
+        if (configGetStr(old, "Vmode", &str) || configGetStr(old, "Region", &str)) {
+            const char *value = str;
+            const char *slash = strrchr(str, '/');
+
+            if (slash && slash[1])
+                value = slash + 1;
+
+            snprintf(gi->region, sizeof(gi->region), "Region/%s", value);
+            flags |= CFG_MIG_HAS_INFO;
+        }
+
+        if (configGetInt(old, "Rating", &val)) {
+            gi->user_rating = val;
+            flags |= CFG_MIG_HAS_INFO;
+        } else if (configGetStr(old, "Rating", &str)) {
+            const char *slash = strrchr(str, '/');
+
+            if (slash && slash[1])
+                str = slash + 1;
+
+            gi->user_rating = atoi(str);
             flags |= CFG_MIG_HAS_INFO;
         }
     }
