@@ -565,10 +565,13 @@ void bdmLaunchGame(item_list_t *itemList, int id, per_game_cfg_t *pgcfg)
     if (gRememberLastPlayed)
         wOPLLastSave(game->startup);
 
-    if (pgcfg->alt_startup[0])
+    if (pgcfg->alt_startup[0]) {
         strncpy(filename, pgcfg->alt_startup, sizeof(filename) - 1);
-    else
-        strcpy(filename, game->startup);
+        filename[sizeof(filename) - 1] = '\0';
+    } else {
+        strncpy(filename, game->startup, sizeof(filename) - 1);
+        filename[sizeof(filename) - 1] = '\0';
+    }
 
     // deinit will free per device data.. copy driver name before free to compare for launch
     char bdmCurrentDriver[32];
