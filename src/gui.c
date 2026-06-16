@@ -1215,11 +1215,18 @@ static void guiDrawBusy(int alpha)
 
 static void guiDrawBootVersion(int alpha)
 {
-    char version[128];
+    char version[96];
+    int width;
+    int x;
+    int y;
 
     snprintf(version, sizeof(version), "wOPL %s", WOPL_VERSION);
 
-    fntRenderString(gTheme->fonts[0], screenWidth - 10, gTheme->usedHeight - 24, ALIGN_RIGHT, 0, 0, version, GS_SETREG_RGBA(0x60, 0x60, 0x60, alpha));
+    width = rmUnScaleX(fntCalcDimensions(gTheme->fonts[0], version));
+    x = screenWidth - width - 10;
+    y = gTheme->usedHeight - 24;
+
+    fntRenderString(gTheme->fonts[0], x, y, ALIGN_NONE, 0, 0, version, GS_SETREG_RGBA(0x60, 0x60, 0x60, alpha));
 }
 
 static void guiRenderGreeting(int alpha)
