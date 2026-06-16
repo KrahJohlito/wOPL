@@ -1256,7 +1256,7 @@ static void guiDrawBootVersion(int alpha)
     x = screenWidth - width - 16;
     y = gTheme->usedHeight - 20;
 
-    fntRenderString(font, x, y, ALIGN_NONE, 0, 0, version, GS_SETREG_RGBA(0x70, 0x70, 0x70, alpha));
+    fntRenderString(font, x, y, ALIGN_NONE, 0, 0, version, GS_SETREG_RGBA(0x50, 0x50, 0x50, alpha));
 }
 
 static void guiRenderGreeting(int alpha)
