@@ -190,6 +190,12 @@ void guiInit(void)
 
 void guiEnd()
 {
+    if (gBootTextFontLoaded && gBootTextFont != FNT_ERROR) {
+        fntRelease(gBootTextFont);
+        gBootTextFont = FNT_ERROR;
+        gBootTextFontLoaded = 0;
+    }
+    
     if (gBackgroundTex.Mem)
         free(gBackgroundTex.Mem);
 
@@ -1213,20 +1219,44 @@ static void guiDrawBusy(int alpha)
     }
 }
 
+#define BOOT_TEXT_FONT_SIZE 14
+
+static int gBootTextFont = FNT_ERROR;
+static int gBootTextFontLoaded = 0;
+
+static int guiGetBootTextFont(void)
+{
+    if (gBootTextFont == FNT_ERROR) {
+        gBootTextFont = fntLoadFile(NULL, BOOT_TEXT_FONT_SIZE);
+
+        if (gBootTextFont != FNT_ERROR) {
+            gBootTextFontLoaded = 1;
+        } else {
+            gBootTextFont = gTheme->fonts[0];
+            gBootTextFontLoaded = 0;
+        }
+    }
+
+    return gBootTextFont;
+}
+
 static void guiDrawBootVersion(int alpha)
 {
     char version[96];
+    int font;
     int width;
     int x;
     int y;
 
     snprintf(version, sizeof(version), "wOPL %s", WOPL_VERSION);
 
-    width = rmUnScaleX(fntCalcDimensions(gTheme->fonts[0], version));
-    x = screenWidth - width - 10;
-    y = gTheme->usedHeight - 24;
+    font = guiGetBootTextFont();
 
-    fntRenderString(gTheme->fonts[0], x, y, ALIGN_NONE, 0, 0, version, GS_SETREG_RGBA(0x60, 0x60, 0x60, alpha));
+    width = rmUnScaleX(fntCalcDimensions(font, version));
+    x = screenWidth - width - 16;
+    y = gTheme->usedHeight - 20;
+
+    fntRenderString(font, x, y, ALIGN_NONE, 0, 0, version, GS_SETREG_RGBA(0x70, 0x70, 0x70, alpha));
 }
 
 static void guiRenderGreeting(int alpha)
