@@ -188,6 +188,11 @@ void guiInit(void)
     }
 }
 
+#define BOOT_TEXT_FONT_SIZE 14
+
+static int gBootTextFont = FNT_ERROR;
+static int gBootTextFontLoaded = 0;
+
 void guiEnd()
 {
     if (gBootTextFontLoaded && gBootTextFont != FNT_ERROR) {
@@ -195,7 +200,7 @@ void guiEnd()
         gBootTextFont = FNT_ERROR;
         gBootTextFontLoaded = 0;
     }
-    
+
     if (gBackgroundTex.Mem)
         free(gBackgroundTex.Mem);
 
@@ -1218,11 +1223,6 @@ static void guiDrawBusy(int alpha)
         }
     }
 }
-
-#define BOOT_TEXT_FONT_SIZE 14
-
-static int gBootTextFont = FNT_ERROR;
-static int gBootTextFontLoaded = 0;
 
 static int guiGetBootTextFont(void)
 {
