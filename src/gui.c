@@ -90,7 +90,7 @@ extern GSGLOBAL *gsGlobal;
 
 static int gBootLogoFrame = BOOT_ANIM_START_LOGO;
 static int gBootLogoFrameDelay = 0;
-static int gBootLogoWaitForFade = 0;
+static int gBootLogoFadeCountdown = -1;
 static int gBootLogoReadyToFade = 0;
 
 static int gBootTextFont = FNT_ERROR;
@@ -168,7 +168,7 @@ void guiInit(void)
     gBootStatus[0] = '\0';
     gBootLogoFrame = BOOT_ANIM_START_LOGO;
     gBootLogoFrameDelay = 0;
-    gBootLogoWaitForFade = 0;
+    gBootLogoFadeCountdown = -1;
     gBootLogoReadyToFade = 0;
 
     gUpdateList = NULL;
@@ -1303,6 +1303,43 @@ static void guiDrawBootVersion(int alpha)
     fntRenderString(font, x, y, ALIGN_NONE, 0, 0, version, GS_SETREG_RGBA(0x50, 0x50, 0x50, alpha));
 }
 
+static int guiGetBootLogoFrameCount(void)
+{
+    return BOOT_ANIM_END_LOGO - BOOT_ANIM_START_LOGO + 1;
+}
+
+static int guiGetBootLogoFrameDistance(int from, int to)
+{
+    int distance = to - from;
+
+    if (distance < 0)
+        distance += guiGetBootLogoFrameCount();
+
+    return distance;
+}
+
+static int guiGetBootLogoFrameBefore(int frame, int count)
+{
+    int logoCount = guiGetBootLogoFrameCount();
+    int index = frame - BOOT_ANIM_START_LOGO;
+
+    count %= logoCount;
+    index -= count;
+
+    if (index < 0)
+        index += logoCount;
+
+    return BOOT_ANIM_START_LOGO + index;
+}
+
+static void guiAdvanceBootLogoFrame(void)
+{
+    if (gBootLogoFrame < BOOT_ANIM_END_LOGO)
+        gBootLogoFrame++;
+    else
+        gBootLogoFrame = BOOT_ANIM_START_LOGO;
+}
+
 static GSTEXTURE *guiGetGreetingLogo(void)
 {
     GSTEXTURE *logo = thmGetTexture(gBootLogoFrame);
@@ -1310,21 +1347,26 @@ static GSTEXTURE *guiGetGreetingLogo(void)
     if (!logo)
         logo = thmGetTexture(LOGO_01);
 
-    if (gBootLogoWaitForFade && gBootLogoFrame == BOOT_FADE_LOGO) {
-        gBootLogoReadyToFade = 1;
-        return logo;
-    }
-
     if (!gBootLogoReadyToFade) {
         gBootLogoFrameDelay++;
 
         if (gBootLogoFrameDelay >= BOOT_LOGO_FRAME_DELAY) {
             gBootLogoFrameDelay = 0;
 
-            if (gBootLogoFrame < BOOT_ANIM_END_LOGO)
-                gBootLogoFrame++;
-            else
-                gBootLogoFrame = BOOT_ANIM_START_LOGO;
+            guiAdvanceBootLogoFrame();
+
+            if (gBootLogoFadeCountdown > 0) {
+                gBootLogoFadeCountdown--;
+
+                if (gBootLogoFadeCountdown == 0) {
+                    gBootLogoFrame = BOOT_FADE_LOGO;
+                    gBootLogoReadyToFade = 1;
+
+                    logo = thmGetTexture(gBootLogoFrame);
+                    if (!logo)
+                        logo = thmGetTexture(LOGO_01);
+                }
+            }
         }
     }
 
@@ -1355,38 +1397,6 @@ static void guiRenderBootFrame(int alpha)
     guiStartFrame();
     guiRenderGreetingFrame(alpha, NULL);
     guiEndFrame();
-}
-
-static int guiGetLogoFrameBefore(int frame, int count)
-{
-    int logoCount = BOOT_ANIM_END_LOGO - BOOT_ANIM_START_LOGO + 1;
-    int index = frame - BOOT_ANIM_START_LOGO;
-
-    count %= logoCount;
-    index -= count;
-
-    if (index < 0)
-        index += logoCount;
-
-    return BOOT_ANIM_START_LOGO + index;
-}
-
-static int guiGetBootSoundStartLogo(int fadeDuration)
-{
-    int soundDuration = sfxGetSoundDuration(SFX_BOOT);
-    int delayDuration = soundDuration - fadeDuration;
-    int frameDuration = (BOOT_LOGO_FRAME_DELAY * 1000) / 55;
-    int leadFrames;
-
-    if (delayDuration <= 0)
-        return BOOT_FADE_LOGO;
-
-    leadFrames = delayDuration / frameDuration;
-
-    if (leadFrames <= 0)
-        return BOOT_FADE_LOGO;
-
-    return guiGetLogoFrameBefore(BOOT_FADE_LOGO, leadFrames);
 }
 
 // For early boot only.. before guiIntroLoop() is running
@@ -1823,30 +1833,51 @@ void guiIntroLoop(void)
     int greetingAlpha = 0x80;
     const int fadeFrameCount = 0x80 / 2;
     const int fadeDuration = (fadeFrameCount * 1000) / 55; // Average between 50 and 60 fps
-    int bootSoundStartLogo = BOOT_FADE_LOGO;
     int bootSoundStarted = 0;
+    int bootSoundStartLogo = BOOT_FADE_LOGO;
+    int bootSoundLeadFrames = 0;
+    int bootSoundDelayDuration = 0;
     clock_t tFadeDelayEnd = 0;
-
-    if (gEnableBootSND)
-        bootSoundStartLogo = guiGetBootSoundStartLogo(fadeDuration);
 
     while (!endIntro) {
         guiStartFrame();
 
-        if (gInitComplete && !gEnableBootSND)
-            gBootLogoWaitForFade = 1;
+        if (gInitComplete && !bootSoundStarted) {
+            if (gEnableBootSND) {
+                bootSoundDelayDuration = sfxGetSoundDuration(SFX_BOOT) - fadeDuration;
 
-        if (gInitComplete && gEnableBootSND && !bootSoundStarted && gBootLogoFrame == bootSoundStartLogo) {
-            int delayDuration = sfxGetSoundDuration(SFX_BOOT) - fadeDuration;
+                if (bootSoundDelayDuration < 0)
+                    bootSoundDelayDuration = 0;
 
-            if (delayDuration < 0)
-                delayDuration = 0;
+                bootSoundLeadFrames = bootSoundDelayDuration / ((BOOT_LOGO_FRAME_DELAY * 1000) / 55);
 
-            bootSoundStarted = 1;
-            gBootLogoWaitForFade = 1;
+                if (bootSoundDelayDuration > 0 && bootSoundLeadFrames <= 0)
+                    bootSoundLeadFrames = 1;
 
-            sfxPlay(SFX_BOOT);
-            tFadeDelayEnd = clock() + delayDuration * (CLOCKS_PER_SEC / 1000);
+                bootSoundStartLogo = guiGetBootLogoFrameBefore(BOOT_FADE_LOGO, bootSoundLeadFrames);
+
+                if (gBootLogoFrame == bootSoundStartLogo) {
+                    bootSoundStarted = 1;
+                    gBootLogoFadeCountdown = bootSoundLeadFrames;
+
+                    sfxPlay(SFX_BOOT);
+                    tFadeDelayEnd = clock() + bootSoundDelayDuration * (CLOCKS_PER_SEC / 1000);
+
+                    if (gBootLogoFadeCountdown <= 0) {
+                        gBootLogoFrame = BOOT_FADE_LOGO;
+                        gBootLogoReadyToFade = 1;
+                    }
+                }
+            } else {
+                bootSoundStarted = 1;
+                gBootLogoFadeCountdown = guiGetBootLogoFrameDistance(gBootLogoFrame, BOOT_FADE_LOGO);
+                tFadeDelayEnd = clock();
+
+                if (gBootLogoFadeCountdown <= 0) {
+                    gBootLogoFrame = BOOT_FADE_LOGO;
+                    gBootLogoReadyToFade = 1;
+                }
+            }
         }
 
         if (greetingAlpha < 0x80)
