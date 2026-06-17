@@ -1357,6 +1357,38 @@ static void guiRenderBootFrame(int alpha)
     guiEndFrame();
 }
 
+static int guiGetLogoFrameBefore(int frame, int count)
+{
+    int logoCount = BOOT_ANIM_END_LOGO - BOOT_ANIM_START_LOGO + 1;
+    int index = frame - BOOT_ANIM_START_LOGO;
+
+    count %= logoCount;
+    index -= count;
+
+    if (index < 0)
+        index += logoCount;
+
+    return BOOT_ANIM_START_LOGO + index;
+}
+
+static int guiGetBootSoundStartLogo(int fadeDuration)
+{
+    int soundDuration = sfxGetSoundDuration(SFX_BOOT);
+    int delayDuration = soundDuration - fadeDuration;
+    int frameDuration = (BOOT_LOGO_FRAME_DELAY * 1000) / 55;
+    int leadFrames;
+
+    if (delayDuration <= 0)
+        return BOOT_FADE_LOGO;
+
+    leadFrames = delayDuration / frameDuration;
+
+    if (leadFrames <= 0)
+        return BOOT_FADE_LOGO;
+
+    return guiGetLogoFrameBefore(BOOT_FADE_LOGO, leadFrames);
+}
+
 // For early boot only.. before guiIntroLoop() is running
 void guiShowBootStatus(const char *status)
 {
@@ -1791,27 +1823,37 @@ void guiIntroLoop(void)
     int greetingAlpha = 0x80;
     const int fadeFrameCount = 0x80 / 2;
     const int fadeDuration = (fadeFrameCount * 1000) / 55; // Average between 50 and 60 fps
+    int bootSoundStartLogo = BOOT_FADE_LOGO;
+    int bootSoundStarted = 0;
     clock_t tFadeDelayEnd = 0;
+
+    if (gEnableBootSND)
+        bootSoundStartLogo = guiGetBootSoundStartLogo(fadeDuration);
 
     while (!endIntro) {
         guiStartFrame();
 
-        if (gInitComplete)
+        if (gInitComplete && !gEnableBootSND)
             gBootLogoWaitForFade = 1;
+
+        if (gInitComplete && gEnableBootSND && !bootSoundStarted && gBootLogoFrame == bootSoundStartLogo) {
+            int delayDuration = sfxGetSoundDuration(SFX_BOOT) - fadeDuration;
+
+            if (delayDuration < 0)
+                delayDuration = 0;
+
+            bootSoundStarted = 1;
+            gBootLogoWaitForFade = 1;
+
+            sfxPlay(SFX_BOOT);
+            tFadeDelayEnd = clock() + delayDuration * (CLOCKS_PER_SEC / 1000);
+        }
 
         if (greetingAlpha < 0x80)
             guiShow();
 
         if (greetingAlpha > 0)
             guiRenderGreeting(greetingAlpha);
-
-        // Initialize boot sound once init is complete and fade logo is reached
-        if (gBootLogoReadyToFade && !tFadeDelayEnd && gEnableBootSND) {
-            // Start playing sound
-            sfxPlay(SFX_BOOT);
-            // Calculate transition delay
-            tFadeDelayEnd = clock() + (sfxGetSoundDuration(SFX_BOOT) - fadeDuration) * (CLOCKS_PER_SEC / 1000);
-        }
 
         if (gBootLogoReadyToFade && clock() >= tFadeDelayEnd)
             greetingAlpha -= 2;
