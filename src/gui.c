@@ -1290,27 +1290,40 @@ static void guiDrawBootVersion(int alpha)
     fntRenderString(font, x, y, ALIGN_NONE, 0, 0, version, GS_SETREG_RGBA(0x50, 0x50, 0x50, alpha));
 }
 
-static GSTEXTURE *guiGetGreetingLogo(int animated)
+static GSTEXTURE *guiGetBootStaticLogo(void)
 {
-    GSTEXTURE *logo;
+    GSTEXTURE *logo = thmGetTexture(LOGO_14);
 
-    if (animated)
-        logo = thmGetTexture(LOGO_01 + (guiFrameId / 6) % (LOGO_21 - LOGO_01 + 1));
-    else
-        logo = thmGetTexture(LOGO_14);
-
+    if (!logo)
+        logo = thmGetTexture(LOGO_21);
     if (!logo)
         logo = thmGetTexture(LOGO_01);
 
     return logo;
 }
 
-static void guiRenderGreetingExt(int alpha, int animated)
+static GSTEXTURE *guiGetGreetingLogo(void)
+{
+    GSTEXTURE *logo;
+
+    if (!gInitComplete)
+        logo = thmGetTexture(LOGO_01 + (guiFrameId / 6) % (LOGO_21 - LOGO_01 + 1));
+    else
+        logo = thmGetTexture(LOGO_21);
+
+    if (!logo)
+        logo = thmGetTexture(LOGO_14);
+    if (!logo)
+        logo = thmGetTexture(LOGO_01);
+
+    return logo;
+}
+
+static void guiRenderGreetingFrame(int alpha, GSTEXTURE *logo)
 {
     u64 mycolor = GS_SETREG_RGBA(0x00, 0x00, 0x00, alpha);
     rmDrawRect(0, 0, screenWidth, screenHeight, mycolor);
 
-    GSTEXTURE *logo = guiGetGreetingLogo(animated);
     if (logo) {
         mycolor = GS_SETREG_RGBA(0xFF, 0xFF, 0xFF, alpha);
         rmDrawPixmap(logo, screenWidth >> 1, gTheme->usedHeight >> 1, ALIGN_CENTER, logo->Width, logo->Height, SCALING_RATIO, mycolor, 0);
@@ -1322,13 +1335,13 @@ static void guiRenderGreetingExt(int alpha, int animated)
 
 static void guiRenderGreeting(int alpha)
 {
-    guiRenderGreetingExt(alpha, 1);
+    guiRenderGreetingFrame(alpha, guiGetGreetingLogo());
 }
 
 static void guiRenderBootFrame(int alpha)
 {
     guiStartFrame();
-    guiRenderGreetingExt(alpha, 0);
+    guiRenderGreetingFrame(alpha, guiGetBootStaticLogo());
     guiEndFrame();
 }
 
