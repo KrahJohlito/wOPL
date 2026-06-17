@@ -85,7 +85,8 @@ extern GSGLOBAL *gsGlobal;
 #define BOOT_TEXT_FONT_SIZE   14
 #define BOOT_ANIM_START_LOGO  LOGO_01
 #define BOOT_FINAL_LOGO       LOGO_21
-#define BOOT_LOGO_FRAME_DELAY 7
+#define BOOT_LOGO_FRAME_DELAY 6
+#define BOOT_FADE_STEP        3
 
 static int gBootLogoFrame = BOOT_ANIM_START_LOGO;
 static int gBootLogoFrameDelay = 0;
@@ -1775,7 +1776,7 @@ static void guiShow()
 void guiIntroLoop(void)
 {
     int greetingAlpha = 0x80;
-    const int fadeFrameCount = 0x80 / 2;
+    const int fadeFrameCount = (0x80 + BOOT_FADE_STEP - 1) / BOOT_FADE_STEP;
     const int fadeDuration = (fadeFrameCount * 1000) / 55; // Average between 50 and 60 fps
     clock_t tFadeDelayEnd = 0;
 
@@ -1797,7 +1798,7 @@ void guiIntroLoop(void)
         }
 
         if (gInitComplete && clock() >= tFadeDelayEnd)
-            greetingAlpha -= 2;
+            greetingAlpha -= BOOT_FADE_STEP;
 
         if (greetingAlpha <= 0)
             endIntro = 1;
