@@ -1297,7 +1297,7 @@ static GSTEXTURE *guiGetGreetingLogo(int animated)
     if (animated)
         logo = thmGetTexture(LOGO_01 + (guiFrameId / 6) % (LOGO_21 - LOGO_01 + 1));
     else
-        logo = thmGetTexture(LOGO_21);
+        logo = thmGetTexture(LOGO_14);
 
     if (!logo)
         logo = thmGetTexture(LOGO_01);
