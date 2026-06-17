@@ -39,7 +39,6 @@
 // Last Played Auto Start
 #include <time.h>
 
-
 static int gScheduledOps;
 static int gCompletedOps;
 static int gTerminate;
@@ -81,8 +80,13 @@ static float fps = 0.0f;
 extern GSGLOBAL *gsGlobal;
 #endif
 
-
 #define VMODE_CHANGE_CONFIRMATION_TIMEOUT_MS 10000
+#define BOOT_TEXT_FONT_SIZE 14
+
+static int gBootTextFont = FNT_ERROR;
+static int gBootTextFontLoaded = 0;
+static int gBootStatusActive;
+static char gBootStatus[256];
 
 // Global data
 int guiInactiveFrames;
@@ -150,6 +154,8 @@ void guiInit(void)
     gInitComplete = 0;
     gScheduledOps = 0;
     gCompletedOps = 0;
+    gBootStatusActive = 1;
+    gBootStatus[0] = '\0';
 
     gUpdateList = NULL;
     gUpdateEnd = NULL;
@@ -187,11 +193,6 @@ void guiInit(void)
         fadetbl[i] = t * t * t * (t * (t * 6.0f - 15.0f) + 10.0f);
     }
 }
-
-#define BOOT_TEXT_FONT_SIZE 14
-
-static int gBootTextFont = FNT_ERROR;
-static int gBootTextFontLoaded = 0;
 
 void guiEnd()
 {
@@ -1240,6 +1241,35 @@ static int guiGetBootTextFont(void)
     return gBootTextFont;
 }
 
+void guiSetBootStatus(const char *status)
+{
+    if (status) {
+        strncpy(gBootStatus, status, sizeof(gBootStatus) - 1);
+        gBootStatus[sizeof(gBootStatus) - 1] = '\0';
+    } else
+        gBootStatus[0] = '\0';
+}
+
+void guiSetBootStatusIfActive(const char *status)
+{
+    if (gBootStatusActive)
+        guiSetBootStatus(status);
+}
+
+static void guiDrawBootStatus(int alpha)
+{
+    int font;
+    int y;
+
+    if (!gBootStatus[0])
+        return;
+
+    font = guiGetBootTextFont();
+    y = (gTheme->usedHeight >> 1) + 90;
+
+    fntRenderString(font, screenWidth >> 1, y, ALIGN_CENTER, 0, 0, gBootStatus, GS_SETREG_RGBA(0x70, 0x70, 0x70, alpha));
+}
+
 static void guiDrawBootVersion(int alpha)
 {
     char version[96];
@@ -1270,7 +1300,25 @@ static void guiRenderGreeting(int alpha)
         rmDrawPixmap(logo, screenWidth >> 1, gTheme->usedHeight >> 1, ALIGN_CENTER, logo->Width, logo->Height, SCALING_RATIO, mycolor, 0);
     }
 
+    guiDrawBootStatus(alpha);
     guiDrawBootVersion(alpha);
+}
+
+static void guiRenderBootFrame(int alpha)
+{
+    guiStartFrame();
+    guiRenderGreeting(alpha);
+    guiEndFrame();
+}
+
+// For early boot only.. before guiIntroLoop() is running
+void guiShowBootStatus(const char *status)
+{
+    if (!gBootStatusActive)
+        return;
+
+    guiSetBootStatus(status);
+    guiRenderBootFrame(0x80);
 }
 
 static float mix(float a, float b, float t)
@@ -1735,6 +1783,9 @@ void guiIntroLoop(void)
 
 void guiMainLoop(void)
 {
+    gBootStatusActive = 0;
+    guiSetBootStatus(NULL);
+
     guiResetNotifications();
     guiCheckNotifications(1, 1);
 

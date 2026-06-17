@@ -58,6 +58,23 @@ static void initMenuForListSupport(opl_io_module_t *mod)
     guiDeferUpdate(mc);
 }
 
+static const char *getBootModeStatus(int mode)
+{
+    if (mode >= BDM_MODE && mode < ETH_MODE)
+        return "Scanning block devices...";
+    else if (mode == ETH_MODE)
+        return "Scanning network games...";
+    else if (mode == HDD_MODE)
+        return "Scanning HDD games...";
+    else if (mode == APP_MODE)
+        return "Scanning apps...";
+    else if (mode == FAV_MODE)
+        return "Loading favourites...";
+    else if (mode == MMCE_MODE)
+        return "Scanning MMCE games...";
+
+    return "Scanning games...";
+}
 
 void initSupport(item_list_t *itemList, int mode, int force_reinit)
 {
@@ -86,6 +103,8 @@ void initSupport(item_list_t *itemList, int mode, int force_reinit)
         }
 
         if (((force_reinit) && (mod->support->enabled)) || (startMode == START_MODE_AUTO && !mod->support->enabled)) {
+            guiSetBootStatusIfActive(getBootModeStatus(mode));
+
             mod->support->itemInit(mod->support);
             moduleUpdateMenuInternal(mod, 0, 0);
 
@@ -99,11 +118,22 @@ void initSupport(item_list_t *itemList, int mode, int force_reinit)
 
 void initAllSupport(int force_reinit)
 {
+    guiSetBootStatusIfActive("Checking devices...");
     bdmEnumerateDevices();
+
+    guiSetBootStatusIfActive("Starting network...");
     initSupport(ethGetObject(0), ETH_MODE, force_reinit || (gNetworkStartup >= ERROR_ETH_SMB_CONN));
+
+    guiSetBootStatusIfActive("Checking HDD...");
     initSupport(hddGetObject(0), HDD_MODE, force_reinit);
+
+    guiSetBootStatusIfActive("Checking apps...");
     initSupport(appGetObject(0), APP_MODE, force_reinit);
+
+    guiSetBootStatusIfActive("Checking favourites...");
     initSupport(favGetObject(0), FAV_MODE, force_reinit);
+
+    guiSetBootStatusIfActive("Checking MMCE...");
     initSupport(mmceGetObject(0), MMCE_MODE, force_reinit);
 }
 
@@ -244,15 +274,22 @@ void init(void)
     lngInit();
     thmInit();
     guiInit();
+
+    guiShowBootStatus("Initializing I/O...");
     ioInit();
+
+    guiShowBootStatus("Loading menus...");
     menuInit();
 
+    guiShowBootStatus("Starting pads...");
     startPads();
 
     bdmInitSemaphore();
 
     // handler for deffered menu updates
     ioRegisterHandler(IO_MENU_UPDATE_DEFFERED, &menuDeferredUpdate);
+
+    guiShowBootStatus("Loading cache...");
     cacheInit();
 
     gSelectButton = (InitConsoleRegionData() == CONSOLE_REGION_JAPAN) ? KEY_CIRCLE : KEY_CROSS;
@@ -261,14 +298,16 @@ void init(void)
         padStatus = startPads();
     readPads();
     if (!getKeyPressed(KEY_START)) {
+        guiShowBootStatus("Loading settings...");
         _loadConfig(); // only try to restore config if emergency key is not being pressed
     } else {
+        guiShowBootStatus("Skipping settings...");
         LOG("--- SKIPPING OPL CONFIG LOADING\n");
         configApply(-1, -1, 0);
     }
 
-
     // queue deffered init of sound effects, which will take place after the preceding initialization steps within the queue are complete.
+    guiShowBootStatus("Loading audio...");
     ioPutRequest(IO_CUSTOM_SIMPLEACTION, &deferredAudioInit);
 }
 
@@ -299,6 +338,7 @@ void deinit(int exception, int modeSelected)
 
 void deferredInit(void)
 {
+    guiSetBootStatusIfActive("Ready.");
 
     // inform GUI main init part is over
     struct gui_update_t *id = guiOpCreate(GUI_INIT_DONE);
