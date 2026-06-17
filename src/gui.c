@@ -85,7 +85,7 @@ extern GSGLOBAL *gsGlobal;
 #define BOOT_TEXT_FONT_SIZE   14
 #define BOOT_ANIM_START_LOGO  LOGO_01
 #define BOOT_FINAL_LOGO       LOGO_21
-#define BOOT_LOGO_FRAME_DELAY 6
+#define BOOT_LOGO_FRAME_DELAY 7
 
 static int gBootLogoFrame = BOOT_ANIM_START_LOGO;
 static int gBootLogoFrameDelay = 0;
