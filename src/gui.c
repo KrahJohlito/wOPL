@@ -84,11 +84,14 @@ extern GSGLOBAL *gsGlobal;
 
 #define BOOT_TEXT_FONT_SIZE   14
 #define BOOT_ANIM_START_LOGO  LOGO_01
-#define BOOT_FINAL_LOGO       LOGO_17
+#define BOOT_ANIM_END_LOGO    LOGO_21
+#define BOOT_FADE_LOGO        LOGO_17
 #define BOOT_LOGO_FRAME_DELAY 6
 
 static int gBootLogoFrame = BOOT_ANIM_START_LOGO;
 static int gBootLogoFrameDelay = 0;
+static int gBootLogoWaitForFade = 0;
+static int gBootLogoReadyToFade = 0;
 
 static int gBootTextFont = FNT_ERROR;
 static int gBootTextFontLoaded = 0;
@@ -165,6 +168,8 @@ void guiInit(void)
     gBootStatus[0] = '\0';
     gBootLogoFrame = BOOT_ANIM_START_LOGO;
     gBootLogoFrameDelay = 0;
+    gBootLogoWaitForFade = 0;
+    gBootLogoReadyToFade = 0;
 
     gUpdateList = NULL;
     gUpdateEnd = NULL;
@@ -1305,12 +1310,21 @@ static GSTEXTURE *guiGetGreetingLogo(void)
     if (!logo)
         logo = thmGetTexture(LOGO_01);
 
-    if (gBootLogoFrame < BOOT_FINAL_LOGO) {
+    if (gBootLogoWaitForFade && gBootLogoFrame == BOOT_FADE_LOGO) {
+        gBootLogoReadyToFade = 1;
+        return logo;
+    }
+
+    if (!gBootLogoReadyToFade) {
         gBootLogoFrameDelay++;
 
         if (gBootLogoFrameDelay >= BOOT_LOGO_FRAME_DELAY) {
             gBootLogoFrameDelay = 0;
-            gBootLogoFrame++;
+
+            if (gBootLogoFrame < BOOT_ANIM_END_LOGO)
+                gBootLogoFrame++;
+            else
+                gBootLogoFrame = BOOT_ANIM_START_LOGO;
         }
     }
 
@@ -1782,21 +1796,24 @@ void guiIntroLoop(void)
     while (!endIntro) {
         guiStartFrame();
 
+        if (gInitComplete)
+            gBootLogoWaitForFade = 1;
+
         if (greetingAlpha < 0x80)
             guiShow();
 
         if (greetingAlpha > 0)
             guiRenderGreeting(greetingAlpha);
 
-        // Initialize boot sound
-        if (gInitComplete && !tFadeDelayEnd && gEnableBootSND) {
+        // Initialize boot sound once init is complete and fade logo is reached
+        if (gBootLogoReadyToFade && !tFadeDelayEnd && gEnableBootSND) {
             // Start playing sound
             sfxPlay(SFX_BOOT);
             // Calculate transition delay
             tFadeDelayEnd = clock() + (sfxGetSoundDuration(SFX_BOOT) - fadeDuration) * (CLOCKS_PER_SEC / 1000);
         }
 
-        if (gInitComplete && clock() >= tFadeDelayEnd)
+        if (gBootLogoReadyToFade && clock() >= tFadeDelayEnd)
             greetingAlpha -= 2;
 
         if (greetingAlpha <= 0)
