@@ -81,6 +81,7 @@ extern GSGLOBAL *gsGlobal;
 #endif
 
 #define VMODE_CHANGE_CONFIRMATION_TIMEOUT_MS 10000
+
 #define BOOT_TEXT_FONT_SIZE 14
 
 static int gBootTextFont = FNT_ERROR;
@@ -1289,12 +1290,27 @@ static void guiDrawBootVersion(int alpha)
     fntRenderString(font, x, y, ALIGN_NONE, 0, 0, version, GS_SETREG_RGBA(0x50, 0x50, 0x50, alpha));
 }
 
-static void guiRenderGreeting(int alpha)
+static GSTEXTURE *guiGetGreetingLogo(int animated)
+{
+    GSTEXTURE *logo;
+
+    if (animated)
+        logo = thmGetTexture(LOGO_01 + (guiFrameId / 6) % (LOGO_21 - LOGO_01 + 1));
+    else
+        logo = thmGetTexture(LOGO_21);
+
+    if (!logo)
+        logo = thmGetTexture(LOGO_01);
+
+    return logo;
+}
+
+static void guiRenderGreetingExt(int alpha, int animated)
 {
     u64 mycolor = GS_SETREG_RGBA(0x00, 0x00, 0x00, alpha);
     rmDrawRect(0, 0, screenWidth, screenHeight, mycolor);
 
-    GSTEXTURE *logo = thmGetTexture(LOGO_01 + (guiFrameId / 6) % (LOGO_21 - LOGO_01 + 1));
+    GSTEXTURE *logo = guiGetGreetingLogo(animated);
     if (logo) {
         mycolor = GS_SETREG_RGBA(0xFF, 0xFF, 0xFF, alpha);
         rmDrawPixmap(logo, screenWidth >> 1, gTheme->usedHeight >> 1, ALIGN_CENTER, logo->Width, logo->Height, SCALING_RATIO, mycolor, 0);
@@ -1304,10 +1320,15 @@ static void guiRenderGreeting(int alpha)
     guiDrawBootVersion(alpha);
 }
 
+static void guiRenderGreeting(int alpha)
+{
+    guiRenderGreetingExt(alpha, 1);
+}
+
 static void guiRenderBootFrame(int alpha)
 {
     guiStartFrame();
-    guiRenderGreeting(alpha);
+    guiRenderGreetingExt(alpha, 0);
     guiEndFrame();
 }
 

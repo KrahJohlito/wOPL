@@ -274,6 +274,7 @@ void init(void)
     lngInit();
     thmInit();
     guiInit();
+    guiShowBootStatus("Starting wOPL...");
 
     guiShowBootStatus("Initializing I/O...");
     ioInit();
