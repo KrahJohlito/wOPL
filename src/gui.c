@@ -87,6 +87,7 @@ extern GSGLOBAL *gsGlobal;
 #define BOOT_ANIM_END_LOGO    LOGO_21
 #define BOOT_FADE_LOGO        LOGO_17
 #define BOOT_LOGO_FRAME_DELAY 6
+#define BOOT_LOGO_FRAME_COUNT (BOOT_ANIM_END_LOGO - BOOT_ANIM_START_LOGO + 1)
 
 static int gBootLogoFrame = BOOT_ANIM_START_LOGO;
 static int gBootLogoFrameDelay = 0;
@@ -1302,17 +1303,12 @@ static void guiDrawBootVersion(int alpha)
     fntRenderString(font, x, y, ALIGN_NONE, 0, 0, version, GS_SETREG_RGBA(0x50, 0x50, 0x50, alpha));
 }
 
-static int guiGetBootLogoFrameCount(void)
-{
-    return BOOT_ANIM_END_LOGO - BOOT_ANIM_START_LOGO + 1;
-}
-
 static int guiGetBootLogoFrameDistance(int from, int to)
 {
     int distance = to - from;
 
     if (distance < 0)
-        distance += guiGetBootLogoFrameCount();
+        distance += BOOT_LOGO_FRAME_COUNT;
 
     return distance;
 }
@@ -1372,18 +1368,6 @@ static void guiRenderGreetingFrame(int alpha, GSTEXTURE *logo)
     guiDrawBootVersion(alpha);
 }
 
-static void guiRenderGreeting(int alpha)
-{
-    guiRenderGreetingFrame(alpha, guiGetGreetingLogo());
-}
-
-static void guiRenderBootFrame(int alpha)
-{
-    guiStartFrame();
-    guiRenderGreetingFrame(alpha, NULL);
-    guiEndFrame();
-}
-
 // For early boot only.. before guiIntroLoop() is running
 void guiShowBootStatus(const char *status)
 {
@@ -1391,7 +1375,10 @@ void guiShowBootStatus(const char *status)
         return;
 
     guiSetBootStatusIfActive(status);
-    guiRenderBootFrame(0x80);
+
+    guiStartFrame();
+    guiRenderGreetingFrame(0x80, NULL);
+    guiEndFrame();
 }
 
 static float mix(float a, float b, float t)
@@ -1867,7 +1854,7 @@ void guiIntroLoop(void)
             guiShow();
 
         if (greetingAlpha > 0)
-            guiRenderGreeting(greetingAlpha);
+            guiRenderGreetingFrame(greetingAlpha, guiGetGreetingLogo());
 
         if (gBootLogoReadyToFade && bootSoundStarted && clock() >= tFadeDelayEnd)
             greetingAlpha -= 2;
