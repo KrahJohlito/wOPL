@@ -871,8 +871,6 @@ void bdmEnumerateDevices()
 {
     LOG("bdmEnumerateDevices\n");
 
-    guiSetBootStatusIfActive("Preparing block devices...");
-
     // Initialize the device list data if it hasn't been initialized yet.
     bdmInitDevicesData();
 
