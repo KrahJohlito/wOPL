@@ -890,7 +890,7 @@ int sbReadList(base_game_info_t **list, const char *prefix, int *fsize, int *gam
     }
 
     // count and process games in ul.cfg
-    guiSetBootStatusIfActive("Loading USBExtreme games...");
+    guiSetBootStatusIfActive("Checking USBExtreme games...");
     snprintf(path, sizeof(path), "%sul.cfg", prefix);
     fd = sbOpenFile(path, O_RDONLY);
     if (fd >= 0) {
