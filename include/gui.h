@@ -155,7 +155,6 @@ void guiCheckNotifications(int checkTheme, int checkLang);
 
 void guiShowCfgMigration(void); // DELETE_WITH_MIGRATION
 
-void guiSetBootStatus(const char *status);
 void guiSetBootStatusIfActive(const char *status);
 void guiShowBootStatus(const char *status);
 

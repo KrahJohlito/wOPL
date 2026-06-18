@@ -156,6 +156,8 @@ static void ethSMBConnect(void)
         openshare.PasswordType = NO_PASSWORD;
     }
 
+    guiSetBootStatusIfActive("Connecting to SMB server...");
+
     if ((result = fileXioDevctl(ethBase, SMB_DEVCTL_LOGON, (void *)&logon, sizeof(logon), NULL, 0)) >= 0) {
         // SMB server alive test
         strcpy(echo.echo, "ALIVE ECHO TEST");

@@ -1258,19 +1258,15 @@ static int guiGetBootTextFont(void)
     return gBootTextFont;
 }
 
-void guiSetBootStatus(const char *status)
-{
-    if (status) {
-        strncpy(gBootStatus, status, sizeof(gBootStatus) - 1);
-        gBootStatus[sizeof(gBootStatus) - 1] = '\0';
-    } else
-        gBootStatus[0] = '\0';
-}
-
 void guiSetBootStatusIfActive(const char *status)
 {
-    if (gBootStatusActive)
-        guiSetBootStatus(status);
+    if (gBootStatusActive) {
+        if (status) {
+            strncpy(gBootStatus, status, sizeof(gBootStatus) - 1);
+            gBootStatus[sizeof(gBootStatus) - 1] = '\0';
+        } else
+            gBootStatus[0] = '\0';
+    }
 }
 
 static void guiDrawBootStatus(int alpha)
@@ -1394,7 +1390,7 @@ void guiShowBootStatus(const char *status)
     if (!gBootStatusActive)
         return;
 
-    guiSetBootStatus(status);
+    guiSetBootStatusIfActive(status);
     guiRenderBootFrame(0x80);
 }
 
@@ -1835,7 +1831,7 @@ void guiIntroLoop(void)
         if (gInitComplete && !bootFinalizeStarted) {
             bootFinalizeStarted = 1;
 
-            guiSetBootStatus(NULL);
+            guiSetBootStatusIfActive(NULL);
 
             gBootLogoFadeCountdown = guiGetBootLogoFrameDistance(gBootLogoFrame, BOOT_FADE_LOGO);
 
@@ -1893,7 +1889,7 @@ void guiIntroLoop(void)
 void guiMainLoop(void)
 {
     gBootStatusActive = 0;
-    guiSetBootStatus(NULL);
+    gBootStatus[0] = '\0';
 
     guiResetNotifications();
     guiCheckNotifications(1, 1);
