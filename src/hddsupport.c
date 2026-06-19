@@ -949,7 +949,7 @@ void hddLaunchGame(item_list_t *itemList, int id, per_game_cfg_t *pgcfg)
 
     int selectedCore = pgcfg->core_loader == CORE_LOADER_NEUTRINO ? CORE_LOADER_NEUTRINO : CORE_LOADER_WOPL;
     int isZSO = 0;
-    u32 layer1_start = 0;
+    int size_mcemu_irx = 0;
 
     neutrino_path_t neutrinoPath;
     const char *neutrinoElf = NULL;
@@ -961,7 +961,86 @@ void hddLaunchGame(item_list_t *itemList, int id, per_game_cfg_t *pgcfg)
     neutrinoVmc0[0] = '\0';
     neutrinoVmc1[0] = '\0';
 
+    if (selectedCore == CORE_LOADER_NEUTRINO) {
+        neutrinoElf = sbFindNeutrino(&neutrinoPath, gOPLPart);
+        if (neutrinoElf == NULL) {
+            guiWarning("Neutrino ELF not found, launching with <wOPL> core", 6);
+            selectedCore = CORE_LOADER_WOPL;
+        }
+    }
+
+    if (gRememberLastPlayed)
+        wOPLLastSave(game->startup);
+
+    int dmaType = 0, dmaMode = 7, compatMode = 0;
+    compatMode = pgcfg->compat;
+    dmaMode = (pgcfg->dma != 7) ? pgcfg->dma : 7;
+    if (dmaMode < 3)
+        dmaType = 0x20;
+    else {
+        dmaType = 0x40;
+        dmaMode -= 3;
+    }
+    hddSetTransferMode(dmaType, dmaMode);
+    // gHDDSpindown [0..20] -> spindown [0..240] -> seconds [0..1200]
+    hddSetIdleTimeout(gHDDSpindown * 12);
+
+    if (hddHDProKitDetected) {
+        size_irx = size_hdd_hdpro_cdvdman_irx;
+        irx = &hdd_hdpro_cdvdman_irx;
+    } else if (hddCheckGameStar()) {
+        size_irx = size_hdd_gamestar_cdvdman_irx;
+        irx = &hdd_gamestar_cdvdman_irx;
+    } else {
+        size_irx = size_hdd_cdvdman_irx;
+        irx = &hdd_cdvdman_irx;
+    }
+
+    sbPrepare(NULL, pgcfg, size_irx, irx, &i);
+#ifdef CHEAT
+    if ((result = sbLoadCheats(gHDDPrefix, game->startup)) < 0) {
+        if (gAutoLaunchGame == NULL) {
+            switch (result) {
+                case -ENOENT:
+                    guiWarning(_l(_STR_NO_CHEATS_FOUND), 10);
+                    break;
+                default:
+                    guiWarning(_l(_STR_ERR_CHEATS_LOAD_FAILED), 10);
+            }
+        } else
+            LOG("Cheats error\n");
+    }
+
+    if ((result = sbLoadImage(gHDDPrefix, game->startup)) < 0) {
+        if (gAutoLaunchGame == NULL) {
+            guiWarning(_l(_STR_ERR_IMAGE_LOAD_FAILED), 10);
+        } else {
+            LOG("Image error\n");
+        }
+    }
+#endif
+
+    settings = (struct cdvdman_settings_hdd *)((u8 *)irx + i);
+
+    // patch 48bit flag
+    settings->common.media = hddIs48bit() & 0xff;
+
+    // patch start_sector
+    settings->lba_start = game->start_sector;
+
+    if (pgcfg->alt_startup[0]) {
+        strncpy(filename, pgcfg->alt_startup, sizeof(filename) - 1);
+        filename[sizeof(filename) - 1] = '\0';
+    } else {
+        strncpy(filename, game->startup, sizeof(filename) - 1);
+        filename[sizeof(filename) - 1] = '\0';
+    }
+
+    if (gPS2Logo)
+        EnablePS2Logo = CheckPS2Logo(0, game->start_sector + OPL_HDD_MODE_PS2LOGO_OFFSET);
+
     // Check for ZSO to correctly adjust layer1 start
+    settings->common.layer1_start = 0; // cdvdman will read it from APA header
     hddReadSectors(game->start_sector + OPL_HDD_MODE_PS2LOGO_OFFSET, 1, IOBuffer);
     if (*(u32 *)IOBuffer == ZSO_MAGIC) {
         probed_fd = 0;
@@ -969,26 +1048,16 @@ void hddLaunchGame(item_list_t *itemList, int id, per_game_cfg_t *pgcfg)
         ziso_init((ZISO_header *)IOBuffer, *(u32 *)((u8 *)IOBuffer + sizeof(ZISO_header)));
         ziso_read_sector(IOBuffer, 16, 1);
         u32 maxLBA = *(u32 *)(IOBuffer + 80);
-        if (maxLBA > 0 && maxLBA < ziso_total_block) { // dual layer check
-            layer1_start = maxLBA - 16;                // adjust second layer start
+        if (maxLBA > 0 && maxLBA < ziso_total_block) {   // dual layer check
+            settings->common.layer1_start = maxLBA - 16; // adjust second layer start
         }
         isZSO = 1;
     }
 
-    if (selectedCore == CORE_LOADER_NEUTRINO) {
-        if (isZSO) {
-            guiWarning("Neutrino does not support this file format, launching with <wOPL> core", 6);
-            selectedCore = CORE_LOADER_WOPL;
-        } else {
-            neutrinoElf = sbFindNeutrino(&neutrinoPath, gOPLPart);
-            if (neutrinoElf == NULL) {
-                guiWarning("Neutrino ELF not found, launching with <wOPL> core", 6);
-                selectedCore = CORE_LOADER_WOPL;
-            }
-        }
+    if (selectedCore == CORE_LOADER_NEUTRINO && isZSO) {
+        guiWarning("Neutrino does not support this file format, launching with <wOPL> core", 6);
+        selectedCore = CORE_LOADER_WOPL;
     }
-
-    int size_mcemu_irx = 0;
 
     if (selectedCore == CORE_LOADER_WOPL) {
         apa_sub_t parts[APA_MAXSUB + 1];
@@ -1079,78 +1148,6 @@ void hddLaunchGame(item_list_t *itemList, int id, per_game_cfg_t *pgcfg)
             }
         }
     }
-
-    if (gRememberLastPlayed)
-        wOPLLastSave(game->startup);
-
-    int dmaType = 0, dmaMode = 7, compatMode = 0;
-    compatMode = pgcfg->compat;
-    dmaMode = (pgcfg->dma != 7) ? pgcfg->dma : 7;
-    if (dmaMode < 3)
-        dmaType = 0x20;
-    else {
-        dmaType = 0x40;
-        dmaMode -= 3;
-    }
-    hddSetTransferMode(dmaType, dmaMode);
-    // gHDDSpindown [0..20] -> spindown [0..240] -> seconds [0..1200]
-    hddSetIdleTimeout(gHDDSpindown * 12);
-
-    if (hddHDProKitDetected) {
-        size_irx = size_hdd_hdpro_cdvdman_irx;
-        irx = &hdd_hdpro_cdvdman_irx;
-    } else if (hddCheckGameStar()) {
-        size_irx = size_hdd_gamestar_cdvdman_irx;
-        irx = &hdd_gamestar_cdvdman_irx;
-    } else {
-        size_irx = size_hdd_cdvdman_irx;
-        irx = &hdd_cdvdman_irx;
-    }
-
-    sbPrepare(NULL, pgcfg, size_irx, irx, &i);
-#ifdef CHEAT
-    if ((result = sbLoadCheats(gHDDPrefix, game->startup)) < 0) {
-        if (gAutoLaunchGame == NULL) {
-            switch (result) {
-                case -ENOENT:
-                    guiWarning(_l(_STR_NO_CHEATS_FOUND), 10);
-                    break;
-                default:
-                    guiWarning(_l(_STR_ERR_CHEATS_LOAD_FAILED), 10);
-            }
-        } else
-            LOG("Cheats error\n");
-    }
-
-    if ((result = sbLoadImage(gHDDPrefix, game->startup)) < 0) {
-        if (gAutoLaunchGame == NULL) {
-            guiWarning(_l(_STR_ERR_IMAGE_LOAD_FAILED), 10);
-        } else {
-            LOG("Image error\n");
-        }
-    }
-#endif
-
-    settings = (struct cdvdman_settings_hdd *)((u8 *)irx + i);
-
-    // patch 48bit flag
-    settings->common.media = hddIs48bit() & 0xff;
-
-    // patch start_sector
-    settings->lba_start = game->start_sector;
-
-    if (pgcfg->alt_startup[0]) {
-        strncpy(filename, pgcfg->alt_startup, sizeof(filename) - 1);
-        filename[sizeof(filename) - 1] = '\0';
-    } else {
-        strncpy(filename, game->startup, sizeof(filename) - 1);
-        filename[sizeof(filename) - 1] = '\0';
-    }
-
-    if (gPS2Logo)
-        EnablePS2Logo = CheckPS2Logo(0, game->start_sector + OPL_HDD_MODE_PS2LOGO_OFFSET);
-
-    settings->common.layer1_start = layer1_start; // cdvdman will read it from APA header if 0
 
     char partitionName[APA_IDMAX + 1];
     snprintf(partitionName, sizeof(partitionName), "%s", game->partition_name);
