@@ -428,14 +428,12 @@ void bdmLaunchGame(item_list_t *itemList, int id, per_game_cfg_t *pgcfg)
     int size_mcemu_irx = 0;
 
     if (selectedCore == CORE_LOADER_WOPL) {
-        char vmc_name[32], vmc_path[256];
+        char vmc_name[32], vmc_path[256], have_error = 0;
         int vmc_id;
         bdm_vmc_infos_t bdm_vmc_infos;
         vmc_superblock_t vmc_superblock;
 
         for (vmc_id = 0; vmc_id < 2; vmc_id++) {
-            char have_error = 0;
-
             memset(&bdm_vmc_infos, 0, sizeof(bdm_vmc_infos_t));
             strncpy(vmc_name, vmc_id == 0 ? pgcfg->vmc1 : pgcfg->vmc2, sizeof(vmc_name) - 1);
             vmc_name[sizeof(vmc_name) - 1] = '\0';
