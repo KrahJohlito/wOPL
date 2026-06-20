@@ -44,7 +44,8 @@ typedef struct
     vmc_spec_t specs; /* Card specifications */
 } bdm_vmc_infos_t;
 
-// static int usbModLoaded = 0;
+static int bdmModulesLoaded = 0;
+//static int usbModLoaded = 0;
 static int iLinkModLoaded = 0;
 static int mx4sioModLoaded = 0;
 static int hddModLoaded = 0;
@@ -63,7 +64,6 @@ int gEnableMX4SIO;
 int gEnableBdmHDD;
 base_game_info_t *gAutoLaunchBDMGame;
 bdm_device_data_t *gAutoLaunchDeviceData;
-
 
 void bdmInitDevicesData();
 int bdmUpdateDeviceData(item_list_t *itemList);
@@ -160,30 +160,34 @@ void bdmLoadModules(void)
 {
     LOG("BDMSUPPORT LoadModules\n");
 
-    guiSetBootStatusIfActive("Loading block device modules...");
+    if (!bdmModulesLoaded) {
+        guiSetBootStatusIfActive("Loading block device modules...");
 
-    // Load Block Device Manager (BDM)
-    LOG("[BDM]:\n");
-    sysLoadModuleBuffer(&bdm_irx, size_bdm_irx, 0, NULL);
+        // Load Block Device Manager (BDM)
+        LOG("[BDM]:\n");
+        sysLoadModuleBuffer(&bdm_irx, size_bdm_irx, 0, NULL);
 
-    // Load FATFS (mass:) driver
-    LOG("[BDMFS_FATFS]:\n");
-    sysLoadModuleBuffer(&bdmfs_fatfs_irx, size_bdmfs_fatfs_irx, 0, NULL);
+        // Load FATFS (mass:) driver
+        LOG("[BDMFS_FATFS]:\n");
+        sysLoadModuleBuffer(&bdmfs_fatfs_irx, size_bdmfs_fatfs_irx, 0, NULL);
 
-    guiSetBootStatusIfActive("Loading USB modules...");
+        guiSetBootStatusIfActive("Loading USB modules...");
 
-    LOG("[USBD]:\n");
-    sysLoadModuleBuffer(&usbd_irx, size_usbd_irx, 0, NULL);
+        LOG("[USBD]:\n");
+        sysLoadModuleBuffer(&usbd_irx, size_usbd_irx, 0, NULL);
 
-    LOG("[USBMASS_BD]:\n");
-    sysLoadModuleBuffer(&usbmass_bd_irx, size_usbmass_bd_irx, 0, NULL);
+        LOG("[USBMASS_BD]:\n");
+        sysLoadModuleBuffer(&usbmass_bd_irx, size_usbmass_bd_irx, 0, NULL);
+
+        LOG("[BDMEVENT]:\n");
+        sysLoadModuleBuffer(&bdmevent_irx, size_bdmevent_irx, 0, NULL);
+        SifAddCmdHandler(0, &bdmEventHandler, NULL);
+
+        bdmModulesLoaded = 1;
+    }
 
     // Load Optional Block Device drivers
     ioPutRequest(IO_CUSTOM_SIMPLEACTION, &bdmLoadBlockDeviceModules);
-
-    LOG("[BDMEVENT]:\n");
-    sysLoadModuleBuffer(&bdmevent_irx, size_bdmevent_irx, 0, NULL);
-    SifAddCmdHandler(0, &bdmEventHandler, NULL);
 
     LOG("BDMSUPPORT Modules loaded\n");
 }
@@ -634,10 +638,10 @@ void bdmLaunchGame(item_list_t *itemList, int id, per_game_cfg_t *pgcfg)
             dmaType = 0x20;
         else {
             dmaType = 0x40;
-            if (pDeviceData->ataHighestUDMAMode > 0)
+            dmaMode -= 3;
+
+            if (pDeviceData->ataHighestUDMAMode > 0 && dmaMode > pDeviceData->ataHighestUDMAMode)
                 dmaMode = pDeviceData->ataHighestUDMAMode;
-            else
-                dmaMode -= 3;
         }
 
         hddSetTransferMode(dmaType, dmaMode);
@@ -918,7 +922,7 @@ void bdmResolveLBA_UDMA(bdm_device_data_t *pDeviceData)
     }
 
     // Set the UDMA mode to highest available.
-    hddSetTransferMode(0x40, pDeviceData->ataHighestUDMAMode);
+    //hddSetTransferMode(0x40, pDeviceData->ataHighestUDMAMode);
 }
 
 int bdmUpdateDeviceData(item_list_t *itemList)
