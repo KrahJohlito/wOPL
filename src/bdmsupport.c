@@ -69,36 +69,33 @@ void bdmInitDevicesData();
 int bdmUpdateDeviceData(item_list_t *itemList);
 
 // Identifies the partition that the specified file is stored on and generates a full path to it.
-int bdmFindPartition(char *target, const char *name, int write)
+int bdmFindPartition(char *target, const char *name)
 {
     int i, fd;
     char path[256];
 
     for (i = 0; i < MAX_BDM_DEVICES; i++) {
         if (gBDMPrefix[0] != '\0')
-            sprintf(path, "mass%d:%s/%s", i, gBDMPrefix, name);
+            snprintf(path, sizeof(path), "mass%d:%s/%s", i, gBDMPrefix, name);
         else
-            sprintf(path, "mass%d:%s", i, name);
-        if (write)
-            fd = open(path, O_WRONLY | O_TRUNC | O_CREAT, 0666);
-        else
-            fd = open(path, O_RDONLY);
+            snprintf(path, sizeof(path), "mass%d:%s", i, name);
+
+        fd = open(path, O_RDONLY);
 
         if (fd >= 0) {
             if (gBDMPrefix[0] != '\0')
-                sprintf(target, "mass%d:%s/", i, gBDMPrefix);
+                snprintf(target, 64, "mass%d:%s/", i, gBDMPrefix);
             else
-                sprintf(target, "mass%d:", i);
+                snprintf(target, 64, "mass%d:", i);
+
             close(fd);
+
             return 1;
         }
     }
 
-    // default to first partition (for themes, ...)
-    if (gBDMPrefix[0] != '\0')
-        sprintf(target, "mass0:%s/", gBDMPrefix);
-    else
-        sprintf(target, "mass0:");
+    target[0] = '\0';
+
     return 0;
 }
 
@@ -946,10 +943,12 @@ int bdmUpdateDeviceData(item_list_t *itemList)
 
     // If we opened the device and the menu isn't visible (OR is visible but hasn't been initialized ex: manual device start) initialize device info.
     if (dir >= 0 && (visible == 0 || pDeviceData->bdmPrefix[0] == '\0')) {
+        snprintf(pDeviceData->bdmRuntimePrefix, sizeof(pDeviceData->bdmRuntimePrefix), "mass%d:", itemList->mode);
+
         if (gBDMPrefix[0] != '\0')
-            snprintf(pDeviceData->bdmPrefix, sizeof(pDeviceData->bdmPrefix), "mass%d:%s/", itemList->mode, gBDMPrefix);
+            snprintf(pDeviceData->bdmPrefix, sizeof(pDeviceData->bdmPrefix), "%s%s/", pDeviceData->bdmRuntimePrefix, gBDMPrefix);
         else
-            snprintf(pDeviceData->bdmPrefix, sizeof(pDeviceData->bdmPrefix), "mass%d:", itemList->mode);
+            snprintf(pDeviceData->bdmPrefix, sizeof(pDeviceData->bdmPrefix), "%s", pDeviceData->bdmRuntimePrefix);
 
         // Get the name of the underlying device driver that backs the fat fs.
         fileXioIoctl2(dir, USBMASS_IOCTL_GET_DRIVERNAME, NULL, 0, &pDeviceData->bdmDriver, sizeof(pDeviceData->bdmDriver) - 1);
@@ -958,17 +957,23 @@ int bdmUpdateDeviceData(item_list_t *itemList)
         itemList->flags = 0;
 
         // Determine the bdm device type based on the underlying device driver.
-        if (!strcmp(pDeviceData->bdmDriver, "usb"))
+        if (!strcmp(pDeviceData->bdmDriver, "usb")) {
             pDeviceData->bdmDeviceType = BDM_TYPE_USB;
-        else if (!strcmp(pDeviceData->bdmDriver, "sd") && strlen(pDeviceData->bdmDriver) == 2)
+            snprintf(pDeviceData->bdmTruePrefix, sizeof(pDeviceData->bdmTruePrefix), "usb:");
+        } else if (!strcmp(pDeviceData->bdmDriver, "sd") && strlen(pDeviceData->bdmDriver) == 2) {
             pDeviceData->bdmDeviceType = BDM_TYPE_ILINK;
-        else if (!strcmp(pDeviceData->bdmDriver, "sdc") && strlen(pDeviceData->bdmDriver) == 3)
+            snprintf(pDeviceData->bdmTruePrefix, sizeof(pDeviceData->bdmTruePrefix), "ilink:");
+        } else if (!strcmp(pDeviceData->bdmDriver, "sdc") && strlen(pDeviceData->bdmDriver) == 3) {
             pDeviceData->bdmDeviceType = BDM_TYPE_SDC;
-        else if (!strcmp(pDeviceData->bdmDriver, "ata") && strlen(pDeviceData->bdmDriver) == 3) {
+            snprintf(pDeviceData->bdmTruePrefix, sizeof(pDeviceData->bdmTruePrefix), "mx4sio:");
+        } else if (!strcmp(pDeviceData->bdmDriver, "ata") && strlen(pDeviceData->bdmDriver) == 3) {
             pDeviceData->bdmDeviceType = BDM_TYPE_ATA;
+            snprintf(pDeviceData->bdmTruePrefix, sizeof(pDeviceData->bdmTruePrefix), "ata:");
             itemList->flags = MODE_FLAG_COMPAT_DMA;
-        } else
+        } else {
             pDeviceData->bdmDeviceType = BDM_TYPE_UNKNOWN;
+            pDeviceData->bdmTruePrefix[0] = '\0';
+        }
 
         // If the device is backed by the ATA driver then get the supported LBA size for the drive.
         if (pDeviceData->bdmDeviceType == BDM_TYPE_ATA) {

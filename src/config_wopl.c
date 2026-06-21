@@ -357,119 +357,157 @@ static void sanitize_pad_sensitivity(void)
         gYSensitivity = 0;
 }
 
-static int pick_default_config_dir(void)
+static int path_starts_with_device(const char *path, const char *device)
 {
-    int mc = sysCheckMC();
+    size_t len;
 
-    // like old tryAlternateDevice().. first launch no config prefers mc..
-    if (mc >= 0) {
-        snprintf(config_dir, sizeof(config_dir), "mc%d:%s/", mc & 1, WOPL_CONFIG_NAME);
-        return 1;
-    }
+    if (!path || !device)
+        return 0;
 
-    // no mc? old logic tried mass0 next..
-    DIR *dir = opendir("mass0:/");
-    if (dir != NULL) {
-        closedir(dir);
-        copy_str(config_dir, "mass0:/", sizeof(config_dir));
-        return 1;
-    }
+    len = strlen(device);
 
-    // last fallback is HDD..
-    if (gHDDPrefix && gHDDPrefix[0] && path_exists(gHDDPrefix)) {
-        copy_str(config_dir, gHDDPrefix, sizeof(config_dir));
-        return 1;
+    if (strncmp(path, device, len))
+        return 0;
+
+    return path[len] == ':' || (path[len] >= '0' && path[len] <= '9');
+}
+
+static int is_boot_config_path(const char *path)
+{
+    static const char *devices[] = {
+        "mc",
+        "mass", // legacy cwd/runtime alias only
+        "usb",
+        "mx4sio",
+        "ilink",
+        "ata",
+        "hdd",
+        "host",
+        "mmce",
+        NULL
+    };
+
+    int i;
+
+    if (!path || !path[0])
+        return 0;
+
+    for (i = 0; devices[i] != NULL; i++) {
+        if (path_starts_with_device(path, devices[i]))
+            return 1;
     }
 
     return 0;
 }
 
-static int probe_bdm_config_path(const char *filename, char *dir_out, size_t dir_len, char *path_out, size_t path_len, int for_write)
+static void normalize_config_dir(char *dir, size_t dir_len)
 {
-    char dir[64];
-    int result;
+    size_t len;
 
-    result = bdmFindPartition(dir, filename, for_write);
-    if (result == 0) {
-        if (hddLoadModules() >= 0 && bdmHDDIsPresent(5000))
-            result = bdmFindPartition(dir, filename, for_write);
+    if (!dir_len)
+        return;
+
+    dir[dir_len - 1] = '\0';
+    len = strlen(dir);
+
+    if (len > 0 && dir[len - 1] != '/') {
+        if (len + 1 < dir_len) {
+            dir[len] = '/';
+            dir[len + 1] = '\0';
+        }
     }
+}
 
-    if (!result)
+static int get_boot_config_dir(char *dir_out, size_t dir_len)
+{
+    char pwd[128];
+
+    pwd[0] = '\0';
+
+    if (getcwd(pwd, sizeof(pwd)) == NULL)
         return 0;
 
-    copy_str(dir_out, dir, dir_len);
-    snprintf(path_out, path_len, "%s%s", dir, filename);
+    if (!is_boot_config_path(pwd))
+        return 0;
+
+    copy_str(dir_out, pwd, dir_len);
+    normalize_config_dir(dir_out, dir_len);
 
     return 1;
 }
 
-static int probe_hdd_config_path(const char *filename, char *dir_out, size_t dir_len, char *path_out, size_t path_len, int for_write)
+static int probe_dir_config_path(const char *dir, const char *filename, char *dir_out, size_t dir_len, char *path_out, size_t path_len, int for_write)
 {
-    if (!gHDDPrefix || !gHDDPrefix[0])
+    char path[256];
+
+    if (!dir || !dir[0])
         return 0;
 
-    hddLoadModules();
+    snprintf(path, sizeof(path), "%s%s", dir, filename);
 
-    if (for_write) {
-        if (hddCheck() != 0)
-            return 0;
-    } else
-        hddLoadSupportModules();
-
-    snprintf(path_out, path_len, "%s%s", gHDDPrefix, filename);
-
-    if (!for_write && !file_exists(path_out))
+    if (!for_write && !file_exists(path))
         return 0;
 
-    copy_str(dir_out, gHDDPrefix, dir_len);
+    if (for_write && !path_exists(dir))
+        return 0;
+
+    copy_str(dir_out, dir, dir_len);
+    copy_str(path_out, path, path_len);
 
     return 1;
 }
 
 static int probe_boot_config_path(const char *filename, char *dir_out, size_t dir_len, char *path_out, size_t path_len, int for_write)
 {
-    char pwd[8];
+    char dir[128];
 
-    getcwd(pwd, sizeof(pwd));
+    if (!get_boot_config_dir(dir, sizeof(dir)))
+        return 0;
 
-    if (!strncmp(pwd, "mass", 4) && (pwd[4] == ':' || pwd[5] == ':'))
-        return probe_bdm_config_path(filename, dir_out, dir_len, path_out, path_len, for_write);
+    return probe_dir_config_path(dir, filename, dir_out, dir_len, path_out, path_len, for_write);
+}
 
-    if (!strncmp(pwd, "hdd", 3) && (pwd[3] == ':' || pwd[4] == ':'))
-        return probe_hdd_config_path(filename, dir_out, dir_len, path_out, path_len, for_write);
+static int probe_mc_config_path(const char *filename, char *dir_out, size_t dir_len, char *path_out, size_t path_len, int for_write)
+{
+    char dir[128];
+    int mc;
+
+    mc = sysCheckMC();
+
+    if (mc < 0)
+        return 0;
+
+    snprintf(dir, sizeof(dir), "mc%d:%s/", mc & 1, WOPL_CONFIG_NAME);
+
+    return probe_dir_config_path(dir, filename, dir_out, dir_len, path_out, path_len, for_write);
+}
+
+static int pick_default_config_dir(void)
+{
+    char dir[128];
+    int mc;
+
+    if (get_boot_config_dir(dir, sizeof(dir)) && path_exists(dir)) {
+        copy_str(config_dir, dir, sizeof(config_dir));
+        return 1;
+    }
+
+    mc = sysCheckMC();
+
+    if (mc >= 0) {
+        snprintf(config_dir, sizeof(config_dir), "mc%d:%s/", mc & 1, WOPL_CONFIG_NAME);
+        return 1;
+    }
 
     return 0;
 }
 
 static int probe_config_path(const char *filename, char *dir_out, size_t dir_len, char *path_out, size_t path_len, int for_write)
 {
-    char dir[128];
-    char path[256];
-
-    // 1. current/default location mc..
-    int mc = sysCheckMC();
-    if (mc >= 0) {
-        snprintf(dir, sizeof(dir), "mc%d:%s/", mc & 1, WOPL_CONFIG_NAME);
-        snprintf(path, sizeof(path), "%s%s", dir, filename);
-
-        if (for_write || file_exists(path)) {
-            copy_str(dir_out, dir, dir_len);
-            copy_str(path_out, path, path_len);
-            return 1;
-        }
-    }
-
-    // 2. first try the device OPL booted from..
     if (probe_boot_config_path(filename, dir_out, dir_len, path_out, path_len, for_write))
         return 1;
 
-    // 3. then try BDM..
-    if (probe_bdm_config_path(filename, dir_out, dir_len, path_out, path_len, for_write))
-        return 1;
-
-    // 4. then try HDD..
-    if (probe_hdd_config_path(filename, dir_out, dir_len, path_out, path_len, for_write))
+    if (probe_mc_config_path(filename, dir_out, dir_len, path_out, path_len, for_write))
         return 1;
 
     return 0;
@@ -1697,74 +1735,23 @@ static int try_save_all_mc(int types)
     return save_all_to_dir(dir, types);
 }
 
-static int try_save_all_bdm(int types)
-{
-    char dir[128];
-    char path[256];
-
-    if (types & CONFIG_OPL) {
-        if (probe_bdm_config_path(WOPL_FILENAME, dir, sizeof(dir), path, sizeof(path), 1))
-            return save_all_to_dir(dir, types);
-    }
-
-    if (types & CONFIG_NETWORK) {
-        if (probe_bdm_config_path(NET_FILENAME, dir, sizeof(dir), path, sizeof(path), 1))
-            return save_all_to_dir(dir, types);
-    }
-
-    if (types & CONFIG_GAME) {
-        if (probe_bdm_config_path(GAME_FILENAME, dir, sizeof(dir), path, sizeof(path), 1))
-            return save_all_to_dir(dir, types);
-    }
-
-    return 0;
-}
-
-static int try_save_all_hdd(int types)
-{
-    char dir[128];
-    char path[256];
-
-    if (types & CONFIG_OPL) {
-        if (probe_hdd_config_path(WOPL_FILENAME, dir, sizeof(dir), path, sizeof(path), 1))
-            return save_all_to_dir(dir, types);
-    }
-
-    if (types & CONFIG_NETWORK) {
-        if (probe_hdd_config_path(NET_FILENAME, dir, sizeof(dir), path, sizeof(path), 1))
-            return save_all_to_dir(dir, types);
-    }
-
-    if (types & CONFIG_GAME) {
-        if (probe_hdd_config_path(GAME_FILENAME, dir, sizeof(dir), path, sizeof(path), 1))
-            return save_all_to_dir(dir, types);
-    }
-
-    return 0;
-}
-
 static int save_all_with_fallback(int types)
 {
     int result;
     int expected = config_type_count(types);
 
     result = save_all_to_current_dir(types);
+
     if (result == expected)
         return result;
 
     result = try_save_all_boot(types);
+
     if (result == expected)
         return result;
 
     result = try_save_all_mc(types);
-    if (result == expected)
-        return result;
 
-    result = try_save_all_bdm(types);
-    if (result == expected)
-        return result;
-
-    result = try_save_all_hdd(types);
     if (result == expected)
         return result;
 
