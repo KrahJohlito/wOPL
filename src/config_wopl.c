@@ -21,6 +21,7 @@
 #include "include/hddsupport.h"
 #include "include/config_migration.h" // DELETE_WITH_MIGRATION
 #include "include/module.h"
+#include "include/pathsupport.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -357,85 +358,6 @@ static void sanitize_pad_sensitivity(void)
         gYSensitivity = 0;
 }
 
-static int path_starts_with_device(const char *path, const char *device)
-{
-    size_t len;
-
-    if (!path || !device)
-        return 0;
-
-    len = strlen(device);
-
-    if (strncmp(path, device, len))
-        return 0;
-
-    return path[len] == ':' || (path[len] >= '0' && path[len] <= '9');
-}
-
-static int is_boot_config_path(const char *path)
-{
-    static const char *devices[] = {
-        "mc",
-        "mass", // legacy cwd/runtime alias only
-        "usb",
-        "mx4sio",
-        "ilink",
-        "ata",
-        "hdd",
-        "host",
-        "mmce",
-        NULL
-    };
-
-    int i;
-
-    if (!path || !path[0])
-        return 0;
-
-    for (i = 0; devices[i] != NULL; i++) {
-        if (path_starts_with_device(path, devices[i]))
-            return 1;
-    }
-
-    return 0;
-}
-
-static void normalize_config_dir(char *dir, size_t dir_len)
-{
-    size_t len;
-
-    if (!dir_len)
-        return;
-
-    dir[dir_len - 1] = '\0';
-    len = strlen(dir);
-
-    if (len > 0 && dir[len - 1] != '/') {
-        if (len + 1 < dir_len) {
-            dir[len] = '/';
-            dir[len + 1] = '\0';
-        }
-    }
-}
-
-static int get_boot_config_dir(char *dir_out, size_t dir_len)
-{
-    char pwd[128];
-
-    pwd[0] = '\0';
-
-    if (getcwd(pwd, sizeof(pwd)) == NULL)
-        return 0;
-
-    if (!is_boot_config_path(pwd))
-        return 0;
-
-    copy_str(dir_out, pwd, dir_len);
-    normalize_config_dir(dir_out, dir_len);
-
-    return 1;
-}
-
 static int probe_dir_config_path(const char *dir, const char *filename, char *dir_out, size_t dir_len, char *path_out, size_t path_len, int for_write)
 {
     char path[256];
@@ -443,7 +365,7 @@ static int probe_dir_config_path(const char *dir, const char *filename, char *di
     if (!dir || !dir[0])
         return 0;
 
-    snprintf(path, sizeof(path), "%s%s", dir, filename);
+    pathJoin(path, sizeof(path), dir, filename);
 
     if (!for_write && !file_exists(path))
         return 0;
@@ -461,7 +383,7 @@ static int probe_boot_config_path(const char *filename, char *dir_out, size_t di
 {
     char dir[128];
 
-    if (!get_boot_config_dir(dir, sizeof(dir)))
+    if (!pathGetBootDir(dir, sizeof(dir)))
         return 0;
 
     return probe_dir_config_path(dir, filename, dir_out, dir_len, path_out, path_len, for_write);
@@ -487,7 +409,7 @@ static int pick_default_config_dir(void)
     char dir[128];
     int mc;
 
-    if (get_boot_config_dir(dir, sizeof(dir)) && path_exists(dir)) {
+    if (pathGetBootDir(dir, sizeof(dir)) && path_exists(dir)) {
         copy_str(config_dir, dir, sizeof(config_dir));
         return 1;
     }
