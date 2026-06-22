@@ -961,7 +961,7 @@ void bdmRegisterPathDevice(const char *path)
     if (!pathGetMassIndex(path, &massIndex))
         return;
 
-    snprintf(runtimePath, sizeof(runtimePath), "mass%d:", massIndex);
+    snprintf(runtimePath, sizeof(runtimePath), "mass%d:/", massIndex);
 
     dir = fileXioDopen(runtimePath);
 
