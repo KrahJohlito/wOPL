@@ -1145,7 +1145,9 @@ void autoLaunchBDMGame(char *argv[])
             fileXioIoctl2(dir, USBMASS_IOCTL_GET_DRIVERNAME, NULL, 0, &gAutoLaunchDeviceData->bdmDriver, sizeof(gAutoLaunchDeviceData->bdmDriver) - 1);
             fileXioIoctl2(dir, USBMASS_IOCTL_GET_DEVICE_NUMBER, NULL, 0, &gAutoLaunchDeviceData->massDeviceIndex, sizeof(gAutoLaunchDeviceData->massDeviceIndex));
 
-            if (!strcmp(gAutoLaunchDeviceData->bdmDriver, "ata") && strlen(gAutoLaunchDeviceData->bdmDriver) == 3) {
+            bdmSetDeviceTypeAndTruePrefix(gAutoLaunchDeviceData, NULL);
+
+            if (gAutoLaunchDeviceData->bdmDeviceType == BDM_TYPE_ATA) {
                 bdmResolveLBA_UDMA(gAutoLaunchDeviceData);
                 snprintf(apaDevicePrefix, sizeof(apaDevicePrefix), "mass%d:", i);
                 fileXioDclose(dir);
@@ -1163,6 +1165,15 @@ void autoLaunchBDMGame(char *argv[])
             }
         }
         delay(6);
+    }
+
+    if (gAutoLaunchDeviceData->bdmDeviceType == BDM_TYPE_UNKNOWN) {
+        LOG("BDMSUPPORT: autolaunch BDM device not found\n");
+        free(gAutoLaunchBDMGame);
+        gAutoLaunchBDMGame = NULL;
+        free(gAutoLaunchDeviceData);
+        gAutoLaunchDeviceData = NULL;
+        return;
     }
 
     if (gBDMPrefix[0] != '\0') {
