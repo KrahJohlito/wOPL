@@ -80,19 +80,15 @@ static char log_label[256]; // file source label for entry logging
 static void write_config_log(const char *path, const char *msg)
 {
     char log_dir[256];
-
     if (config_dir[0]) {
         strncpy(log_dir, config_dir, sizeof(log_dir) - 1);
         log_dir[sizeof(log_dir) - 1] = '\0';
     } else if (path) {
         strncpy(log_dir, path, sizeof(log_dir) - 1);
         log_dir[sizeof(log_dir) - 1] = '\0';
-
         char *sep = strrchr(log_dir, '/');
-
         if (!sep)
             sep = strrchr(log_dir, '\\');
-
         if (sep)
             *(sep + 1) = '\0';
         else
@@ -107,10 +103,8 @@ static void write_config_log(const char *path, const char *msg)
     snprintf(log_path, sizeof(log_path), "%sconfig_errors.log", log_dir);
 
     FILE *f = fopen(log_path, "a");
-
     if (!f)
         return;
-
     fputs(msg, f);
     fclose(f);
 }
