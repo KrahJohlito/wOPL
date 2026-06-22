@@ -8,6 +8,7 @@ const char *pathGetLaunchPath(void);
 
 void pathRegisterBDMDevice(int mass_index, const char *true_prefix);
 void pathUnregisterBDMDevice(int mass_index);
+int pathGetMassIndex(const char *path, int *index);
 
 int pathIsDevicePath(const char *path);
 void pathNormaliseDir(char *dir, size_t dir_len);
