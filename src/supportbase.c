@@ -20,6 +20,7 @@
 #include "include/mmcesupport.h"
 #include "include/tar.h"
 #include "include/config_wopl.h"
+#include "include/pathsupport.h"
 
 #define NEWLIB_PORT_AWARE
 #include <fileXio_rpc.h> // fileXioMount("iso:", ***), fileXioUmount("iso:")
@@ -1553,36 +1554,6 @@ void sbCreateNeutrinoVMCPath(char *path, int length, const char *prefix, const c
         snprintf(path, length, "%sVMC/%s.bin", prefix, vmc);
 }
 
-static int sbParsePathDeviceIndex(const char *path, const char *prefix, int *device)
-{
-    const char *p;
-    int dev = 0;
-    int haveDigit = 0;
-    int prefixLen = strlen(prefix);
-
-    if (!path || strncmp(path, prefix, prefixLen))
-        return 0;
-
-    p = path + prefixLen;
-
-    while (*p >= '0' && *p <= '9') {
-        haveDigit = 1;
-        dev = dev * 10 + (*p - '0');
-        p++;
-    }
-
-    if (*p != ':')
-        return 0;
-
-    if (!haveDigit)
-        dev = 0;
-
-    if (device)
-        *device = dev;
-
-    return 1;
-}
-
 int sbGetPathModeAndDevice(const char *path, int *device)
 {
     const char *blkdevnameend;
@@ -1600,7 +1571,7 @@ int sbGetPathModeAndDevice(const char *path, int *device)
     if (!strncmp(path, "hdd0:", 5) || !strncmp(path, "pfs0:", 5))
         return HDD_MODE;
 
-    if (sbParsePathDeviceIndex(path, "mass", &dev)) {
+    if (pathParseDeviceIndex(path, "mass", &dev)) {
         if (dev < 0 || dev >= MAX_BDM_DEVICES)
             return -1;
 
@@ -1610,7 +1581,7 @@ int sbGetPathModeAndDevice(const char *path, int *device)
         return BDM_MODE + dev;
     }
 
-    if (sbParsePathDeviceIndex(path, "mmce", &dev)) {
+    if (pathParseDeviceIndex(path, "mmce", &dev)) {
         if (device)
             *device = dev;
 
@@ -1649,5 +1620,10 @@ int sbGetPathMode(const char *path)
 
 int sbPathIsMC(const char *path)
 {
-    return path && (!strncmp(path, "mc0:", 4) || !strncmp(path, "mc1:", 4));
+    int device;
+
+    if (!pathParseDeviceIndex(path, "mc", &device))
+        return 0;
+
+    return device == 0 || device == 1;
 }
