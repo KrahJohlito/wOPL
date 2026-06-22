@@ -8,9 +8,9 @@
 
 typedef struct
 {
-    int massDeviceIndex;       // Underlying device index backing the mass fs partition, ex: usb0 = 0, usb1 = 1, etc.
-    char bdmPrefix[40];        // Contains the full path to the folder where all the games are.
-    char bdmTruePrefix[16];    // Stable device identity.. ex: usb0:, mx4sio0:, ilink0:, ata0:
+    int massDeviceIndex;    // Underlying device index backing the mass fs partition, ex: usb0 = 0, usb1 = 1, etc.
+    char bdmPrefix[40];     // Contains the full path to the folder where all the games are.
+    char bdmTruePrefix[16]; // Stable device identity.. ex: usb0:, mx4sio0:, ilink0:, ata0:
     int bdmULSizePrev;
     time_t bdmModifiedCDPrev;
     time_t bdmModifiedDVDPrev;
