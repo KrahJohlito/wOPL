@@ -1133,23 +1133,39 @@ void autoLaunchBDMGame(char *argv[])
     gAutoLaunchDeviceData = malloc(sizeof(bdm_device_data_t));
     memset(gAutoLaunchDeviceData, 0, sizeof(bdm_device_data_t));
 
-    char apaDevicePrefix[8] = {0};
+    char apaDevicePrefix[16] = {0};
+    int foundDevice = 0;
+
     delay(8);
-    snprintf(apaDevicePrefix, sizeof(apaDevicePrefix), "mass0:");
+
     // Loop through mass0: to mass4:
     for (int i = 0; i <= 4; i++) {
+        bdm_device_data_t candidateData;
+
         snprintf(path, sizeof(path), "mass%d:", i);
         int dir = fileXioDopen(path);
 
         if (dir >= 0) {
-            fileXioIoctl2(dir, USBMASS_IOCTL_GET_DRIVERNAME, NULL, 0, &gAutoLaunchDeviceData->bdmDriver, sizeof(gAutoLaunchDeviceData->bdmDriver) - 1);
-            fileXioIoctl2(dir, USBMASS_IOCTL_GET_DEVICE_NUMBER, NULL, 0, &gAutoLaunchDeviceData->massDeviceIndex, sizeof(gAutoLaunchDeviceData->massDeviceIndex));
+            memset(&candidateData, 0, sizeof(candidateData));
 
-            bdmSetDeviceTypeAndTruePrefix(gAutoLaunchDeviceData, NULL);
+            fileXioIoctl2(dir, USBMASS_IOCTL_GET_DRIVERNAME, NULL, 0, &candidateData.bdmDriver, sizeof(candidateData.bdmDriver) - 1);
+            fileXioIoctl2(dir, USBMASS_IOCTL_GET_DEVICE_NUMBER, NULL, 0, &candidateData.massDeviceIndex, sizeof(candidateData.massDeviceIndex));
 
-            if (gAutoLaunchDeviceData->bdmDeviceType == BDM_TYPE_ATA) {
+            bdmSetDeviceTypeAndTruePrefix(&candidateData, NULL);
+
+            if (candidateData.bdmDeviceType != BDM_TYPE_UNKNOWN && (!foundDevice || candidateData.bdmDeviceType == BDM_TYPE_ATA)) {
+                memcpy(gAutoLaunchDeviceData, &candidateData, sizeof(bdm_device_data_t));
+                snprintf(gAutoLaunchDeviceData->bdmRuntimePrefix, sizeof(gAutoLaunchDeviceData->bdmRuntimePrefix), "mass%d:", i);
+                snprintf(apaDevicePrefix, sizeof(apaDevicePrefix), "%s", gAutoLaunchDeviceData->bdmRuntimePrefix);
+
+                if (gAutoLaunchDeviceData->bdmTruePrefix[0])
+                    pathRegisterBDMDevice(i, gAutoLaunchDeviceData->bdmTruePrefix);
+
+                foundDevice = 1;
+            }
+
+            if (candidateData.bdmDeviceType == BDM_TYPE_ATA) {
                 bdmResolveLBA_UDMA(gAutoLaunchDeviceData);
-                snprintf(apaDevicePrefix, sizeof(apaDevicePrefix), "mass%d:", i);
                 fileXioDclose(dir);
                 break; // Exit the loop if "ata" device is found
             }
@@ -1167,12 +1183,15 @@ void autoLaunchBDMGame(char *argv[])
         delay(6);
     }
 
-    if (gAutoLaunchDeviceData->bdmDeviceType == BDM_TYPE_UNKNOWN) {
-        LOG("BDMSUPPORT: autolaunch BDM device not found\n");
+    if (!foundDevice) {
+        miniDeinit();
+
         free(gAutoLaunchBDMGame);
         gAutoLaunchBDMGame = NULL;
+
         free(gAutoLaunchDeviceData);
         gAutoLaunchDeviceData = NULL;
+
         return;
     }
 
