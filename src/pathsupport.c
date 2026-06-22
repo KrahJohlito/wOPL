@@ -83,6 +83,10 @@ int pathIsLegacyMassPath(const char *path)
 
     p = path + 4;
 
+    // wLE seems to use mass: instead of mass0:
+    if (*p == ':')
+        return 1;
+
     if (*p < '0' || *p > '9')
         return 0;
 
