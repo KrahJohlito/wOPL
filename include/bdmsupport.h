@@ -47,7 +47,6 @@ extern int gEnableBdmHDD;
 extern base_game_info_t *gAutoLaunchBDMGame;
 extern bdm_device_data_t *gAutoLaunchDeviceData;
 
-int bdmFindPartition(char *target, const char *name);
 void bdmRegisterPathDevice(const char *path);
 void bdmLoadModules(void);
 void bdmLaunchGame(item_list_t *itemList, int id, per_game_cfg_t *pgcfg);
