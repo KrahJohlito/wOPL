@@ -169,6 +169,11 @@ static void bdmInit(item_list_t *itemList)
     LOG("BDMSUPPORT Init\n");
 
     bdm_device_data_t *pDeviceData = (bdm_device_data_t *)itemList->priv;
+    if (!pDeviceData) {
+        itemList->enabled = 0;
+        return;
+    }
+
     pDeviceData->bdmULSizePrev = -2;
     pDeviceData->bdmModifiedCDPrev = 0;
     pDeviceData->bdmModifiedDVDPrev = 0;
@@ -788,14 +793,13 @@ static void bdmCleanUp(item_list_t *itemList, int exception)
     if (itemList->enabled) {
         LOG("BDMSUPPORT CleanUp\n");
 
-    bdm_device_data_t *pDeviceData = (bdm_device_data_t *)itemList->priv;
+        bdm_device_data_t *pDeviceData = (bdm_device_data_t *)itemList->priv;
+        if (!pDeviceData)
+            return;
 
-    if (!pDeviceData)
-        return;
-
-    free(pDeviceData->bdmGames);
-    free(pDeviceData);
-    itemList->priv = NULL;
+        free(pDeviceData->bdmGames);
+        free(pDeviceData);
+        itemList->priv = NULL;
 
         //      if ((exception & UNMOUNT_EXCEPTION) == 0)
         //          ...
@@ -886,6 +890,11 @@ void bdmInitDevicesData()
         // If bdm support is set to manual then only make the first page visible.
         if (bdmDeviceList[i].owner != NULL) {
             opl_io_module_t *pOwner = (opl_io_module_t *)bdmDeviceList[i].owner;
+            bdm_device_data_t *pDeviceData = (bdm_device_data_t *)bdmDeviceList[i].priv;
+            if (!pDeviceData) {
+                pOwner->menuItem.visible = 0;
+                continue;
+            }
 
             if (gBDMStartMode == START_MODE_DISABLED) {
                 pOwner->menuItem.visible = 0;
@@ -894,16 +903,12 @@ void bdmInitDevicesData()
                 // according to device state.
                 if (bdmDeviceModeStarted == 1) {
                     pOwner->menuItem.visible = 0;
-
-                    if (bdmDeviceList[i].priv)
-                        ((bdm_device_data_t *)bdmDeviceList[i].priv)->bdmDeviceTick = -1;
+                    pDeviceData->bdmDeviceTick = -1;
                 } else
                     pOwner->menuItem.visible = (i == 0 ? 1 : 0);
             } else if (gBDMStartMode == START_MODE_AUTO) {
                 pOwner->menuItem.visible = 0;
-
-                if (bdmDeviceList[i].priv)
-                    ((bdm_device_data_t *)bdmDeviceList[i].priv)->bdmDeviceTick = -1;
+                pDeviceData->bdmDeviceTick = -1;
             }
 
             LOG("bdmInitDevicesData: setting device %d %s\n", i, (pOwner->menuItem.visible != 0 ? "visible" : "invisible"));
@@ -976,7 +981,7 @@ static int bdmBuildTruePath(char *path, size_t pathSize, int deviceType, int dev
     else
         len = snprintf(path, pathSize, "%s%d:", prefix, deviceIndex);
 
-    if (len < 0 || len >= pathSize) {
+    if (len < 0 || (size_t)len >= pathSize) {
         path[0] = '\0';
         return 0;
     }
