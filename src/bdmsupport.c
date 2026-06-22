@@ -987,6 +987,38 @@ static int bdmSetDeviceTypeAndTruePrefix(bdm_device_data_t *pDeviceData, item_li
     return pDeviceData->bdmDeviceType;
 }
 
+static int bdmSetupDeviceData(bdm_device_data_t *pDeviceData, item_list_t *itemList, int massIndex, int dir)
+{
+    if (!pDeviceData || dir < 0)
+        return 0;
+
+    pDeviceData->bdmDriver[0] = '\0';
+    pDeviceData->bdmTruePrefix[0] = '\0';
+    pDeviceData->bdmDeviceType = BDM_TYPE_UNKNOWN;
+
+    snprintf(pDeviceData->bdmRuntimePrefix, sizeof(pDeviceData->bdmRuntimePrefix), "mass%d:", massIndex);
+
+    if (gBDMPrefix[0] != '\0')
+        snprintf(pDeviceData->bdmPrefix, sizeof(pDeviceData->bdmPrefix), "%s%s/", pDeviceData->bdmRuntimePrefix, gBDMPrefix);
+    else
+        snprintf(pDeviceData->bdmPrefix, sizeof(pDeviceData->bdmPrefix), "%s", pDeviceData->bdmRuntimePrefix);
+
+    fileXioIoctl2(dir, USBMASS_IOCTL_GET_DRIVERNAME, NULL, 0, &pDeviceData->bdmDriver, sizeof(pDeviceData->bdmDriver) - 1);
+    fileXioIoctl2(dir, USBMASS_IOCTL_GET_DEVICE_NUMBER, NULL, 0, &pDeviceData->massDeviceIndex, sizeof(pDeviceData->massDeviceIndex));
+
+    if (itemList)
+        itemList->flags = 0;
+
+    bdmSetDeviceTypeAndTruePrefix(pDeviceData, itemList);
+
+    if (pDeviceData->bdmTruePrefix[0])
+        pathRegisterBDMDevice(massIndex, pDeviceData->bdmTruePrefix);
+    else
+        pathUnregisterBDMDevice(massIndex);
+
+    return 1;
+}
+
 void bdmRegisterPathDevice(const char *path)
 {
     bdm_device_data_t deviceData;
@@ -1005,16 +1037,9 @@ void bdmRegisterPathDevice(const char *path)
         return;
 
     memset(&deviceData, 0, sizeof(deviceData));
-
-    fileXioIoctl2(dir, USBMASS_IOCTL_GET_DRIVERNAME, NULL, 0, &deviceData.bdmDriver, sizeof(deviceData.bdmDriver) - 1);
-    fileXioIoctl2(dir, USBMASS_IOCTL_GET_DEVICE_NUMBER, NULL, 0, &deviceData.massDeviceIndex, sizeof(deviceData.massDeviceIndex));
+    bdmSetupDeviceData(&deviceData, NULL, massIndex, dir);
 
     fileXioDclose(dir);
-
-    bdmSetDeviceTypeAndTruePrefix(&deviceData, NULL);
-
-    if (deviceData.bdmTruePrefix[0])
-        pathRegisterBDMDevice(massIndex, deviceData.bdmTruePrefix);
 }
 
 int bdmUpdateDeviceData(item_list_t *itemList)
@@ -1038,26 +1063,7 @@ int bdmUpdateDeviceData(item_list_t *itemList)
 
     // If we opened the device and the menu isn't visible (OR is visible but hasn't been initialized ex: manual device start) initialize device info.
     if (dir >= 0 && (visible == 0 || pDeviceData->bdmPrefix[0] == '\0')) {
-        snprintf(pDeviceData->bdmRuntimePrefix, sizeof(pDeviceData->bdmRuntimePrefix), "mass%d:", itemList->mode);
-
-        if (gBDMPrefix[0] != '\0')
-            snprintf(pDeviceData->bdmPrefix, sizeof(pDeviceData->bdmPrefix), "%s%s/", pDeviceData->bdmRuntimePrefix, gBDMPrefix);
-        else
-            snprintf(pDeviceData->bdmPrefix, sizeof(pDeviceData->bdmPrefix), "%s", pDeviceData->bdmRuntimePrefix);
-
-        // Get the name of the underlying device driver that backs the fat fs.
-        fileXioIoctl2(dir, USBMASS_IOCTL_GET_DRIVERNAME, NULL, 0, &pDeviceData->bdmDriver, sizeof(pDeviceData->bdmDriver) - 1);
-        fileXioIoctl2(dir, USBMASS_IOCTL_GET_DEVICE_NUMBER, NULL, 0, &pDeviceData->massDeviceIndex, sizeof(pDeviceData->massDeviceIndex));
-
-        itemList->flags = 0;
-
-        // Determine the bdm device type based on the underlying device driver.
-        bdmSetDeviceTypeAndTruePrefix(pDeviceData, itemList);
-
-        if (pDeviceData->bdmTruePrefix[0])
-            pathRegisterBDMDevice(itemList->mode, pDeviceData->bdmTruePrefix);
-        else
-            pathUnregisterBDMDevice(itemList->mode);
+        bdmSetupDeviceData(pDeviceData, itemList, itemList->mode, dir);
 
         // If the device is backed by the ATA driver then get the supported LBA size for the drive.
         if (pDeviceData->bdmDeviceType == BDM_TYPE_ATA) {
@@ -1147,19 +1153,11 @@ void autoLaunchBDMGame(char *argv[])
 
         if (dir >= 0) {
             memset(&candidateData, 0, sizeof(candidateData));
-
-            fileXioIoctl2(dir, USBMASS_IOCTL_GET_DRIVERNAME, NULL, 0, &candidateData.bdmDriver, sizeof(candidateData.bdmDriver) - 1);
-            fileXioIoctl2(dir, USBMASS_IOCTL_GET_DEVICE_NUMBER, NULL, 0, &candidateData.massDeviceIndex, sizeof(candidateData.massDeviceIndex));
-
-            bdmSetDeviceTypeAndTruePrefix(&candidateData, NULL);
+            bdmSetupDeviceData(&candidateData, NULL, i, dir);
 
             if (candidateData.bdmDeviceType != BDM_TYPE_UNKNOWN && (!foundDevice || candidateData.bdmDeviceType == BDM_TYPE_ATA)) {
                 memcpy(gAutoLaunchDeviceData, &candidateData, sizeof(bdm_device_data_t));
-                snprintf(gAutoLaunchDeviceData->bdmRuntimePrefix, sizeof(gAutoLaunchDeviceData->bdmRuntimePrefix), "mass%d:", i);
                 snprintf(apaDevicePrefix, sizeof(apaDevicePrefix), "%s", gAutoLaunchDeviceData->bdmRuntimePrefix);
-
-                if (gAutoLaunchDeviceData->bdmTruePrefix[0])
-                    pathRegisterBDMDevice(i, gAutoLaunchDeviceData->bdmTruePrefix);
 
                 foundDevice = 1;
             }
@@ -1256,14 +1254,18 @@ static int bdmDeviceIsATA(int deviceId)
     bdm_device_data_t data;
 
     sprintf(path, "mass%d:/", deviceId);
+
     int dir = fileXioDopen(path);
+
     if (dir < 0)
         return 0;
 
-    fileXioIoctl2(dir, USBMASS_IOCTL_GET_DRIVERNAME, NULL, 0, &data.bdmDriver, sizeof(data.bdmDriver) - 1);
+    memset(&data, 0, sizeof(data));
+    bdmSetupDeviceData(&data, NULL, deviceId, dir);
+
     fileXioDclose(dir);
 
-    return (!strcmp(data.bdmDriver, "ata") && strlen(data.bdmDriver) == 3);
+    return data.bdmDeviceType == BDM_TYPE_ATA;
 }
 
 static int bdmGetATADeviceId()
