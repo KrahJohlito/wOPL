@@ -20,6 +20,7 @@ static void copy_str(char *dst, const char *src, size_t size)
 
 static int path_starts_with_device(const char *path, const char *device)
 {
+    const char *suffix;
     size_t len;
 
     if (!path || !device)
@@ -30,7 +31,12 @@ static int path_starts_with_device(const char *path, const char *device)
     if (strncmp(path, device, len))
         return 0;
 
-    return path[len] == ':' || (path[len] >= '0' && path[len] <= '9');
+    suffix = path + len;
+
+    while (*suffix >= '0' && *suffix <= '9')
+        suffix++;
+
+    return *suffix == ':';
 }
 
 void pathSetLaunchPath(const char *path)
@@ -141,11 +147,17 @@ int pathGetBootDir(char *dir_out, size_t dir_len)
 
 int pathJoin(char *out, size_t out_len, const char *dir, const char *name)
 {
+    int len;
+
     if (!out || !out_len || !dir || !dir[0] || !name)
         return 0;
 
-    snprintf(out, out_len, "%s%s", dir, name);
-    out[out_len - 1] = '\0';
+    len = snprintf(out, out_len, "%s%s", dir, name);
+
+    if (len < 0 || len >= out_len) {
+        out[0] = '\0';
+        return 0;
+    }
 
     return 1;
 }

@@ -365,7 +365,8 @@ static int probe_dir_config_path(const char *dir, const char *filename, char *di
     if (!dir || !dir[0])
         return 0;
 
-    pathJoin(path, sizeof(path), dir, filename);
+    if (!pathJoin(path, sizeof(path), dir, filename))
+        return 0;
 
     if (!for_write && !file_exists(path))
         return 0;
