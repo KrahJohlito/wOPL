@@ -188,6 +188,8 @@ static int bdmNeedsUpdate(item_list_t *itemList)
         return 0;
 
     bdm_device_data_t *pDeviceData = (bdm_device_data_t *)itemList->priv;
+    if (!pDeviceData)
+        return 0;
 
     ioPutRequest(IO_CUSTOM_SIMPLEACTION, &bdmLoadBlockDeviceModules);
 
@@ -862,6 +864,11 @@ void bdmInitDevicesData()
 
             // Setup the per-device data.
             bdm_device_data_t *pDeviceData = (bdm_device_data_t *)malloc(sizeof(bdm_device_data_t));
+            if (!pDeviceData) {
+                pDeviceSupport->priv = NULL;
+                continue;
+            }
+
             memset(pDeviceData, 0, sizeof(bdm_device_data_t));
             pDeviceSupport->priv = pDeviceData;
         }
@@ -1028,6 +1035,9 @@ int bdmUpdateDeviceData(item_list_t *itemList)
 
     // Get the per-device data and check if the menu item is currently visible.
     bdm_device_data_t *pDeviceData = itemList->priv;
+    if (!pDeviceData)
+        return 0;
+
     int visible = itemList->owner != NULL ? ((opl_io_module_t *)itemList->owner)->menuItem.visible : 0;
 
     // Format the device path and try to open the device.
@@ -1084,6 +1094,11 @@ void autoLaunchBDMGame(char *argv[])
     miniInit(BDM_MODE);
 
     gAutoLaunchBDMGame = malloc(sizeof(base_game_info_t));
+    if (!gAutoLaunchBDMGame) {
+        miniDeinit();
+        return;
+    }
+
     memset(gAutoLaunchBDMGame, 0, sizeof(base_game_info_t));
 
     int nameLen;
@@ -1111,6 +1126,15 @@ void autoLaunchBDMGame(char *argv[])
     gAutoLaunchBDMGame->parts = 1; // ul not supported.
 
     gAutoLaunchDeviceData = malloc(sizeof(bdm_device_data_t));
+    if (!gAutoLaunchDeviceData) {
+        miniDeinit();
+
+        free(gAutoLaunchBDMGame);
+        gAutoLaunchBDMGame = NULL;
+
+        return;
+    }
+
     memset(gAutoLaunchDeviceData, 0, sizeof(bdm_device_data_t));
 
     char apaDevicePrefix[16] = {0};
