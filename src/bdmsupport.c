@@ -957,23 +957,23 @@ int bdmUpdateDeviceData(item_list_t *itemList)
         itemList->flags = 0;
 
         // Determine the bdm device type based on the underlying device driver.
-    if (!strcmp(pDeviceData->bdmDriver, "usb")) {
-        pDeviceData->bdmDeviceType = BDM_TYPE_USB;
-        snprintf(pDeviceData->bdmTruePrefix, sizeof(pDeviceData->bdmTruePrefix), "usb:");
-    } else if (!strcmp(pDeviceData->bdmDriver, "sd") && strlen(pDeviceData->bdmDriver) == 2) {
-        pDeviceData->bdmDeviceType = BDM_TYPE_ILINK;
-        snprintf(pDeviceData->bdmTruePrefix, sizeof(pDeviceData->bdmTruePrefix), "ilink:");
-    } else if (!strcmp(pDeviceData->bdmDriver, "sdc") && strlen(pDeviceData->bdmDriver) == 3) {
-        pDeviceData->bdmDeviceType = BDM_TYPE_SDC;
-        snprintf(pDeviceData->bdmTruePrefix, sizeof(pDeviceData->bdmTruePrefix), "mx4sio:");
-    } else if (!strcmp(pDeviceData->bdmDriver, "ata") && strlen(pDeviceData->bdmDriver) == 3) {
-        pDeviceData->bdmDeviceType = BDM_TYPE_ATA;
-        snprintf(pDeviceData->bdmTruePrefix, sizeof(pDeviceData->bdmTruePrefix), "ata:");
-        itemList->flags = MODE_FLAG_COMPAT_DMA;
-    } else {
-        pDeviceData->bdmDeviceType = BDM_TYPE_UNKNOWN;
-        pDeviceData->bdmTruePrefix[0] = '\0';
-    }
+        if (!strcmp(pDeviceData->bdmDriver, "usb")) {
+            pDeviceData->bdmDeviceType = BDM_TYPE_USB;
+            snprintf(pDeviceData->bdmTruePrefix, sizeof(pDeviceData->bdmTruePrefix), "usb:");
+        } else if (!strcmp(pDeviceData->bdmDriver, "sd") && strlen(pDeviceData->bdmDriver) == 2) {
+            pDeviceData->bdmDeviceType = BDM_TYPE_ILINK;
+            snprintf(pDeviceData->bdmTruePrefix, sizeof(pDeviceData->bdmTruePrefix), "ilink:");
+        } else if (!strcmp(pDeviceData->bdmDriver, "sdc") && strlen(pDeviceData->bdmDriver) == 3) {
+            pDeviceData->bdmDeviceType = BDM_TYPE_SDC;
+            snprintf(pDeviceData->bdmTruePrefix, sizeof(pDeviceData->bdmTruePrefix), "mx4sio:");
+        } else if (!strcmp(pDeviceData->bdmDriver, "ata") && strlen(pDeviceData->bdmDriver) == 3) {
+            pDeviceData->bdmDeviceType = BDM_TYPE_ATA;
+            snprintf(pDeviceData->bdmTruePrefix, sizeof(pDeviceData->bdmTruePrefix), "ata:");
+            itemList->flags = MODE_FLAG_COMPAT_DMA;
+        } else {
+            pDeviceData->bdmDeviceType = BDM_TYPE_UNKNOWN;
+            pDeviceData->bdmTruePrefix[0] = '\0';
+        }
 
         // If the device is backed by the ATA driver then get the supported LBA size for the drive.
         if (pDeviceData->bdmDeviceType == BDM_TYPE_ATA) {
