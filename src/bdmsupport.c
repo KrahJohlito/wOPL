@@ -813,6 +813,9 @@ static void bdmCleanUp(item_list_t *itemList, int exception)
         LOG("BDMSUPPORT CleanUp\n");
 
         bdm_device_data_t *pDeviceData = (bdm_device_data_t *)itemList->priv;
+
+        pathUnregisterBDMDevice(itemList->mode);
+
         free(pDeviceData->bdmGames);
         free(pDeviceData);
         itemList->priv = NULL;
@@ -839,6 +842,8 @@ static void bdmShutdown(item_list_t *itemList)
 
     if (itemList->enabled) {
         LOG("BDMSUPPORT Shutdown free data\n");
+
+        pathUnregisterBDMDevice(itemList->mode);
 
         // Free device data.
         free(pDeviceData->bdmGames);
