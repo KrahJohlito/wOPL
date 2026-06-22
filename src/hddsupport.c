@@ -952,7 +952,6 @@ void hddLaunchGame(item_list_t *itemList, int id, per_game_cfg_t *pgcfg)
     int size_mcemu_irx = 0;
 
     neutrino_path_t neutrinoPath;
-    const char *neutrinoElf = NULL;
     char neutrinoVmc0[256];
     char neutrinoVmc1[256];
 
@@ -962,8 +961,7 @@ void hddLaunchGame(item_list_t *itemList, int id, per_game_cfg_t *pgcfg)
     neutrinoVmc1[0] = '\0';
 
     if (selectedCore == CORE_LOADER_NEUTRINO) {
-        neutrinoElf = sbFindNeutrino(&neutrinoPath, gOPLPart);
-        if (neutrinoElf == NULL) {
+        if (!sbFindNeutrino(&neutrinoPath, gOPLPart)) {
             guiWarning("Neutrino ELF not found, launching with <wOPL> core", 6);
             selectedCore = CORE_LOADER_WOPL;
         }
@@ -1173,7 +1171,7 @@ void hddLaunchGame(item_list_t *itemList, int id, per_game_cfg_t *pgcfg)
 
     if (selectedCore == CORE_LOADER_NEUTRINO) {
         LOG("partition_name=[%s]\n", partitionName);
-        sysLaunchNeutrino("apa", partitionName, compatMode, EnablePS2Logo, neutrinoElf, neutrinoPath.cwd, neutrinoVmc0, neutrinoVmc1);
+        sysLaunchNeutrino("apa", partitionName, compatMode, EnablePS2Logo, neutrinoPath.elf, neutrinoPath.cwd, neutrinoVmc0, neutrinoVmc1);
         return;
     }
 
