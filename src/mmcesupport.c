@@ -468,6 +468,11 @@ void mmceLaunchGame(item_list_t *itemList, int id, per_game_cfg_t *pgcfg)
         gAutoLaunchMMCEGame = NULL;
     }*/
 
+    if (selectedCore == CORE_LOADER_NEUTRINO) {
+        sysLaunchNeutrino("mmce", partname, compatmask, EnablePS2Logo, neutrinoPath.elf, neutrinoPath.cwd, neutrinoVmc0, neutrinoVmc1);
+        return;
+    }
+
     settings->common.zso_cache = 0;
 
     sysLaunchLoaderElf(filename, "MMCE_MODE", irx_size, irx, size_mcemu_irx, mmce_mcemu_irx, EnablePS2Logo, compatmask);
