@@ -651,8 +651,20 @@ void bdmLaunchGame(item_list_t *itemList, int id, per_game_cfg_t *pgcfg)
 
     sbMMCESendGameId(game->startup);
 
+    int deinitException = NO_EXCEPTION;
+    int deinitMode = itemList->mode;
+
+    if (selectedCore == CORE_LOADER_NEUTRINO) {
+        int elfMode = sbGetPathMode(neutrinoPath.elf);
+
+        if (elfMode >= 0) {
+            deinitException = UNMOUNT_EXCEPTION;
+            deinitMode = elfMode;
+        }
+    }
+
     if (gAutoLaunchBDMGame == NULL)
-        deinit(NO_EXCEPTION, itemList->mode); // CAREFUL: deinit will call bdmCleanUp, so bdmGames/game will be freed
+        deinit(deinitException, deinitMode); // CAREFUL: deinit will call bdmCleanUp, so bdmGames/game will be freed
     else {
         miniDeinit();
 

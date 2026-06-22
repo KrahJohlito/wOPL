@@ -444,22 +444,29 @@ void mmceLaunchGame(item_list_t *itemList, int id, per_game_cfg_t *pgcfg)
 
     mmceSendGameId(game->startup);
 
-    deinit(NO_EXCEPTION, MMCE_MODE); // CAREFUL: deinit will call mmceCleanUp, so mmceGames/game will be freed
+    int deinitException = NO_EXCEPTION;
+    int deinitMode = MMCE_MODE;
 
-    /* No autolaunch yet
+    if (selectedCore == CORE_LOADER_NEUTRINO) {
+        int elfMode = sbGetPathMode(neutrinoPath.elf);
+
+        if (elfMode >= 0) {
+            deinitException = UNMOUNT_EXCEPTION;
+            deinitMode = elfMode;
+        }
+    }
+
+    deinit(deinitException, deinitMode); // CAREFUL: deinit will call mmceCleanUp, so mmceGames/game will be freed
+
+        /* No autolaunch yet
     if (gAutoLaunchMMCEGame == NULL)
-        deinit(NO_EXCEPTION, MMCE_MODE); // CAREFUL: deinit will call mmceCleanUp, so mmceGames/game will be freed
+        deinit(deinitException, deinitMode); // CAREFUL: deinit will call mmceCleanUp, so mmceGames/game will be freed
     else {
         miniDeinit();
 
         free(gAutoLaunchMMCEGame);
         gAutoLaunchMMCEGame = NULL;
     }*/
-
-    if (selectedCore == CORE_LOADER_NEUTRINO) {
-        sysLaunchNeutrino("mmce", partname, compatmask, EnablePS2Logo, neutrinoPath.elf, neutrinoPath.cwd, neutrinoVmc0, neutrinoVmc1);
-        return;
-    }
 
     settings->common.zso_cache = 0;
 

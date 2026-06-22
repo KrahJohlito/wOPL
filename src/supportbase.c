@@ -1549,3 +1549,41 @@ void sbCreateNeutrinoVMCPath(char *path, int length, const char *prefix, const c
     } else
         snprintf(path, length, "%sVMC/%s.bin", prefix, vmc);
 }
+
+int sbGetPathMode(const char *path)
+{
+    const char *blkdevnameend;
+    const char *prefixend;
+    int i, blkdevnamelen, prefixlen;
+    item_list_t *listSupport;
+
+    if (!path || !path[0])
+        return -1;
+
+    if (!strncmp(path, "hdd0:", 5) || !strncmp(path, "pfs", 3))
+        return HDD_MODE;
+
+    blkdevnameend = strchr(path, ':');
+    if (blkdevnameend == NULL)
+        return -1;
+
+    blkdevnamelen = (int)(blkdevnameend - path);
+
+    for (i = 0; i < MODE_COUNT; i++) {
+        listSupport = list_support[i].support;
+        if ((listSupport != NULL) && (listSupport->itemGetPrefix != NULL)) {
+            char *prefix = listSupport->itemGetPrefix(listSupport);
+            if (prefix != NULL) {
+                prefixend = strchr(prefix, ':');
+                if (prefixend != NULL) {
+                    prefixlen = (int)(prefixend - prefix);
+
+                    if (blkdevnamelen == prefixlen && strncmp(path, prefix, blkdevnamelen) == 0)
+                        return listSupport->mode;
+                }
+            }
+        }
+    }
+
+    return -1;
+}
