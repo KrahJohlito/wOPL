@@ -8,8 +8,9 @@
 
 typedef struct
 {
-    int massDeviceIndex; // Underlying device index backing the mass fs partition, ex: usb0 = 0, usb1 = 1, etc.
-    char bdmPrefix[40];  // Contains the full path to the folder where all the games are.
+    int massDeviceIndex;    // Underlying BDM device index, ex: usb0 = 0, usb1 = 1, etc.
+    char bdmPrefix[40];     // Contains the full path to the folder where all the games are.
+    char bdmTruePrefix[16]; // Stable device identity.. ex: usb0:, mx4sio0:, ilink0:, ata0:
     int bdmULSizePrev;
     time_t bdmModifiedCDPrev;
     time_t bdmModifiedDVDPrev;
@@ -45,8 +46,6 @@ extern int gEnableBdmHDD;
 extern base_game_info_t *gAutoLaunchBDMGame;
 extern bdm_device_data_t *gAutoLaunchDeviceData;
 
-
-int bdmFindPartition(char *target, const char *name, int write);
 void bdmLoadModules(void);
 void bdmLaunchGame(item_list_t *itemList, int id, per_game_cfg_t *pgcfg);
 
