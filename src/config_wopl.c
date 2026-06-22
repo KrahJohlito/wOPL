@@ -80,15 +80,19 @@ static char log_label[256]; // file source label for entry logging
 static void write_config_log(const char *path, const char *msg)
 {
     char log_dir[256];
+
     if (config_dir[0]) {
         strncpy(log_dir, config_dir, sizeof(log_dir) - 1);
         log_dir[sizeof(log_dir) - 1] = '\0';
     } else if (path) {
         strncpy(log_dir, path, sizeof(log_dir) - 1);
         log_dir[sizeof(log_dir) - 1] = '\0';
+
         char *sep = strrchr(log_dir, '/');
+
         if (!sep)
             sep = strrchr(log_dir, '\\');
+
         if (sep)
             *(sep + 1) = '\0';
         else
@@ -103,8 +107,10 @@ static void write_config_log(const char *path, const char *msg)
     snprintf(log_path, sizeof(log_path), "%sconfig_errors.log", log_dir);
 
     FILE *f = fopen(log_path, "a");
+
     if (!f)
         return;
+
     fputs(msg, f);
     fclose(f);
 }
@@ -383,11 +389,19 @@ static int probe_dir_config_path(const char *dir, const char *filename, char *di
 static int probe_boot_config_path(const char *filename, char *dir_out, size_t dir_len, char *path_out, size_t path_len, int for_write)
 {
     char dir[128];
+    char true_dir[128];
 
     if (!pathGetBootDir(dir, sizeof(dir)))
         return 0;
 
-    return probe_dir_config_path(dir, filename, dir_out, dir_len, path_out, path_len, for_write);
+    bdmRegisterPathDevice(dir);
+
+    if (!pathResolveToTrue(true_dir, sizeof(true_dir), dir))
+        return 0;
+
+    pathNormaliseDir(true_dir, sizeof(true_dir));
+
+    return probe_dir_config_path(true_dir, filename, dir_out, dir_len, path_out, path_len, for_write);
 }
 
 static int probe_mc_config_path(const char *filename, char *dir_out, size_t dir_len, char *path_out, size_t path_len, int for_write)
@@ -408,11 +422,20 @@ static int probe_mc_config_path(const char *filename, char *dir_out, size_t dir_
 static int pick_default_config_dir(void)
 {
     char dir[128];
+    char true_dir[128];
     int mc;
 
-    if (pathGetBootDir(dir, sizeof(dir)) && path_exists(dir)) {
-        copy_str(config_dir, dir, sizeof(config_dir));
-        return 1;
+    if (pathGetBootDir(dir, sizeof(dir))) {
+        bdmRegisterPathDevice(dir);
+
+        if (pathResolveToTrue(true_dir, sizeof(true_dir), dir)) {
+            pathNormaliseDir(true_dir, sizeof(true_dir));
+
+            if (path_exists(true_dir)) {
+                copy_str(config_dir, true_dir, sizeof(config_dir));
+                return 1;
+            }
+        }
     }
 
     mc = sysCheckMC();
@@ -477,7 +500,8 @@ static int do_save_at_dir(const char *dir, const char *filename, void (*build)(c
     if (!dir || !dir[0])
         return 0;
 
-    snprintf(path, sizeof(path), "%s%s", dir, filename);
+    if (!pathJoin(path, sizeof(path), dir, filename))
+        return 0;
 
     if (!strncmp(dir, "mc", 2)) {
         char mc_dir[128];
@@ -936,8 +960,10 @@ int wOPLNetLoad(void)
     char old_path[256];
     config_t cfg;
 
+    if (!pathJoin(path, sizeof(path), config_dir, NET_FILENAME))
+        return 0;
+
     // 1. Try new filename
-    snprintf(path, sizeof(path), "%s%s", config_dir, NET_FILENAME);
     config_init(&cfg);
     if (config_read_file(&cfg, path)) {
         cfgValidateBegin(path);
@@ -952,7 +978,9 @@ int wOPLNetLoad(void)
 
     // DELETE_WITH_MIGRATION
     // 2. Try old filename.. migrate to new filename and delete old
-    snprintf(old_path, sizeof(old_path), "%s%s", config_dir, NET_FILENAME_OLD);
+    if (!pathJoin(old_path, sizeof(old_path), config_dir, NET_FILENAME_OLD))
+        return 0;
+
     config_init(&cfg);
     int ok = 0;
     if (config_read_file(&cfg, old_path) && config_lookup(&cfg, "ps2") != NULL) {
@@ -996,7 +1024,9 @@ int wOPLLastLoad(void)
         return 0;
 
     char path[256];
-    snprintf(path, sizeof(path), "%s%s", config_dir, LAST_FILENAME);
+
+    if (!pathJoin(path, sizeof(path), config_dir, LAST_FILENAME))
+        return 0;
 
     config_t cfg;
     config_init(&cfg);
@@ -1024,7 +1054,9 @@ int wOPLLastSave(const char *startup)
         return 0;
 
     char path[256];
-    snprintf(path, sizeof(path), "%s%s", config_dir, LAST_FILENAME);
+
+    if (!pathJoin(path, sizeof(path), config_dir, LAST_FILENAME))
+        return 0;
 
     config_t cfg;
     config_init(&cfg);
@@ -1132,7 +1164,9 @@ int wOPLGlobalGameLoad(void)
     char path[256];
     config_t cfg;
 
-    snprintf(path, sizeof(path), "%s%s", config_dir, GAME_FILENAME);
+    if (!pathJoin(path, sizeof(path), config_dir, GAME_FILENAME))
+        return 0;
+
     config_init(&cfg);
     if (config_read_file(&cfg, path)) {
         cfgValidateBegin(path);
@@ -1146,7 +1180,9 @@ int wOPLGlobalGameLoad(void)
     config_destroy(&cfg);
 
     // DELETE_WITH_MIGRATION v
-    snprintf(path, sizeof(path), "%s%s", config_dir, GAME_FILENAME_OLD);
+    if (!pathJoin(path, sizeof(path), config_dir, GAME_FILENAME_OLD))
+        return 0;
+
     if (cfgMigrateLegacyGlobalGame(path)) {
         if (wOPLGlobalGameSave()) {
             char bak[256];
@@ -1585,8 +1621,7 @@ static int save_all_to_current_dir(int types) // like the old configWriteMulti()
     if (!ensure_config_dir())
         return 0;
 
-    const char *path = wOPLGetDir();
-    if (path && !strncmp(path, "mc", 2))
+    if (!strncmp(config_dir, "mc", 2))
         sbCheckMCFolder();
 
     if (types & CONFIG_OPL)
@@ -1602,22 +1637,19 @@ static int save_all_to_current_dir(int types) // like the old configWriteMulti()
 static int save_all_to_dir(const char *dir, int types)
 {
     int result = 0;
-    char target_dir[128];
 
     if (!dir || !dir[0])
         return 0;
 
-    copy_str(target_dir, dir, sizeof(target_dir));
-
-    if (!strncmp(target_dir, "mc", 2))
+    if (!strncmp(dir, "mc", 2))
         sbCheckMCFolder();
 
     if (types & CONFIG_OPL)
-        result += do_save_at_dir(target_dir, WOPL_FILENAME, build_opl);
+        result += do_save_at_dir(dir, WOPL_FILENAME, build_opl);
     if (types & CONFIG_NETWORK)
-        result += do_save_at_dir(target_dir, NET_FILENAME, build_net);
+        result += do_save_at_dir(dir, NET_FILENAME, build_net);
     if (types & CONFIG_GAME)
-        result += do_save_at_dir(target_dir, GAME_FILENAME, build_global_game);
+        result += do_save_at_dir(dir, GAME_FILENAME, build_global_game);
 
     return result;
 }
