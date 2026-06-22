@@ -240,7 +240,7 @@ static int bdmNeedsUpdate(item_list_t *itemList)
     } else if (result == 1)
         sfxPlay(SFX_BD_CONNECT);
 
-    sprintf(path, "%sCD", pDeviceData->bdmPrefix);
+    snprintf(path, sizeof(path), "%sCD", pDeviceData->bdmPrefix);
     if (stat(path, &st) != 0)
         st.st_mtime = 0;
     if (pDeviceData->bdmModifiedCDPrev != st.st_mtime) {
@@ -248,7 +248,7 @@ static int bdmNeedsUpdate(item_list_t *itemList)
         result = 1;
     }
 
-    sprintf(path, "%sDVD", pDeviceData->bdmPrefix);
+    snprintf(path, sizeof(path), "%sDVD", pDeviceData->bdmPrefix);
     if (stat(path, &st) != 0)
         st.st_mtime = 0;
     if (pDeviceData->bdmModifiedDVDPrev != st.st_mtime) {
@@ -263,7 +263,7 @@ static int bdmNeedsUpdate(item_list_t *itemList)
     if (!pDeviceData->ThemesLoaded) {
         guiSetBootStatusIfActive("Loading block device themes...");
 
-        sprintf(path, "%sTHM", pDeviceData->bdmPrefix);
+        snprintf(path, sizeof(path), "%sTHM", pDeviceData->bdmPrefix);
         if (thmAddElements(path, "/", 1) > 0)
             pDeviceData->ThemesLoaded = 1;
     }
@@ -272,7 +272,7 @@ static int bdmNeedsUpdate(item_list_t *itemList)
     if (!pDeviceData->LanguagesLoaded) {
         guiSetBootStatusIfActive("Loading block device languages...");
 
-        sprintf(path, "%sLNG", pDeviceData->bdmPrefix);
+        snprintf(path, sizeof(path), "%sLNG", pDeviceData->bdmPrefix);
         if (lngAddLanguages(path, "/", itemList->mode) > 0)
             pDeviceData->LanguagesLoaded = 1;
     }
@@ -418,7 +418,7 @@ void bdmLaunchGame(item_list_t *itemList, int id, per_game_cfg_t *pgcfg)
                     bdm_vmc_infos.specs.block_size = vmc_superblock.pages_per_block;
                     bdm_vmc_infos.specs.card_size = vmc_superblock.pages_per_cluster * vmc_superblock.clusters_per_card;
 
-                    sprintf(vmc_path, "%sVMC/%s.bin", pDeviceData->bdmPrefix, vmc_name);
+                    snprintf(vmc_path, sizeof(vmc_path), "%sVMC/%s.bin", pDeviceData->bdmPrefix, vmc_name);
 
                     fd = open(vmc_path, O_RDONLY);
                     if (fd >= 0) {
@@ -1031,7 +1031,7 @@ int bdmUpdateDeviceData(item_list_t *itemList)
     int visible = itemList->owner != NULL ? ((opl_io_module_t *)itemList->owner)->menuItem.visible : 0;
 
     // Format the device path and try to open the device.
-    sprintf(path, "mass%d:/", itemList->mode);
+    snprintf(path, sizeof(path), "mass%d:/", itemList->mode);
     int dir = fileXioDopen(path);
     // LOG("opendir %s -> %d\n", path, dir);
 
@@ -1187,7 +1187,7 @@ static int bdmWaitForDevice(int deviceId, u32 timeoutMs)
     char path[16];
 
     u32 start = GetTimerSystemTime();
-    sprintf(path, "mass%d:/", deviceId);
+    snprintf(path, sizeof(path), "mass%d:/", deviceId);
 
     while (1) {
         int dir = fileXioDopen(path);
@@ -1211,7 +1211,7 @@ static int bdmWaitForDevice(int deviceId, u32 timeoutMs)
 static int bdmDeviceIsPresent(int deviceId)
 {
     char path[16];
-    sprintf(path, "mass%d:/", deviceId);
+    snprintf(path, sizeof(path), "mass%d:/", deviceId);
     int dir = fileXioDopen(path);
 
     if (dir >= 0) {
@@ -1227,7 +1227,7 @@ static int bdmDeviceIsATA(int deviceId)
     char path[16];
     bdm_device_data_t data;
 
-    sprintf(path, "mass%d:/", deviceId);
+    snprintf(path, sizeof(path), "mass%d:/", deviceId);
 
     int dir = fileXioDopen(path);
 
