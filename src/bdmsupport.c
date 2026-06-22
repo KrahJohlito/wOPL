@@ -923,6 +923,64 @@ void bdmResolveLBA_UDMA(bdm_device_data_t *pDeviceData)
     //hddSetTransferMode(0x40, pDeviceData->ataHighestUDMAMode);
 }
 
+static int bdmSetDeviceTypeAndTruePrefix(bdm_device_data_t *pDeviceData, item_list_t *itemList)
+{
+    if (!pDeviceData)
+        return BDM_TYPE_UNKNOWN;
+
+    if (!strcmp(pDeviceData->bdmDriver, "usb")) {
+        pDeviceData->bdmDeviceType = BDM_TYPE_USB;
+        snprintf(pDeviceData->bdmTruePrefix, sizeof(pDeviceData->bdmTruePrefix), "usb%d:", pDeviceData->massDeviceIndex);
+    } else if (!strcmp(pDeviceData->bdmDriver, "sd") && strlen(pDeviceData->bdmDriver) == 2) {
+        pDeviceData->bdmDeviceType = BDM_TYPE_ILINK;
+        snprintf(pDeviceData->bdmTruePrefix, sizeof(pDeviceData->bdmTruePrefix), "ilink%d:", pDeviceData->massDeviceIndex);
+    } else if (!strcmp(pDeviceData->bdmDriver, "sdc") && strlen(pDeviceData->bdmDriver) == 3) {
+        pDeviceData->bdmDeviceType = BDM_TYPE_SDC;
+        snprintf(pDeviceData->bdmTruePrefix, sizeof(pDeviceData->bdmTruePrefix), "mx4sio%d:", pDeviceData->massDeviceIndex);
+    } else if (!strcmp(pDeviceData->bdmDriver, "ata") && strlen(pDeviceData->bdmDriver) == 3) {
+        pDeviceData->bdmDeviceType = BDM_TYPE_ATA;
+        snprintf(pDeviceData->bdmTruePrefix, sizeof(pDeviceData->bdmTruePrefix), "ata%d:", pDeviceData->massDeviceIndex);
+
+        if (itemList)
+            itemList->flags = MODE_FLAG_COMPAT_DMA;
+    } else {
+        pDeviceData->bdmDeviceType = BDM_TYPE_UNKNOWN;
+        pDeviceData->bdmTruePrefix[0] = '\0';
+    }
+
+    return pDeviceData->bdmDeviceType;
+}
+
+void bdmRegisterPathDevice(const char *path)
+{
+    bdm_device_data_t deviceData;
+    char runtimePath[16];
+    int massIndex;
+    int dir;
+
+    if (!pathGetMassIndex(path, &massIndex))
+        return;
+
+    snprintf(runtimePath, sizeof(runtimePath), "mass%d:/", massIndex);
+
+    dir = fileXioDopen(runtimePath);
+
+    if (dir < 0)
+        return;
+
+    memset(&deviceData, 0, sizeof(deviceData));
+
+    fileXioIoctl2(dir, USBMASS_IOCTL_GET_DRIVERNAME, NULL, 0, &deviceData.bdmDriver, sizeof(deviceData.bdmDriver) - 1);
+    fileXioIoctl2(dir, USBMASS_IOCTL_GET_DEVICE_NUMBER, NULL, 0, &deviceData.massDeviceIndex, sizeof(deviceData.massDeviceIndex));
+
+    fileXioDclose(dir);
+
+    bdmSetDeviceTypeAndTruePrefix(&deviceData, NULL);
+
+    if (deviceData.bdmTruePrefix[0])
+        pathRegisterBDMDevice(massIndex, deviceData.bdmTruePrefix);
+}
+
 int bdmUpdateDeviceData(item_list_t *itemList)
 {
     char path[16] = {0};
@@ -958,23 +1016,7 @@ int bdmUpdateDeviceData(item_list_t *itemList)
         itemList->flags = 0;
 
         // Determine the bdm device type based on the underlying device driver.
-        if (!strcmp(pDeviceData->bdmDriver, "usb")) {
-            pDeviceData->bdmDeviceType = BDM_TYPE_USB;
-            snprintf(pDeviceData->bdmTruePrefix, sizeof(pDeviceData->bdmTruePrefix), "usb%d:", pDeviceData->massDeviceIndex);
-        } else if (!strcmp(pDeviceData->bdmDriver, "sd") && strlen(pDeviceData->bdmDriver) == 2) {
-            pDeviceData->bdmDeviceType = BDM_TYPE_ILINK;
-            snprintf(pDeviceData->bdmTruePrefix, sizeof(pDeviceData->bdmTruePrefix), "ilink%d:", pDeviceData->massDeviceIndex);
-        } else if (!strcmp(pDeviceData->bdmDriver, "sdc") && strlen(pDeviceData->bdmDriver) == 3) {
-            pDeviceData->bdmDeviceType = BDM_TYPE_SDC;
-            snprintf(pDeviceData->bdmTruePrefix, sizeof(pDeviceData->bdmTruePrefix), "mx4sio%d:", pDeviceData->massDeviceIndex);
-        } else if (!strcmp(pDeviceData->bdmDriver, "ata") && strlen(pDeviceData->bdmDriver) == 3) {
-            pDeviceData->bdmDeviceType = BDM_TYPE_ATA;
-            snprintf(pDeviceData->bdmTruePrefix, sizeof(pDeviceData->bdmTruePrefix), "ata%d:", pDeviceData->massDeviceIndex);
-            itemList->flags = MODE_FLAG_COMPAT_DMA;
-        } else {
-            pDeviceData->bdmDeviceType = BDM_TYPE_UNKNOWN;
-            pDeviceData->bdmTruePrefix[0] = '\0';
-        }
+        bdmSetDeviceTypeAndTruePrefix(pDeviceData, itemList);
 
         if (pDeviceData->bdmTruePrefix[0])
             pathRegisterBDMDevice(itemList->mode, pDeviceData->bdmTruePrefix);

@@ -164,6 +164,11 @@ void pathUnregisterBDMDevice(int mass_index)
     memset(&bdmDevices[mass_index], 0, sizeof(bdmDevices[mass_index]));
 }
 
+int pathGetMassIndex(const char *path, int *index)
+{
+    return path_get_mass_index(path, index, NULL);
+}
+
 int pathIsDevicePath(const char *path)
 {
     static const char *devices[] = {
