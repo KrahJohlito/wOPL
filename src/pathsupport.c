@@ -164,6 +164,11 @@ void pathUnregisterBDMDevice(int mass_index)
     memset(&bdmDevices[mass_index], 0, sizeof(bdmDevices[mass_index]));
 }
 
+int pathGetMassIndex(const char *path, int *index)
+{
+    return path_get_mass_index(path, index, NULL);
+}
+
 int pathIsDevicePath(const char *path)
 {
     static const char *devices[] = {
@@ -258,16 +263,6 @@ int pathGetBootDir(char *dir_out, size_t dir_len)
     pathNormaliseDir(dir_out, dir_len);
 
     return 1;
-}
-
-int pathGetBootTrueDir(char *dir_out, size_t dir_len)
-{
-    char dir[256];
-
-    if (!pathGetBootDir(dir, sizeof(dir)))
-        return 0;
-
-    return pathResolveToTrue(dir_out, dir_len, dir);
 }
 
 int pathResolveToTrue(char *out, size_t out_len, const char *path)
