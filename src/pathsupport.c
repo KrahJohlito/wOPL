@@ -265,16 +265,6 @@ int pathGetBootDir(char *dir_out, size_t dir_len)
     return 1;
 }
 
-int pathGetBootTrueDir(char *dir_out, size_t dir_len)
-{
-    char dir[256];
-
-    if (!pathGetBootDir(dir, sizeof(dir)))
-        return 0;
-
-    return pathResolveToTrue(dir_out, dir_len, dir);
-}
-
 int pathResolveToTrue(char *out, size_t out_len, const char *path)
 {
     path_bdm_device_t *device;
