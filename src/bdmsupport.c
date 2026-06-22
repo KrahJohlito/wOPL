@@ -992,7 +992,7 @@ static int bdmSetupDeviceData(bdm_device_data_t *pDeviceData, item_list_t *itemL
     if (!pDeviceData || dir < 0)
         return 0;
 
-    pDeviceData->bdmDriver[0] = '\0';
+    memset(pDeviceData->bdmDriver, 0, sizeof(pDeviceData->bdmDriver));
     pDeviceData->bdmTruePrefix[0] = '\0';
     pDeviceData->bdmDeviceType = BDM_TYPE_UNKNOWN;
 
