@@ -1735,74 +1735,23 @@ static int try_save_all_mc(int types)
     return save_all_to_dir(dir, types);
 }
 
-static int try_save_all_bdm(int types)
-{
-    char dir[128];
-    char path[256];
-
-    if (types & CONFIG_OPL) {
-        if (probe_bdm_config_path(WOPL_FILENAME, dir, sizeof(dir), path, sizeof(path), 1))
-            return save_all_to_dir(dir, types);
-    }
-
-    if (types & CONFIG_NETWORK) {
-        if (probe_bdm_config_path(NET_FILENAME, dir, sizeof(dir), path, sizeof(path), 1))
-            return save_all_to_dir(dir, types);
-    }
-
-    if (types & CONFIG_GAME) {
-        if (probe_bdm_config_path(GAME_FILENAME, dir, sizeof(dir), path, sizeof(path), 1))
-            return save_all_to_dir(dir, types);
-    }
-
-    return 0;
-}
-
-static int try_save_all_hdd(int types)
-{
-    char dir[128];
-    char path[256];
-
-    if (types & CONFIG_OPL) {
-        if (probe_hdd_config_path(WOPL_FILENAME, dir, sizeof(dir), path, sizeof(path), 1))
-            return save_all_to_dir(dir, types);
-    }
-
-    if (types & CONFIG_NETWORK) {
-        if (probe_hdd_config_path(NET_FILENAME, dir, sizeof(dir), path, sizeof(path), 1))
-            return save_all_to_dir(dir, types);
-    }
-
-    if (types & CONFIG_GAME) {
-        if (probe_hdd_config_path(GAME_FILENAME, dir, sizeof(dir), path, sizeof(path), 1))
-            return save_all_to_dir(dir, types);
-    }
-
-    return 0;
-}
-
 static int save_all_with_fallback(int types)
 {
     int result;
     int expected = config_type_count(types);
 
     result = save_all_to_current_dir(types);
+
     if (result == expected)
         return result;
 
     result = try_save_all_boot(types);
+
     if (result == expected)
         return result;
 
     result = try_save_all_mc(types);
-    if (result == expected)
-        return result;
 
-    result = try_save_all_bdm(types);
-    if (result == expected)
-        return result;
-
-    result = try_save_all_hdd(types);
     if (result == expected)
         return result;
 
