@@ -10,7 +10,6 @@ typedef struct
 {
     int valid;
     int massIndex;
-    char runtimePrefix[16];
     char truePrefix[16];
 } path_bdm_device_t;
 
@@ -110,27 +109,6 @@ static path_bdm_device_t *path_find_bdm_by_mass_index(int mass_index)
     return NULL;
 }
 
-static path_bdm_device_t *path_find_bdm_by_true_prefix(const char *path)
-{
-    int i;
-    size_t len;
-
-    if (!path)
-        return NULL;
-
-    for (i = 0; i < PATH_MAX_BDM_DEVICES; i++) {
-        if (!bdmDevices[i].valid)
-            continue;
-
-        len = strlen(bdmDevices[i].truePrefix);
-
-        if (len > 0 && !strncmp(path, bdmDevices[i].truePrefix, len))
-            return &bdmDevices[i];
-    }
-
-    return NULL;
-}
-
 void pathSetLaunchPath(const char *path)
 {
     copy_str(launchPath, path, sizeof(launchPath));
@@ -152,7 +130,6 @@ void pathRegisterBDMDevice(int mass_index, const char *true_prefix)
 
     device->valid = 1;
     device->massIndex = mass_index;
-    snprintf(device->runtimePrefix, sizeof(device->runtimePrefix), "mass%d:", mass_index);
     copy_str(device->truePrefix, true_prefix, sizeof(device->truePrefix));
 }
 
@@ -279,29 +256,6 @@ int pathResolveToTrue(char *out, size_t out_len, const char *path)
 
         if (device)
             return path_replace_prefix(out, out_len, device->truePrefix, tail);
-    }
-
-    copy_str(out, path, out_len);
-
-    return 1;
-}
-
-int pathResolveToRuntime(char *out, size_t out_len, const char *path)
-{
-    path_bdm_device_t *device;
-    const char *tail;
-    size_t len;
-
-    if (!out || !out_len || !path)
-        return 0;
-
-    device = path_find_bdm_by_true_prefix(path);
-
-    if (device) {
-        len = strlen(device->truePrefix);
-        tail = path + len;
-
-        return path_replace_prefix(out, out_len, device->runtimePrefix, tail);
     }
 
     copy_str(out, path, out_len);

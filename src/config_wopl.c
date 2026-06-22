@@ -80,7 +80,6 @@ static char log_label[256]; // file source label for entry logging
 static void write_config_log(const char *path, const char *msg)
 {
     char log_dir[256];
-    char runtime_dir[256];
 
     if (config_dir[0]) {
         strncpy(log_dir, config_dir, sizeof(log_dir) - 1);
@@ -104,13 +103,8 @@ static void write_config_log(const char *path, const char *msg)
     if (log_dir[0] == '\0')
         return;
 
-    if (!pathResolveToRuntime(runtime_dir, sizeof(runtime_dir), log_dir))
-        return;
-
-    pathNormaliseDir(runtime_dir, sizeof(runtime_dir));
-
     char log_path[256];
-    snprintf(log_path, sizeof(log_path), "%sconfig_errors.log", runtime_dir);
+    snprintf(log_path, sizeof(log_path), "%sconfig_errors.log", log_dir);
 
     FILE *f = fopen(log_path, "a");
 
@@ -370,44 +364,20 @@ static void sanitize_pad_sensitivity(void)
         gYSensitivity = 0;
 }
 
-static int resolve_runtime_dir(char *runtime_dir, size_t runtime_len, const char *dir)
-{
-    if (!pathResolveToRuntime(runtime_dir, runtime_len, dir))
-        return 0;
-
-    pathNormaliseDir(runtime_dir, runtime_len);
-
-    return 1;
-}
-
-static int resolve_runtime_path(char *path, size_t path_len, const char *dir, const char *filename)
-{
-    char runtime_dir[128];
-
-    if (!resolve_runtime_dir(runtime_dir, sizeof(runtime_dir), dir))
-        return 0;
-
-    return pathJoin(path, path_len, runtime_dir, filename);
-}
-
 static int probe_dir_config_path(const char *dir, const char *filename, char *dir_out, size_t dir_len, char *path_out, size_t path_len, int for_write)
 {
-    char runtime_dir[128];
     char path[256];
 
     if (!dir || !dir[0])
         return 0;
 
-    if (!resolve_runtime_dir(runtime_dir, sizeof(runtime_dir), dir))
-        return 0;
-
-    if (!pathJoin(path, sizeof(path), runtime_dir, filename))
+    if (!pathJoin(path, sizeof(path), dir, filename))
         return 0;
 
     if (!for_write && !file_exists(path))
         return 0;
 
-    if (for_write && !path_exists(runtime_dir))
+    if (for_write && !path_exists(dir))
         return 0;
 
     copy_str(dir_out, dir, dir_len);
@@ -453,7 +423,6 @@ static int pick_default_config_dir(void)
 {
     char dir[128];
     char true_dir[128];
-    char runtime_dir[128];
     int mc;
 
     if (pathGetBootDir(dir, sizeof(dir))) {
@@ -462,7 +431,7 @@ static int pick_default_config_dir(void)
         if (pathResolveToTrue(true_dir, sizeof(true_dir), dir)) {
             pathNormaliseDir(true_dir, sizeof(true_dir));
 
-            if (resolve_runtime_dir(runtime_dir, sizeof(runtime_dir), true_dir) && path_exists(runtime_dir)) {
+            if (path_exists(true_dir)) {
                 copy_str(config_dir, true_dir, sizeof(config_dir));
                 return 1;
             }
@@ -526,21 +495,17 @@ static int ensure_config_dir(void)
 
 static int do_save_at_dir(const char *dir, const char *filename, void (*build)(config_setting_t *))
 {
-    char runtime_dir[128];
     char path[256];
 
     if (!dir || !dir[0])
         return 0;
 
-    if (!resolve_runtime_dir(runtime_dir, sizeof(runtime_dir), dir))
+    if (!pathJoin(path, sizeof(path), dir, filename))
         return 0;
 
-    if (!pathJoin(path, sizeof(path), runtime_dir, filename))
-        return 0;
-
-    if (!strncmp(runtime_dir, "mc", 2)) {
+    if (!strncmp(dir, "mc", 2)) {
         char mc_dir[128];
-        copy_str(mc_dir, runtime_dir, sizeof(mc_dir));
+        copy_str(mc_dir, dir, sizeof(mc_dir));
         size_t len = strlen(mc_dir);
 
         if (len > 0 && mc_dir[len - 1] == '/')
@@ -995,7 +960,7 @@ int wOPLNetLoad(void)
     char old_path[256];
     config_t cfg;
 
-    if (!resolve_runtime_path(path, sizeof(path), config_dir, NET_FILENAME))
+    if (!pathJoin(path, sizeof(path), config_dir, NET_FILENAME))
         return 0;
 
     // 1. Try new filename
@@ -1013,7 +978,7 @@ int wOPLNetLoad(void)
 
     // DELETE_WITH_MIGRATION
     // 2. Try old filename.. migrate to new filename and delete old
-    if (!resolve_runtime_path(old_path, sizeof(old_path), config_dir, NET_FILENAME_OLD))
+    if (!pathJoin(old_path, sizeof(old_path), config_dir, NET_FILENAME_OLD))
         return 0;
 
     config_init(&cfg);
@@ -1060,7 +1025,7 @@ int wOPLLastLoad(void)
 
     char path[256];
 
-    if (!resolve_runtime_path(path, sizeof(path), config_dir, LAST_FILENAME))
+    if (!pathJoin(path, sizeof(path), config_dir, LAST_FILENAME))
         return 0;
 
     config_t cfg;
@@ -1090,7 +1055,7 @@ int wOPLLastSave(const char *startup)
 
     char path[256];
 
-    if (!resolve_runtime_path(path, sizeof(path), config_dir, LAST_FILENAME))
+    if (!pathJoin(path, sizeof(path), config_dir, LAST_FILENAME))
         return 0;
 
     config_t cfg;
@@ -1199,7 +1164,7 @@ int wOPLGlobalGameLoad(void)
     char path[256];
     config_t cfg;
 
-    if (!resolve_runtime_path(path, sizeof(path), config_dir, GAME_FILENAME))
+    if (!pathJoin(path, sizeof(path), config_dir, GAME_FILENAME))
         return 0;
 
     config_init(&cfg);
@@ -1215,7 +1180,7 @@ int wOPLGlobalGameLoad(void)
     config_destroy(&cfg);
 
     // DELETE_WITH_MIGRATION v
-    if (!resolve_runtime_path(path, sizeof(path), config_dir, GAME_FILENAME_OLD))
+    if (!pathJoin(path, sizeof(path), config_dir, GAME_FILENAME_OLD))
         return 0;
 
     if (cfgMigrateLegacyGlobalGame(path)) {
