@@ -16,6 +16,7 @@
 #include "include/module.h"
 #include "include/initializer.h"
 #include "include/config_wopl.h"
+#include "include/pathsupport.h"
 #include <fcntl.h>
 #include <stdlib.h>
 #include <ps2sdkapi.h>
@@ -959,21 +960,26 @@ int bdmUpdateDeviceData(item_list_t *itemList)
         // Determine the bdm device type based on the underlying device driver.
         if (!strcmp(pDeviceData->bdmDriver, "usb")) {
             pDeviceData->bdmDeviceType = BDM_TYPE_USB;
-            snprintf(pDeviceData->bdmTruePrefix, sizeof(pDeviceData->bdmTruePrefix), "usb:");
+            snprintf(pDeviceData->bdmTruePrefix, sizeof(pDeviceData->bdmTruePrefix), "usb%d:", pDeviceData->massDeviceIndex);
         } else if (!strcmp(pDeviceData->bdmDriver, "sd") && strlen(pDeviceData->bdmDriver) == 2) {
             pDeviceData->bdmDeviceType = BDM_TYPE_ILINK;
-            snprintf(pDeviceData->bdmTruePrefix, sizeof(pDeviceData->bdmTruePrefix), "ilink:");
+            snprintf(pDeviceData->bdmTruePrefix, sizeof(pDeviceData->bdmTruePrefix), "ilink%d:", pDeviceData->massDeviceIndex);
         } else if (!strcmp(pDeviceData->bdmDriver, "sdc") && strlen(pDeviceData->bdmDriver) == 3) {
             pDeviceData->bdmDeviceType = BDM_TYPE_SDC;
-            snprintf(pDeviceData->bdmTruePrefix, sizeof(pDeviceData->bdmTruePrefix), "mx4sio:");
+            snprintf(pDeviceData->bdmTruePrefix, sizeof(pDeviceData->bdmTruePrefix), "mx4sio%d:", pDeviceData->massDeviceIndex);
         } else if (!strcmp(pDeviceData->bdmDriver, "ata") && strlen(pDeviceData->bdmDriver) == 3) {
             pDeviceData->bdmDeviceType = BDM_TYPE_ATA;
-            snprintf(pDeviceData->bdmTruePrefix, sizeof(pDeviceData->bdmTruePrefix), "ata:");
+            snprintf(pDeviceData->bdmTruePrefix, sizeof(pDeviceData->bdmTruePrefix), "ata%d:", pDeviceData->massDeviceIndex);
             itemList->flags = MODE_FLAG_COMPAT_DMA;
         } else {
             pDeviceData->bdmDeviceType = BDM_TYPE_UNKNOWN;
             pDeviceData->bdmTruePrefix[0] = '\0';
         }
+
+        if (pDeviceData->bdmTruePrefix[0])
+            pathRegisterBDMDevice(itemList->mode, pDeviceData->bdmTruePrefix);
+        else
+            pathUnregisterBDMDevice(itemList->mode);
 
         // If the device is backed by the ATA driver then get the supported LBA size for the drive.
         if (pDeviceData->bdmDeviceType == BDM_TYPE_ATA) {
@@ -994,6 +1000,10 @@ int bdmUpdateDeviceData(item_list_t *itemList)
     } else if (dir < 0 && visible == 1) {
         // Device has been removed, make the menu item invisible. We can't really cleanup resources (like the game list) just yet
         // as we don't know if the data is being used asynchronously.
+        pathUnregisterBDMDevice(itemList->mode);
+        pDeviceData->bdmRuntimePrefix[0] = '\0';
+        pDeviceData->bdmTruePrefix[0] = '\0';
+
         if (itemList->owner != NULL) {
             LOG("bdmUpdateDeviceData: setting device %d invisible\n", itemList->mode);
             ((opl_io_module_t *)itemList->owner)->menuItem.visible = 0;
