@@ -1587,3 +1587,8 @@ int sbGetPathMode(const char *path)
 
     return -1;
 }
+
+int sbPathIsMC(const char *path)
+{
+    return path && (!strncmp(path, "mc0:", 4) || !strncmp(path, "mc1:", 4));
+}

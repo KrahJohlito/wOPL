@@ -1155,7 +1155,8 @@ void hddLaunchGame(item_list_t *itemList, int id, per_game_cfg_t *pgcfg)
         sbCreateNeutrinoVMCPath(neutrinoVmc1, sizeof(neutrinoVmc1), gOPLPart, pgcfg->vmc2);
     }
 
-    sbMMCESendGameId(game->startup);
+    if (!(selectedCore == CORE_LOADER_NEUTRINO && sbPathIsMC(neutrinoPath.elf)))
+        sbMMCESendGameId(game->startup);
 
     int deinitException = NO_EXCEPTION;
     int deinitMode = HDD_MODE;

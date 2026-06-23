@@ -442,18 +442,20 @@ void mmceLaunchGame(item_list_t *itemList, int id, per_game_cfg_t *pgcfg)
     // mcReset();
     // mcInit(MC_TYPE_XMC);
 
-    mmceSendGameId(game->startup);
+    int elfMode = -1;
+
+    if (selectedCore == CORE_LOADER_NEUTRINO)
+        elfMode = sbGetPathMode(neutrinoPath.elf);
+
+    if (!(selectedCore == CORE_LOADER_NEUTRINO && sbPathIsMC(neutrinoPath.elf)))
+        mmceSendGameId(game->startup);
 
     int deinitException = NO_EXCEPTION;
     int deinitMode = MMCE_MODE;
 
-    if (selectedCore == CORE_LOADER_NEUTRINO) {
-        int elfMode = sbGetPathMode(neutrinoPath.elf);
-
-        if (elfMode >= 0) {
-            deinitException = UNMOUNT_EXCEPTION;
-            deinitMode = elfMode;
-        }
+    if (selectedCore == CORE_LOADER_NEUTRINO && elfMode >= 0) {
+        deinitException = UNMOUNT_EXCEPTION;
+        deinitMode = elfMode;
     }
 
     deinit(deinitException, deinitMode); // CAREFUL: deinit will call mmceCleanUp, so mmceGames/game will be freed
