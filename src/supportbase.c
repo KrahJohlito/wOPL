@@ -1414,6 +1414,7 @@ static int sbTryNeutrinoPath(neutrino_path_t *path, const char *cwd)
 
     for (i = 0; i < (int)(sizeof(elfNames) / sizeof(elfNames[0])); i++) {
         snprintf(path->elf, sizeof(path->elf), "%s%s", path->cwd, elfNames[i]);
+        LOG("SUPPORTBASE: Checking Neutrino ELF '%s'\n", path->elf);
 
         if (sbFileExists(path->elf)) {
             LOG("SUPPORTBASE: Neutrino ELF found at '%s'\n", path->elf);
