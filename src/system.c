@@ -1202,6 +1202,26 @@ static int convertCompatmaskToModes(int compatmask)
     return atoi(result);
 }
 
+static void sysCreateNeutrinoFileArg(char *arg, int length, const char *option, const char *deviceName, const char *path)
+{
+    const char *suffix;
+
+    if (!arg || length <= 0)
+        return;
+
+    arg[0] = '\0';
+
+    if (!path || !path[0])
+        return;
+
+    suffix = strchr(path, ':');
+
+    if (suffix != NULL && (!strncmp(path, "mass", 4) || !strncmp(path, "mmce", 4)))
+        snprintf(arg, length, "%s=%s:%s", option, deviceName, suffix + 1);
+    else
+        snprintf(arg, length, "%s=%s", option, path);
+}
+
 void sysLaunchNeutrino(const char *driver, const char *path, int compatmask, int EnablePS2Logo, const char *neutrinoPath, const char *neutrinoCwd, const char *vmc0, const char *vmc1)
 {
     char device[64];
@@ -1228,7 +1248,7 @@ void sysLaunchNeutrino(const char *driver, const char *path, int compatmask, int
         snprintf(device, sizeof(device), "-bsd=%s", deviceName);
         argv[argc++] = device;
 
-        snprintf(filePath, sizeof(filePath), "-dvd=%s", path);
+        sysCreateNeutrinoFileArg(filePath, sizeof(filePath), "-dvd", deviceName, path);
         argv[argc++] = filePath;
     }
 
@@ -1238,12 +1258,12 @@ void sysLaunchNeutrino(const char *driver, const char *path, int compatmask, int
     }
 
     if (vmc0 && vmc0[0]) {
-        snprintf(mc0, sizeof(mc0), "-mc0=%s", vmc0);
+        sysCreateNeutrinoFileArg(mc0, sizeof(mc0), "-mc0", deviceName, vmc0);
         argv[argc++] = mc0;
     }
 
     if (vmc1 && vmc1[0]) {
-        snprintf(mc1, sizeof(mc1), "-mc1=%s", vmc1);
+        sysCreateNeutrinoFileArg(mc1, sizeof(mc1), "-mc1", deviceName, vmc1);
         argv[argc++] = mc1;
     }
 
