@@ -458,7 +458,7 @@ void mmceLaunchGame(item_list_t *itemList, int id, per_game_cfg_t *pgcfg)
 
     deinit(deinitException, deinitMode); // CAREFUL: deinit will call mmceCleanUp, so mmceGames/game will be freed
 
-        /* No autolaunch yet
+    /* No autolaunch yet
     if (gAutoLaunchMMCEGame == NULL)
         deinit(deinitException, deinitMode); // CAREFUL: deinit will call mmceCleanUp, so mmceGames/game will be freed
     else {
