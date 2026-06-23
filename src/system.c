@@ -1213,9 +1213,27 @@ void sysLaunchNeutrino(const char *driver, const char *path, int compatmask, int
     char mc1[256 + 5];
     char *argv[12];
     int argc = 0;
+    int isHDL;
     const char *deviceName = getDeviceName(driver);
 
-    if (!strncmp(deviceName, "apa", 3)) {
+    if (!neutrinoPath || !neutrinoPath[0]) {
+        LOG("NEUTRINO ERROR: missing ELF path\n");
+        return;
+    }
+
+    if (!path || !path[0]) {
+        LOG("NEUTRINO ERROR: missing game path\n");
+        return;
+    }
+
+    if (!strcmp(deviceName, "unsupported")) {
+        LOG("NEUTRINO ERROR: unsupported driver '%s'\n", driver ? driver : "");
+        return;
+    }
+
+    isHDL = !strcmp(deviceName, "apa");
+
+    if (isHDL) {
         snprintf(device, sizeof(device), "-bsd=ata");
         argv[argc++] = device;
 
@@ -1250,6 +1268,14 @@ void sysLaunchNeutrino(const char *driver, const char *path, int compatmask, int
     snprintf(compatModes, sizeof(compatModes), "-gc=%d", convertCompatmaskToModes(compatmask));
     argv[argc++] = compatModes;
 
+    if (gEnableDebug)
+        argv[argc++] = "-dbc";
+
+    if (!isHDL)
+        argv[argc++] = "-qb";
+    else if (EnablePS2Logo)
+        argv[argc++] = "-logo";
+
     LOG("NEUTRINO ELF=%s\n", neutrinoPath);
     LOG("NEUTRINO CWD=%s\n", neutrinoCwd ? neutrinoCwd : "");
     LOG("VMC0=%s\n", vmc0 ? vmc0 : "");
@@ -1257,11 +1283,9 @@ void sysLaunchNeutrino(const char *driver, const char *path, int compatmask, int
     LOG("COMPAT MODE ARG=%s\n", compatModes);
     LOG("FILE PATH=%s\n", filePath);
 
-    if (gEnableDebug)
-        argv[argc++] = "-dbc";
-
-    if (EnablePS2Logo)
-        argv[argc++] = "-logo";
+    LOG("Launching Neutrino: argc=%d\n", argc);
+    for (int i = 0; i < argc; i++)
+        LOG("argv[%d]=%s\n", i, argv[i]);
 
     LoadELFFromFileWithPartition(neutrinoPath, "", argc, argv);
 }
