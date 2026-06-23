@@ -1560,8 +1560,14 @@ int sbGetPathMode(const char *path)
     if (!path || !path[0])
         return -1;
 
-    if (!strncmp(path, "hdd0:", 5) || !strncmp(path, "pfs", 3))
+    if (!strncmp(path, "hdd0:", 5) || !strncmp(path, "pfs0:", 5))
         return HDD_MODE;
+
+    if (!strncmp(path, "mass", 4) && strchr(path, ':') != NULL)
+        return BDM_MODE;
+
+    if (!strncmp(path, "mmce", 4) && strchr(path, ':') != NULL)
+        return MMCE_MODE;
 
     blkdevnameend = strchr(path, ':');
     if (blkdevnameend == NULL)
