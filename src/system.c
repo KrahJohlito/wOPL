@@ -1263,5 +1263,9 @@ void sysLaunchNeutrino(const char *driver, const char *path, int compatmask, int
     if (EnablePS2Logo)
         argv[argc++] = "-logo";
 
+    LOG("Launching Neutrino: argc=%d\n", argc);
+    for (int i = 0; i < argc; i++)
+        LOG("argv[%d]=%s\n", i, argv[i]);
+
     LoadELFFromFileWithPartition(neutrinoPath, "", argc, argv);
 }
