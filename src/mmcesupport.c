@@ -101,18 +101,23 @@ void mmceInit(item_list_t *itemList)
     mmceGameList.enabled = 1;
 }
 
-void mmceSendGameId(const char *gameId)
+void mmceSendGameIdToDevice(int device, const char *gameId)
 {
+    char dev[16];
+
     if (!gameId || !gameId[0])
         return;
 
-    // probe and set device
-    const char *dev = NULL;
-    if (fileXioDevctl("mmce0:/", 0x1, NULL, 0, NULL, 0) != -1)
-        dev = "mmce0:/";
-    else if (fileXioDevctl("mmce1:/", 0x1, NULL, 0, NULL, 0) != -1)
-        dev = "mmce1:/";
-    else
+    if (device != 0 && device != 1) {
+        if (!strncmp(mmcePrefix, "mmce1:", 6))
+            device = 1;
+        else
+            device = 0;
+    }
+
+    snprintf(dev, sizeof(dev), "mmce%d:/", device);
+
+    if (fileXioDevctl(dev, 0x1, NULL, 0, NULL, 0) < 0)
         return;
 
     // small delay to let config write before sending game id (remember last game)
@@ -133,6 +138,11 @@ void mmceSendGameId(const char *gameId)
         if ((status & 1) == 0)
             return; // ready
     }
+}
+
+void mmceSendGameId(const char *gameId)
+{
+    mmceSendGameIdToDevice(-1, gameId);
 }
 
 item_list_t *mmceGetObject(int initOnly)
@@ -442,13 +452,17 @@ void mmceLaunchGame(item_list_t *itemList, int id, per_game_cfg_t *pgcfg)
     // mcReset();
     // mcInit(MC_TYPE_XMC);
 
+    int gameDevice = -1;
+    int elfDevice = -1;
     int elfMode = -1;
 
+    sbGetPathModeAndDevice(partname, &gameDevice);
+
     if (selectedCore == CORE_LOADER_NEUTRINO)
-        elfMode = sbGetPathMode(neutrinoPath.elf);
+        elfMode = sbGetPathModeAndDevice(neutrinoPath.elf, &elfDevice);
 
     if (!(selectedCore == CORE_LOADER_NEUTRINO && sbPathIsMC(neutrinoPath.elf)))
-        mmceSendGameId(game->startup);
+        mmceSendGameIdToDevice(gameDevice, game->startup);
 
     int deinitException = NO_EXCEPTION;
     int deinitMode = MMCE_MODE;

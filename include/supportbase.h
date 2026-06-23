@@ -98,6 +98,7 @@ int sbLoadImage(const char *path, const char *file);
 int sbFindNeutrino(neutrino_path_t *path, const char *preferredPrefix);
 void sbCreateNeutrinoVMCPath(char *path, int length, const char *prefix, const char *vmc);
 
+int sbGetPathModeAndDevice(const char *path, int *device);
 int sbGetPathMode(const char *path);
 int sbPathIsMC(const char *path);
 
