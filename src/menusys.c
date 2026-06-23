@@ -274,6 +274,11 @@ static item_list_t *menuGetCurrentConfigOwner(void)
     return list;
 }
 
+static int menuIsNavigationHeld(void)
+{
+    return getKey(KEY_LEFT) || getKey(KEY_RIGHT) || getKey(KEY_UP) || getKey(KEY_DOWN) || getKey(KEY_L1) || getKey(KEY_R1) || getKey(KEY_L2) || getKey(KEY_R2);
+}
+
 static void _menuLoadConfig()
 {
     item_list_t *list;
@@ -345,7 +350,7 @@ static void _menuRequestConfig()
             if (itemConfigPtr)
                 itemConfigPtr = NULL;
 
-            if (itemConfigId == -1 || itemConfigOwner != owner || actionStatus || guiInactiveFrames >= list->delay) {
+            if (itemConfigId == -1 || itemConfigOwner != owner || actionStatus || (!menuIsNavigationHeld() && guiInactiveFrames >= list->delay)) {
                 itemConfigId = id;
                 itemConfigOwner = owner;
                 ioPutRequest(IO_CUSTOM_SIMPLEACTION, &_menuLoadConfig);
