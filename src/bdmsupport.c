@@ -662,9 +662,9 @@ void bdmLaunchGame(item_list_t *itemList, int id, per_game_cfg_t *pgcfg)
             deinitException = UNMOUNT_EXCEPTION;
             deinitMode = elfMode;
         }
-    }
 
-    LOG("NEUTRINO ELF MODE=%d\n", elfMode);
+        LOG("NEUTRINO ELF MODE=%d\n", elfMode);
+    }
 
     if (gAutoLaunchBDMGame == NULL)
         deinit(deinitException, deinitMode); // CAREFUL: deinit will call bdmCleanUp, so bdmGames/game will be freed
