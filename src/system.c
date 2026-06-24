@@ -1202,6 +1202,26 @@ static int convertCompatmaskToModes(int compatmask)
     return atoi(result);
 }
 
+static const char *sysSkipDevicePrefix(const char *path)
+{
+    const char *suffix = strchr(path, ':');
+
+    if (suffix == NULL)
+        return path;
+
+    suffix++;
+
+    while (*suffix == '/')
+        suffix++;
+
+    return suffix;
+}
+
+static int sysIsNeutrinoBlockDevice(const char *deviceName)
+{
+    return !strcmp(deviceName, "usb") || !strcmp(deviceName, "mx4sio") || !strcmp(deviceName, "ilink") || !strcmp(deviceName, "ata");
+}
+
 static void sysCreateNeutrinoFileArg(char *arg, int length, const char *option, const char *deviceName, const char *path)
 {
     const char *suffix;
@@ -1214,12 +1234,15 @@ static void sysCreateNeutrinoFileArg(char *arg, int length, const char *option, 
     if (!path || !path[0])
         return;
 
-    suffix = strchr(path, ':');
-
-    if (suffix != NULL && (!strncmp(path, "mass", 4) || !strncmp(path, "mmce", 4)))
-        snprintf(arg, length, "%s=%s:%s", option, deviceName, suffix + 1);
-    else
+    if (!strncmp(path, "mass", 4) && sysIsNeutrinoBlockDevice(deviceName)) {
+        suffix = sysSkipDevicePrefix(path);
+        snprintf(arg, length, "%s=mass:%s", option, suffix);
+    } else if (!strncmp(path, "mmce", 4) && !strcmp(deviceName, "mmce")) {
+        suffix = sysSkipDevicePrefix(path);
+        snprintf(arg, length, "%s=mmce:%s", option, suffix);
+    } else {
         snprintf(arg, length, "%s=%s", option, path);
+    }
 }
 
 void sysLaunchNeutrino(const char *driver, const char *path, int compatmask, int EnablePS2Logo, const char *neutrinoPath, const char *neutrinoCwd, const char *vmc0, const char *vmc1)
@@ -1247,6 +1270,11 @@ void sysLaunchNeutrino(const char *driver, const char *path, int compatmask, int
     } else {
         snprintf(device, sizeof(device), "-bsd=%s", deviceName);
         argv[argc++] = device;
+
+        if (sysIsNeutrinoBlockDevice(deviceName)) {
+            snprintf(bsdfs, sizeof(bsdfs), "-bsdfs=exfat");
+            argv[argc++] = bsdfs;
+        }
 
         sysCreateNeutrinoFileArg(filePath, sizeof(filePath), "-dvd", deviceName, path);
         argv[argc++] = filePath;
