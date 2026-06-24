@@ -1250,10 +1250,10 @@ void sysLaunchNeutrino(const char *driver, const char *path, int compatmask, int
         argv[argc++] = filePath;
     }
 
-    if (neutrinoCwd && neutrinoCwd[0]) {
+    /*if (neutrinoCwd && neutrinoCwd[0]) {
         snprintf(cwd, sizeof(cwd), "-cwd=%s", neutrinoCwd);
         argv[argc++] = cwd;
-    }
+    }*/
 
     if (vmc0 && vmc0[0]) {
         snprintf(mc0, sizeof(mc0), "-mc0=%s", vmc0);
