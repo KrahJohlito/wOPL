@@ -347,10 +347,15 @@ static void _menuRequestConfig()
         int id = selected_item->item->current->item.id;
 
         if (itemConfigId != id || itemConfigOwner != owner) {
+            if (!actionStatus && menuIsNavigationHeld()) {
+                SignalSema(menuSemaId);
+                return;
+            }
+
             if (itemConfigPtr)
                 itemConfigPtr = NULL;
 
-            if (itemConfigId == -1 || itemConfigOwner != owner || actionStatus || (!menuIsNavigationHeld() && guiInactiveFrames >= list->delay)) {
+            if (itemConfigId == -1 || itemConfigOwner != owner || actionStatus || guiInactiveFrames >= list->delay) {
                 itemConfigId = id;
                 itemConfigOwner = owner;
                 ioPutRequest(IO_CUSTOM_SIMPLEACTION, &_menuLoadConfig);
