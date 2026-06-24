@@ -1162,12 +1162,15 @@ void hddLaunchGame(item_list_t *itemList, int id, per_game_cfg_t *pgcfg)
     int deinitMode = HDD_MODE;
 
     if (selectedCore == CORE_LOADER_NEUTRINO) {
-        int elfMode = sbGetPathMode(neutrinoPath.elf);
+        int elfDevice = -1;
+        int elfMode = sbGetPathModeAndDevice(neutrinoPath.elf, &elfDevice);
 
         if (elfMode >= 0) {
             deinitException = UNMOUNT_EXCEPTION;
             deinitMode = elfMode;
         }
+
+        LOG("NEUTRINO ELF MODE=%d DEVICE=%d\n", elfMode, elfDevice);
     }
 
     if (gAutoLaunchGame == NULL)

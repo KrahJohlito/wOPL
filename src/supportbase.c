@@ -1551,12 +1551,46 @@ void sbCreateNeutrinoVMCPath(char *path, int length, const char *prefix, const c
         snprintf(path, length, "%sVMC/%s.bin", prefix, vmc);
 }
 
-int sbGetPathMode(const char *path)
+static int sbParsePathDeviceIndex(const char *path, const char *prefix, int *device)
+{
+    const char *p;
+    int dev = 0;
+    int haveDigit = 0;
+    int prefixLen = strlen(prefix);
+
+    if (!path || strncmp(path, prefix, prefixLen))
+        return 0;
+
+    p = path + prefixLen;
+
+    while (*p >= '0' && *p <= '9') {
+        haveDigit = 1;
+        dev = dev * 10 + (*p - '0');
+        p++;
+    }
+
+    if (*p != ':')
+        return 0;
+
+    if (!haveDigit)
+        dev = 0;
+
+    if (device)
+        *device = dev;
+
+    return 1;
+}
+
+int sbGetPathModeAndDevice(const char *path, int *device)
 {
     const char *blkdevnameend;
     const char *prefixend;
     int i, blkdevnamelen, prefixlen;
+    int dev;
     item_list_t *listSupport;
+
+    if (device)
+        *device = -1;
 
     if (!path || !path[0])
         return -1;
@@ -1564,11 +1598,22 @@ int sbGetPathMode(const char *path)
     if (!strncmp(path, "hdd0:", 5) || !strncmp(path, "pfs0:", 5))
         return HDD_MODE;
 
-    if (!strncmp(path, "mass", 4) && strchr(path, ':') != NULL)
-        return BDM_MODE;
+    if (sbParsePathDeviceIndex(path, "mass", &dev)) {
+        if (dev < 0 || dev >= MAX_BDM_DEVICES)
+            return -1;
 
-    if (!strncmp(path, "mmce", 4) && strchr(path, ':') != NULL)
+        if (device)
+            *device = dev;
+
+        return BDM_MODE + dev;
+    }
+
+    if (sbParsePathDeviceIndex(path, "mmce", &dev)) {
+        if (device)
+            *device = dev;
+
         return MMCE_MODE;
+    }
 
     blkdevnameend = strchr(path, ':');
     if (blkdevnameend == NULL)
@@ -1593,6 +1638,11 @@ int sbGetPathMode(const char *path)
     }
 
     return -1;
+}
+
+int sbGetPathMode(const char *path)
+{
+    return sbGetPathModeAndDevice(path, NULL);
 }
 
 int sbPathIsMC(const char *path)
