@@ -66,6 +66,9 @@ typedef struct
 extern unsigned char eecore_elf[];
 extern unsigned int size_eecore_elf;
 
+extern unsigned char neutrino_loader_elf[];
+extern unsigned int size_neutrino_loader_elf;
+
 extern unsigned char IOPRP_img[];
 extern unsigned int size_IOPRP_img;
 
@@ -1202,6 +1205,56 @@ static int convertCompatmaskToModes(int compatmask)
     return atoi(result);
 }
 
+static int LoadNeutrinoELF(const char *filename, int argc, char *argv[])
+{
+    u8 *boot_elf;
+    elf_header_t *eh;
+    elf_pheader_t *eph;
+    void *pdata;
+    char *execArgv[16];
+    int i;
+
+    if (!filename || !filename[0])
+        return -1;
+
+    if (argc + 1 > (int)(sizeof(execArgv) / sizeof(execArgv[0]))) {
+        LOG("NEUTRINO ERROR: too many args\n");
+        return -1;
+    }
+
+    execArgv[0] = (char *)filename;
+    for (i = 0; i < argc; i++)
+        execArgv[i + 1] = argv[i];
+
+    boot_elf = (u8 *)&neutrino_loader_elf;
+    eh = (elf_header_t *)boot_elf;
+    if (*(u32 *)boot_elf != ELF_MAGIC) {
+        LOG("NEUTRINO ERROR: bad loader stub ELF\n");
+        return -1;
+    }
+    eph = (elf_pheader_t *)(boot_elf + eh->phoff);
+
+    memset((void *)0x00084000, 0, 0x00100000 - 0x00084000);
+
+    for (i = 0; i < eh->phnum; i++) {
+        if (eph[i].type != ELF_PT_LOAD)
+            continue;
+        pdata = (void *)(boot_elf + eph[i].offset);
+        memcpy(eph[i].vaddr, pdata, eph[i].filesz);
+        if (eph[i].memsz > eph[i].filesz)
+            memset((u8 *)eph[i].vaddr + eph[i].filesz, 0, eph[i].memsz - eph[i].filesz);
+    }
+
+    LOG("NEUTRINO loader handoff ELF=%s argc=%d\n", filename, argc + 1);
+    for (i = 0; i < argc + 1; i++)
+        LOG("execArgv[%d]=%s\n", i, execArgv[i]);
+
+    SifExitRpc();
+    FlushCache(0);
+    FlushCache(2);
+    return ExecPS2((void *)eh->entry, NULL, argc + 1, execArgv);
+}
+
 void sysLaunchNeutrino(const char *driver, const char *path, int compatmask, int EnablePS2Logo, const char *neutrinoPath, const char *neutrinoCwd, const char *vmc0, const char *vmc1)
 {
     char device[64];
@@ -1213,25 +1266,9 @@ void sysLaunchNeutrino(const char *driver, const char *path, int compatmask, int
     char mc1[256 + 5];
     char *argv[12];
     int argc = 0;
-    int isHDL;
+
     const char *deviceName = getDeviceName(driver);
-
-    if (!neutrinoPath || !neutrinoPath[0]) {
-        LOG("NEUTRINO ERROR: missing ELF path\n");
-        return;
-    }
-
-    if (!path || !path[0]) {
-        LOG("NEUTRINO ERROR: missing game path\n");
-        return;
-    }
-
-    if (!strcmp(deviceName, "unsupported")) {
-        LOG("NEUTRINO ERROR: unsupported driver '%s'\n", driver ? driver : "");
-        return;
-    }
-
-    isHDL = !strcmp(deviceName, "apa");
+    int isHDL = !strcmp(deviceName, "apa");
 
     if (isHDL) {
         snprintf(device, sizeof(device), "-bsd=ata");
@@ -1250,10 +1287,10 @@ void sysLaunchNeutrino(const char *driver, const char *path, int compatmask, int
         argv[argc++] = filePath;
     }
 
-    /*if (neutrinoCwd && neutrinoCwd[0]) {
+    if (neutrinoCwd && neutrinoCwd[0]) {
         snprintf(cwd, sizeof(cwd), "-cwd=%s", neutrinoCwd);
         argv[argc++] = cwd;
-    }*/
+    }
 
     if (vmc0 && vmc0[0]) {
         snprintf(mc0, sizeof(mc0), "-mc0=%s", vmc0);
@@ -1287,5 +1324,5 @@ void sysLaunchNeutrino(const char *driver, const char *path, int compatmask, int
     for (int i = 0; i < argc; i++)
         LOG("argv[%d]=%s\n", i, argv[i]);
 
-    LoadELFFromFileWithPartition(neutrinoPath, "", argc, argv);
+    LoadNeutrinoELF(neutrinoPath, argc, argv);
 }
