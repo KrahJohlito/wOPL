@@ -422,9 +422,8 @@ ee_core/ee_core.elf: ee_core
 $(EE_ASM_DIR)ee_core.c: ee_core/ee_core.elf | $(EE_ASM_DIR)
 	$(BIN2C) $< $@ eecore_elf
 
-neutrino_loader/loader.elf: neutrino_loader
-	echo "-Neutrino loader"
-	$(MAKE) -C $
+neutrino_loader/loader.elf: neutrino_loader/loader.c neutrino_loader/linkfile
+	$(MAKE) -C neutrino_loader
 
 $(EE_ASM_DIR)neutrino_loader.c: neutrino_loader/loader.elf | $(EE_ASM_DIR)
 	$(BIN2C) $< $@ neutrino_loader_elf
