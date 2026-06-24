@@ -295,7 +295,8 @@ clean:	download_lwNBD
 	rm -fr $(MAPFILE) $(EE_BIN) $(EE_BIN_PACKED) $(EE_BIN_STRIPPED) $(EE_VPKD).* $(EE_OBJS_DIR) $(EE_ASM_DIR)
 	echo "-EE core"
 	$(MAKE) -C ee_core clean
-    $(MAKE) -C neutrino_loader clean
+	echo "-NEUTRINO LOADER"
+	$(MAKE) -C neutrino_loader clean
 	echo "-IOP core"
 	echo " -imgdrv"
 	$(MAKE) -C modules/iopcore/imgdrv clean
