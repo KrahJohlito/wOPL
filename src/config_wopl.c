@@ -546,16 +546,9 @@ static int ensure_config_dir(void)
     if (config_dir[0])
         return 1;
 
-    if (
-        probe_config_path(WOPL_FILENAME, dir, sizeof(dir), path, sizeof(path), 0) ||
+    if (probe_config_path(WOPL_FILENAME, dir, sizeof(dir), path, sizeof(path), 0) ||
         probe_config_path(NET_FILENAME, dir, sizeof(dir), path, sizeof(path), 0) ||
-        probe_config_path(GAME_FILENAME, dir, sizeof(dir), path, sizeof(path), 0) ||
-        // DELETE_WITH_MIGRATION
-        probe_config_path(WOPL_FILENAME_OLD, dir, sizeof(dir), path, sizeof(path), 0) ||
-        probe_config_path(NET_FILENAME_OLD, dir, sizeof(dir), path, sizeof(path), 0) ||
-        probe_config_path(GAME_FILENAME_OLD, dir, sizeof(dir), path, sizeof(path), 0)
-        // DELETE_WITH_MIGRATION
-    ) {
+        probe_config_path(GAME_FILENAME, dir, sizeof(dir), path, sizeof(path), 0)) {
         copy_str(config_dir, dir, sizeof(config_dir));
         return 1;
     }
@@ -894,8 +887,8 @@ static void parse_opl_cfg(config_t *cfg, int *out_theme_id, int *out_lang_id)
 
 int wOPLLoad(int *out_theme_id, int *out_lang_id)
 {
-    char dir[128];
     char path[256];
+    char old_path[256];
     config_t cfg;
 
     if (out_theme_id)
@@ -903,53 +896,58 @@ int wOPLLoad(int *out_theme_id, int *out_lang_id)
     if (out_lang_id)
         *out_lang_id = 0;
 
+    if (!ensure_config_dir())
+        return 0;
+
     // 1. Try new filename
-    if (probe_config_path(WOPL_FILENAME, dir, sizeof(dir), path, sizeof(path), 0)) {
-        config_init(&cfg);
-        if (config_read_file(&cfg, path)) {
-            cfgValidateBegin(path);
-            parse_opl_cfg(&cfg, out_theme_id, out_lang_id);
-            cfgValidateEnd();
-            config_destroy(&cfg);
-            copy_str(config_dir, dir, sizeof(config_dir));
-            LOG("CONFIG_WOPL: loaded from '%s'\n", path);
-            return 1;
-        }
-        log_config_error(path, &cfg);
-        config_destroy(&cfg);
-    }
+    if (!pathJoin(path, sizeof(path), config_dir, WOPL_FILENAME))
+        return 0;
 
-    // DELETE_WITH_MIGRATION
-    // 2. Try old filename.. migrate to new filename and delete old
-    if (probe_config_path(WOPL_FILENAME_OLD, dir, sizeof(dir), path, sizeof(path), 0)) {
-        int ok = 0;
-        config_init(&cfg);
-        if (config_read_file(&cfg, path) && config_lookup(&cfg, "display") != NULL) {
-            parse_opl_cfg(&cfg, out_theme_id, out_lang_id);
-            ok = 1;
-        }
+    config_init(&cfg);
+    if (config_read_file(&cfg, path)) {
+        cfgValidateBegin(path);
+        parse_opl_cfg(&cfg, out_theme_id, out_lang_id);
+        cfgValidateEnd();
         config_destroy(&cfg);
 
-        if (!ok) {
-            LOG("CONFIG_WOPL: old format detected, attempting legacy migration\n");
-            ok = cfgMigrateLegacyOPL(path, out_theme_id, out_lang_id);
-        }
-
-        if (!ok)
-            return 0;
-
-        copy_str(config_dir, dir, sizeof(config_dir));
-        if (wOPLSave()) {
-            char bak[256];
-            snprintf(bak, sizeof(bak), "%s.bak", path);
-            rename(path, bak);
-            LOG("CONFIG_WOPL: migrated to '%s'\n", WOPL_FILENAME);
-        }
+        LOG("CONFIG_WOPL: loaded from '%s'\n", path);
         return 1;
     }
-    // DELETE_WITH_MIGRATION
+    log_config_error(path, &cfg);
+    config_destroy(&cfg);
 
-    return 0;
+    // DELETE_WITH_MIGRATION
+    // 2. Try old filename from the selected config root only.
+    if (!pathJoin(old_path, sizeof(old_path), config_dir, WOPL_FILENAME_OLD))
+        return 0;
+
+    config_init(&cfg);
+    int ok = 0;
+
+    if (config_read_file(&cfg, old_path) && config_lookup(&cfg, "display") != NULL) {
+        parse_opl_cfg(&cfg, out_theme_id, out_lang_id);
+        ok = 1;
+    }
+    config_destroy(&cfg);
+
+    if (!ok) {
+        LOG("CONFIG_WOPL: old format detected at selected config root, attempting legacy migration\n");
+        ok = cfgMigrateLegacyOPL(old_path, out_theme_id, out_lang_id);
+    }
+
+    if (!ok)
+        return 0;
+
+    if (wOPLSave()) {
+        char bak[256];
+
+        snprintf(bak, sizeof(bak), "%s.bak", old_path);
+        rename(old_path, bak);
+        LOG("CONFIG_WOPL: migrated to '%s'\n", WOPL_FILENAME);
+    }
+
+    return 1;
+    // DELETE_WITH_MIGRATION
 }
 
 int wOPLSave(void)
