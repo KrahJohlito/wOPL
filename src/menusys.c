@@ -70,6 +70,8 @@ static per_game_cfg_t itemPgCfg;
 static render_ctx_t itemConfig;
 static render_ctx_t *itemConfigPtr;
 
+static int itemConfigLoadDelay;
+
 static u8 parentalLockCheckEnabled = 1;
 
 // "main menu submenu"
@@ -96,7 +98,8 @@ int gAutoRefresh;
 
 extern unsigned char shouldAppsUpdate;
 
-#define MENU_GENERAL_UPDATE_DELAY 60
+#define MENU_GENERAL_UPDATE_DELAY     60
+#define MENU_CONFIG_LOAD_DELAY_FRAMES 12
 
 // DELETE_WITH_MIGRATION v
 int menuGetDevicePaths(char paths[][64], char labels[][80], int maxCount)
@@ -274,9 +277,16 @@ static item_list_t *menuGetCurrentConfigOwner(void)
     return list;
 }
 
-static int menuIsNavigationHeld(void)
+static void menuDelayItemConfigLoad(void)
 {
-    return getKey(KEY_LEFT) || getKey(KEY_RIGHT) || getKey(KEY_UP) || getKey(KEY_DOWN) || getKey(KEY_L1) || getKey(KEY_R1) || getKey(KEY_L2) || getKey(KEY_R2);
+    itemConfigId = -1;
+    itemConfigOwner = NULL;
+    itemConfigPtr = NULL;
+
+    if (selected_item && selected_item->item && selected_item->item->userdata)
+        itemConfigLoadDelay = MENU_CONFIG_LOAD_DELAY_FRAMES;
+    else
+        itemConfigLoadDelay = 0;
 }
 
 static void _menuLoadConfig()
@@ -342,12 +352,12 @@ static void _menuRequestConfig()
 {
     WaitSema(menuSemaId);
     if (selected_item->item->current != NULL) {
-        item_list_t *list = selected_item->item->userdata;
         item_list_t *owner = menuGetCurrentConfigOwner();
         int id = selected_item->item->current->item.id;
 
         if (itemConfigId != id || itemConfigOwner != owner) {
-            if (!actionStatus && menuIsNavigationHeld()) {
+            if (!actionStatus && itemConfigLoadDelay > 0) {
+                itemConfigLoadDelay--;
                 SignalSema(menuSemaId);
                 return;
             }
@@ -355,9 +365,10 @@ static void _menuRequestConfig()
             if (itemConfigPtr)
                 itemConfigPtr = NULL;
 
-            if (itemConfigId == -1 || itemConfigOwner != owner || actionStatus || guiInactiveFrames >= list->delay) {
+            if (itemConfigId == -1 || itemConfigOwner != owner || actionStatus || guiInactiveFrames >= MENU_CONFIG_LOAD_DELAY_FRAMES) {
                 itemConfigId = id;
                 itemConfigOwner = owner;
+                itemConfigLoadDelay = 0;
                 ioPutRequest(IO_CUSTOM_SIMPLEACTION, &_menuLoadConfig);
             }
         } else if (itemConfigPtr)
@@ -373,6 +384,7 @@ per_game_cfg_t *menuLoadConfig()
     itemConfigId = -1;
     itemConfigOwner = NULL;
     itemConfigPtr = NULL;
+    itemConfigLoadDelay = 0;
     guiHandleDeferedIO(&actionStatus, _l(_STR_LOADING_SETTINGS), IO_CUSTOM_SIMPLEACTION, &_menuRequestConfig);
     return &itemPgCfg;
 }
@@ -384,6 +396,7 @@ per_game_cfg_t *gameMenuLoadConfig(struct UIItem *ui)
     itemConfigId = -1;
     itemConfigOwner = NULL;
     itemConfigPtr = NULL;
+    itemConfigLoadDelay = 0;
     guiGameHandleDeferedIO(&actionStatus, ui, IO_CUSTOM_SIMPLEACTION, &_menuRequestConfig);
     return &itemPgCfg;
 }
@@ -473,6 +486,7 @@ void menuInit()
     selected_item = NULL;
     itemConfigId = -1;
     itemConfigOwner = NULL;
+    itemConfigLoadDelay = 0;
     memset(&itemGameInfo, 0, sizeof(itemGameInfo));
     memset(&itemPgCfg, 0, sizeof(itemPgCfg));
     memset(&itemConfig, 0, sizeof(itemConfig));
@@ -815,8 +829,7 @@ static void menuNextH()
     // If we found a valid menu transition to it.
     if (next != NULL) {
         selected_item = next;
-        itemConfigId = -1;
-        itemConfigOwner = NULL;
+        menuDelayItemConfigLoad();
         sfxPlay(SFX_CURSOR);
     }
 }
@@ -829,32 +842,37 @@ static void menuPrevH()
 
     if (prev != NULL) {
         selected_item = prev;
-        itemConfigId = -1;
-        itemConfigOwner = NULL;
+        menuDelayItemConfigLoad();
         sfxPlay(SFX_CURSOR);
     }
 }
 
 static void menuFirstPage()
 {
+    submenu_list_t *old = selected_item->item->current;
     submenu_list_t *cur = selected_item->item->current;
+
     if (cur) {
-        if (cur->prev) {
+        if (cur->prev)
             sfxPlay(gTheme->coverflow ? SFX_COVERFLOW : SFX_CURSOR);
-        }
 
         selected_item->item->current = selected_item->item->submenu;
         selected_item->item->pagestart = selected_item->item->current;
+
+        if (selected_item->item->current != old)
+            menuDelayItemConfigLoad();
     }
 }
 
 static void menuLastPage()
 {
+    submenu_list_t *old = selected_item->item->current;
     submenu_list_t *cur = selected_item->item->current;
+
     if (cur) {
-        if (cur->next) {
+        if (cur->next)
             sfxPlay(gTheme->coverflow ? SFX_COVERFLOW : SFX_CURSOR);
-        }
+
         while (cur->next)
             cur = cur->next; // go to end
 
@@ -865,6 +883,9 @@ static void menuLastPage()
             cur = cur->prev;
 
         selected_item->item->pagestart = cur;
+
+        if (selected_item->item->current != old)
+            menuDelayItemConfigLoad();
     }
 }
 
@@ -874,6 +895,8 @@ static void menuNextV()
 
     if (cur && cur->next) {
         selected_item->item->current = cur->next;
+        menuDelayItemConfigLoad();
+
         sfxPlay(gTheme->coverflow ? SFX_COVERFLOW : SFX_CURSOR);
 
         thmTriggerCoverflowAnim(-1);
@@ -901,6 +924,8 @@ static void menuPrevV()
 
     if (cur && cur->prev) {
         selected_item->item->current = cur->prev;
+        menuDelayItemConfigLoad();
+
         sfxPlay(gTheme->coverflow ? SFX_COVERFLOW : SFX_CURSOR);
 
         thmTriggerCoverflowAnim(1);
@@ -920,6 +945,7 @@ static void menuPrevV()
 
 static void menuNextPage()
 {
+    submenu_list_t *old = selected_item->item->current;
     submenu_list_t *cur = selected_item->item->pagestart;
 
     if (cur && cur->next) {
@@ -931,6 +957,9 @@ static void menuNextPage()
 
         selected_item->item->current = cur;
         selected_item->item->pagestart = selected_item->item->current;
+
+        if (selected_item->item->current != old)
+            menuDelayItemConfigLoad();
     } else { // wrap to start
         menuFirstPage();
     }
@@ -938,6 +967,7 @@ static void menuNextPage()
 
 static void menuPrevPage()
 {
+    submenu_list_t *old = selected_item->item->current;
     submenu_list_t *cur = selected_item->item->pagestart;
 
     if (cur && cur->prev) {
@@ -949,6 +979,9 @@ static void menuPrevPage()
 
         selected_item->item->current = cur;
         selected_item->item->pagestart = selected_item->item->current;
+
+        if (selected_item->item->current != old)
+            menuDelayItemConfigLoad();
     } else { // wrap to end
         menuLastPage();
     }
@@ -992,7 +1025,10 @@ void menuSetSelectedItem(menu_item_t *item)
 
     while (itm) {
         if (itm->item == item) {
-            selected_item = itm;
+            if (selected_item != itm) {
+                selected_item = itm;
+                menuDelayItemConfigLoad();
+            }
             return;
         }
 
