@@ -647,7 +647,7 @@ void bdmLaunchGame(item_list_t *itemList, int id, per_game_cfg_t *pgcfg)
         sbMMCESendGameId(game->startup);
 
     int deinitException = NO_EXCEPTION;
-    int deinitMode = itemList->mode;
+    int deinitMode = gAutoLaunchBDMGame == NULL ? itemList->mode : BDM_MODE;
 
     if (selectedCore == CORE_LOADER_NEUTRINO) {
         int elfDevice = -1;
@@ -676,7 +676,7 @@ void bdmLaunchGame(item_list_t *itemList, int id, per_game_cfg_t *pgcfg)
     LOG("bdm pre sysLaunchLoaderElf\n");
 
     if (selectedCore == CORE_LOADER_NEUTRINO) {
-        sysLaunchNeutrino(bdmCurrentDriver, partname, compatmask, EnablePS2Logo, neutrinoPath.elf, neutrinoPath.cwd, neutrinoVmc0, neutrinoVmc1);
+        sysLaunchNeutrino(bdmCurrentDevice, partname, compatmask, EnablePS2Logo, neutrinoPath.elf, neutrinoPath.cwd, neutrinoVmc0, neutrinoVmc1);
         return;
     }
 
