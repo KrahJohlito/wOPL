@@ -155,6 +155,10 @@ GSTEXTURE *cacheGetTexture(image_cache_t *cache, item_list_t *list, int *cacheId
     if (guiInactiveFrames < list->delay)
         return NULL;
 
+    // Avoid flooding the IO worker while allowing immediate art loads when delay is disabled
+    if (ioHasPendingRequests())
+        return NULL;
+
     cache_entry_t *currEntry, *oldestEntry = NULL;
     int i, rtime = guiFrameId;
 
