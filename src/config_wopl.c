@@ -365,6 +365,12 @@ static int normalise_true_config_dir(char *out, size_t out_len, const char *dir)
         return 0;
 
     if (pathIsLegacyMassPath(dir)) {
+        if (!allowLegacyMass)
+            return 0;
+
+        // Legacy mass:/massN: launch paths need USB BDM loaded before they can be resolved
+        bdmLoadModulesForLegacyMass();
+
         if (!bdmResolveLegacyPath(out, out_len, dir))
             return 0;
     } else {
@@ -376,6 +382,9 @@ static int normalise_true_config_dir(char *out, size_t out_len, const char *dir)
 
     if (!pathIsDevicePath(out))
         return 0;
+
+    // If the selected config root is on BDM.. load only the matching BDM driver before probing it
+    bdmLoadModulesForPath(out);
 
     return path_exists(out);
 }
@@ -1602,12 +1611,12 @@ void configApply(int themeID, int langID, int skipDeviceRefresh)
 
     // Check if we should refresh device support as well.
     if (skipDeviceRefresh == 0) {
-        initAllSupport(0);
+        bdmLoadEnabledDeviceModules();
 
+        initAllSupport(0);
         for (int i = 0; i < MODE_COUNT; i++) {
             if (list_support[i].support == NULL)
                 continue;
-
             moduleUpdateMenuInternal(&list_support[i], changed, langChanged);
         }
     } else {
