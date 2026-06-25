@@ -362,8 +362,6 @@ int readPads()
             delaycnt[i] = getKeyDelay(i + 1, 0);
     }
 
-    LOG("PAD: down=%d old=%08lx new=%08lx delay=%d dt=%lu\n", getKeyPressed(KEY_DOWN), oldpaddata, paddata, delaycnt[KEY_DOWN - 1], time_since_last);
-
     return rslt;
 }
 
