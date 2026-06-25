@@ -53,6 +53,7 @@
 #define GAME_FILENAME_OLD "conf_game.cfg" // DELETE_WITH_MIGRATION
 
 #define LAST_FILENAME "wopl_last_played.cfg"
+#define BOOT_FILENAME "wopl_boot.cfg"
 
 static char config_dir[128] = {0};
 static char last_played[256] = {0};
@@ -358,6 +359,83 @@ static void sanitize_pad_sensitivity(void)
         gYSensitivity = 0;
 }
 
+static int normalise_true_config_dir(char *out, size_t out_len, const char *dir)
+{
+    if (!out || !out_len || !dir || !dir[0])
+        return 0;
+
+    // massN: is legacy boot input only.. it must never become the active config/save root
+    if (pathIsLegacyMassPath(dir))
+        return 0;
+
+    if (!pathResolveToTrue(out, out_len, dir))
+        return 0;
+
+    pathNormaliseDir(out, out_len);
+
+    if (!pathIsDevicePath(out))
+        return 0;
+
+    return path_exists(out);
+}
+
+static int load_boot_config_from_dir(const char *boot_dir)
+{
+    char boot_path[256];
+    char default_dir[128];
+    char resolved_dir[128];
+    const char *value;
+    config_t cfg;
+    int have_config_dir = 0;
+
+    if (!boot_dir || !boot_dir[0])
+        return 0;
+
+    if (!pathJoin(boot_path, sizeof(boot_path), boot_dir, BOOT_FILENAME))
+        return 0;
+
+    if (!file_exists(boot_path))
+        return 0;
+
+    default_dir[0] = '\0';
+
+    // If wOPL was booted from a true path, config_dir defaults to cwd
+    // Legacy massN: boot paths need the next resolver commit before they can default safely..
+    if (!pathIsLegacyMassPath(boot_dir))
+        normalise_true_config_dir(default_dir, sizeof(default_dir), boot_dir);
+
+    config_init(&cfg);
+
+    if (!config_read_file(&cfg, boot_path)) {
+        log_config_error(boot_path, &cfg);
+        config_destroy(&cfg);
+        return 0;
+    }
+
+    cfgValidateBegin(boot_path);
+
+    if (cfgGetStr(&cfg, "boot.config_dir", &value)) {
+        if (normalise_true_config_dir(resolved_dir, sizeof(resolved_dir), value)) {
+            copy_str(config_dir, resolved_dir, sizeof(config_dir));
+            have_config_dir = 1;
+        } else
+            LOG("CONFIG: ignoring invalid boot.config_dir '%s'\n", value);
+    }
+
+    if (!have_config_dir && default_dir[0]) {
+        copy_str(config_dir, default_dir, sizeof(config_dir));
+        have_config_dir = 1;
+    }
+
+    cfgValidateEnd();
+    config_destroy(&cfg);
+
+    if (have_config_dir)
+        LOG("CONFIG: boot config '%s' config_dir='%s'\n", boot_path, config_dir);
+
+    return have_config_dir;
+}
+
 static int probe_dir_config_path(const char *dir, const char *filename, char *dir_out, size_t dir_len, char *path_out, size_t path_len, int for_write)
 {
     char path[256];
@@ -388,10 +466,15 @@ static int probe_boot_config_path(const char *filename, char *dir_out, size_t di
     if (!pathGetBootDir(dir, sizeof(dir)))
         return 0;
 
-    if (!pathResolveToTrue(true_dir, sizeof(true_dir), dir))
+    if (load_boot_config_from_dir(dir))
+        return probe_dir_config_path(config_dir, filename, dir_out, dir_len, path_out, path_len, for_write);
+
+    // Legacy massN: boot paths are allowed only to find wopl_boot.cfg.. without a bootstrap file, do not continue using massN: as config root
+    if (pathIsLegacyMassPath(dir))
         return 0;
 
-    pathNormaliseDir(true_dir, sizeof(true_dir));
+    if (!normalise_true_config_dir(true_dir, sizeof(true_dir), dir))
+        return 0;
 
     return probe_dir_config_path(true_dir, filename, dir_out, dir_len, path_out, path_len, for_write);
 }
@@ -418,13 +501,13 @@ static int pick_default_config_dir(void)
     int mc;
 
     if (pathGetBootDir(dir, sizeof(dir))) {
-        if (pathResolveToTrue(true_dir, sizeof(true_dir), dir)) {
-            pathNormaliseDir(true_dir, sizeof(true_dir));
+        if (load_boot_config_from_dir(dir))
+            return 1;
 
-            if (path_exists(true_dir)) {
-                copy_str(config_dir, true_dir, sizeof(config_dir));
-                return 1;
-            }
+        // Legacy massN: boot paths are allowed only to find wopl_boot.cfg.. if there is no bootstrap file, fall back to MC instead
+        if (!pathIsLegacyMassPath(dir) && normalise_true_config_dir(true_dir, sizeof(true_dir), dir)) {
+            copy_str(config_dir, true_dir, sizeof(config_dir));
+            return 1;
         }
     }
 
