@@ -364,12 +364,13 @@ static int normalise_true_config_dir(char *out, size_t out_len, const char *dir)
     if (!out || !out_len || !dir || !dir[0])
         return 0;
 
-    // massN: is legacy boot input only.. it must never become the active config/save root
-    if (pathIsLegacyMassPath(dir))
-        return 0;
-
-    if (!pathResolveToTrue(out, out_len, dir))
-        return 0;
+    if (pathIsLegacyMassPath(dir)) {
+        if (!bdmResolveLegacyPath(out, out_len, dir))
+            return 0;
+    } else {
+        if (!pathResolveToTrue(out, out_len, dir))
+            return 0;
+    }
 
     pathNormaliseDir(out, out_len);
 
@@ -399,10 +400,8 @@ static int load_boot_config_from_dir(const char *boot_dir)
 
     default_dir[0] = '\0';
 
-    // If wOPL was booted from a true path, config_dir defaults to cwd
-    // Legacy massN: boot paths need the next resolver commit before they can default safely..
-    if (!pathIsLegacyMassPath(boot_dir))
-        normalise_true_config_dir(default_dir, sizeof(default_dir), boot_dir);
+    // config_dir defaults to cwd. Legacy massN: boot dirs are resolved to true paths here.
+    normalise_true_config_dir(default_dir, sizeof(default_dir), boot_dir);
 
     config_init(&cfg);
 
@@ -469,10 +468,6 @@ static int probe_boot_config_path(const char *filename, char *dir_out, size_t di
     if (load_boot_config_from_dir(dir))
         return probe_dir_config_path(config_dir, filename, dir_out, dir_len, path_out, path_len, for_write);
 
-    // Legacy massN: boot paths are allowed only to find wopl_boot.cfg.. without a bootstrap file, do not continue using massN: as config root
-    if (pathIsLegacyMassPath(dir))
-        return 0;
-
     if (!normalise_true_config_dir(true_dir, sizeof(true_dir), dir))
         return 0;
 
@@ -504,8 +499,7 @@ static int pick_default_config_dir(void)
         if (load_boot_config_from_dir(dir))
             return 1;
 
-        // Legacy massN: boot paths are allowed only to find wopl_boot.cfg.. if there is no bootstrap file, fall back to MC instead
-        if (!pathIsLegacyMassPath(dir) && normalise_true_config_dir(true_dir, sizeof(true_dir), dir)) {
+        if (normalise_true_config_dir(true_dir, sizeof(true_dir), dir)) {
             copy_str(config_dir, true_dir, sizeof(config_dir));
             return 1;
         }
@@ -1691,8 +1685,12 @@ static int save_all_to_current_dir(int types) // like the old configWriteMulti()
 {
     int result = 0;
 
-    if (!ensure_config_dir())
+    if (!ensure_config_dir()) {
+        LOG("CONFIG: no config_dir selected for save\n");
         return 0;
+    }
+
+    LOG("CONFIG: saving to config_dir '%s'\n", config_dir);
 
     if (!strncmp(config_dir, "mc", 2))
         sbCheckMCFolder();
