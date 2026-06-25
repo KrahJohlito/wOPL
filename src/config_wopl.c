@@ -377,6 +377,9 @@ static int normalise_true_config_dir(char *out, size_t out_len, const char *dir)
     if (!pathIsDevicePath(out))
         return 0;
 
+    // If the selected config root is on BDM.. load only the matching BDM driver before probing it
+    bdmLoadModulesForPath(out);
+
     return path_exists(out);
 }
 
