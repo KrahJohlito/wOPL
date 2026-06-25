@@ -131,7 +131,7 @@ static void bdmLoadBdmHDDModules(void)
     if (!hddModLoaded) {
         guiSetBootStatusIfActive("Loading BDM HDD modules...");
 
-        // Load dev9 and atad device drivers
+        // Load dev9 and atad device drivers.
         LOG("bdmLoadBlockDeviceModules loading hdd drivers...\n");
         hddLoadModules();
 
