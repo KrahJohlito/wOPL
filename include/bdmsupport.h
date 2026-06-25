@@ -57,4 +57,6 @@ int bdmHDDIsPresent(u32 timeoutMs);
 
 void autoLaunchBDMGame(char *argv[]);
 
+int bdmResolveLegacyPath(char *out, size_t out_len, const char *path);
+
 #endif

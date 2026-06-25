@@ -1013,6 +1013,42 @@ static int bdmOpenTrueDevice(int deviceType, int deviceIndex)
     return fileXioDopen(path);
 }
 
+static int bdmParseLegacyMassPath(const char *path, int *index, const char **tail)
+{
+    const char *p;
+    int value;
+
+    if (!path || strncmp(path, "mass", 4))
+        return 0;
+
+    p = path + 4;
+    value = -1;
+
+    // wLE seems to use mass: instead of mass0:
+    if (*p != ':') {
+        if (*p < '0' || *p > '9')
+            return 0;
+
+        value = 0;
+
+        while (*p >= '0' && *p <= '9') {
+            value = value * 10 + (*p - '0');
+            p++;
+        }
+    }
+
+    if (*p != ':')
+        return 0;
+
+    if (index)
+        *index = value;
+
+    if (tail)
+        *tail = p + 1;
+
+    return 1;
+}
+
 static int bdmSetDeviceTypeAndTruePrefix(bdm_device_data_t *pDeviceData, item_list_t *itemList, int deviceType, int deviceIndex)
 {
     if (!pDeviceData)
@@ -1056,6 +1092,71 @@ static int bdmSetupDeviceData(bdm_device_data_t *pDeviceData, item_list_t *itemL
         snprintf(pDeviceData->bdmPrefix, sizeof(pDeviceData->bdmPrefix), "%s%s/", pDeviceData->bdmTruePrefix, gBDMPrefix);
     else
         snprintf(pDeviceData->bdmPrefix, sizeof(pDeviceData->bdmPrefix), "%s", pDeviceData->bdmTruePrefix);
+
+    return 1;
+}
+
+int bdmResolveLegacyPath(char *out, size_t out_len, const char *path)
+{
+    char massPath[16];
+    char truePrefix[16];
+    char driver[32];
+    const char *tail;
+    int massIndex;
+    int deviceIndex;
+    int deviceType;
+    int dir;
+    int len;
+
+    if (!out || !out_len || !path)
+        return 0;
+
+    if (!bdmParseLegacyMassPath(path, &massIndex, &tail))
+        return 0;
+
+    if (massIndex >= 0)
+        len = snprintf(massPath, sizeof(massPath), "mass%d:/", massIndex);
+    else
+        len = snprintf(massPath, sizeof(massPath), "mass:/");
+
+    if (len < 0 || (size_t)len >= sizeof(massPath))
+        return 0;
+
+    dir = fileXioDopen(massPath);
+    if (dir < 0) {
+        LOG("BDMSUPPORT: failed to open legacy path root '%s'\n", massPath);
+        return 0;
+    }
+
+    memset(driver, 0, sizeof(driver));
+    deviceIndex = massIndex >= 0 ? massIndex : 0;
+
+    fileXioIoctl2(dir, USBMASS_IOCTL_GET_DRIVERNAME, NULL, 0, driver, sizeof(driver) - 1);
+    fileXioIoctl2(dir, USBMASS_IOCTL_GET_DEVICE_NUMBER, NULL, 0, &deviceIndex, sizeof(deviceIndex));
+
+    fileXioDclose(dir);
+
+    if (!strcmp(driver, "usb"))
+        deviceType = BDM_TYPE_USB;
+    else if (!strcmp(driver, "sdc") && strlen(driver) == 3)
+        deviceType = BDM_TYPE_SDC;
+    else if (!strcmp(driver, "sd") && strlen(driver) == 2)
+        deviceType = BDM_TYPE_ILINK;
+    else if (!strcmp(driver, "ata") && strlen(driver) == 3)
+        deviceType = BDM_TYPE_ATA;
+    else
+        return 0;
+
+    if (!bdmBuildTruePath(truePrefix, sizeof(truePrefix), deviceType, deviceIndex, 0))
+        return 0;
+
+    len = snprintf(out, out_len, "%s%s", truePrefix, tail);
+    if (len < 0 || (size_t)len >= out_len) {
+        out[0] = '\0';
+        return 0;
+    }
+
+    LOG("BDMSUPPORT: resolved legacy path '%s' -> '%s'\n", path, out);
 
     return 1;
 }
