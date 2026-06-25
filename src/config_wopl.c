@@ -359,7 +359,7 @@ static void sanitize_pad_sensitivity(void)
         gYSensitivity = 0;
 }
 
-static int normalise_true_config_dir(char *out, size_t out_len, const char *dir)
+static int normalise_true_config_dir(char *out, size_t out_len, const char *dir, int allowLegacyMass)
 {
     if (!out || !out_len || !dir || !dir[0])
         return 0;
@@ -409,8 +409,8 @@ static int load_boot_config_from_dir(const char *boot_dir)
 
     default_dir[0] = '\0';
 
-    // config_dir defaults to cwd. Legacy massN: boot dirs are resolved to true paths here.
-    normalise_true_config_dir(default_dir, sizeof(default_dir), boot_dir);
+    // config_dir defaults to cwd.. Legacy massN: boot dirs are resolved to true paths here
+    normalise_true_config_dir(default_dir, sizeof(default_dir), boot_dir, 1);
 
     config_init(&cfg);
 
@@ -423,7 +423,7 @@ static int load_boot_config_from_dir(const char *boot_dir)
     cfgValidateBegin(boot_path);
 
     if (cfgGetStr(&cfg, "boot.config_dir", &value)) {
-        if (normalise_true_config_dir(resolved_dir, sizeof(resolved_dir), value)) {
+        if (normalise_true_config_dir(resolved_dir, sizeof(resolved_dir), value, 0)) {
             copy_str(config_dir, resolved_dir, sizeof(config_dir));
             have_config_dir = 1;
         } else
@@ -477,7 +477,7 @@ static int probe_boot_config_path(const char *filename, char *dir_out, size_t di
     if (load_boot_config_from_dir(dir))
         return probe_dir_config_path(config_dir, filename, dir_out, dir_len, path_out, path_len, for_write);
 
-    if (!normalise_true_config_dir(true_dir, sizeof(true_dir), dir))
+    if (!normalise_true_config_dir(true_dir, sizeof(true_dir), dir, 1))
         return 0;
 
     return probe_dir_config_path(true_dir, filename, dir_out, dir_len, path_out, path_len, for_write);
@@ -508,7 +508,7 @@ static int pick_default_config_dir(void)
         if (load_boot_config_from_dir(dir))
             return 1;
 
-        if (normalise_true_config_dir(true_dir, sizeof(true_dir), dir)) {
+        if (normalise_true_config_dir(true_dir, sizeof(true_dir), dir, 1)) {
             copy_str(config_dir, true_dir, sizeof(config_dir));
             return 1;
         }
@@ -552,16 +552,9 @@ static int ensure_config_dir(void)
     if (config_dir[0])
         return 1;
 
-    if (
-        probe_config_path(WOPL_FILENAME, dir, sizeof(dir), path, sizeof(path), 0) ||
+    if (probe_config_path(WOPL_FILENAME, dir, sizeof(dir), path, sizeof(path), 0) ||
         probe_config_path(NET_FILENAME, dir, sizeof(dir), path, sizeof(path), 0) ||
-        probe_config_path(GAME_FILENAME, dir, sizeof(dir), path, sizeof(path), 0) ||
-        // DELETE_WITH_MIGRATION
-        probe_config_path(WOPL_FILENAME_OLD, dir, sizeof(dir), path, sizeof(path), 0) ||
-        probe_config_path(NET_FILENAME_OLD, dir, sizeof(dir), path, sizeof(path), 0) ||
-        probe_config_path(GAME_FILENAME_OLD, dir, sizeof(dir), path, sizeof(path), 0)
-        // DELETE_WITH_MIGRATION
-    ) {
+        probe_config_path(GAME_FILENAME, dir, sizeof(dir), path, sizeof(path), 0)) {
         copy_str(config_dir, dir, sizeof(config_dir));
         return 1;
     }
@@ -738,13 +731,22 @@ static void parse_devices(config_t *cfg)
 
 static void parse_paths(config_t *cfg)
 {
+    char resolved[128];
     const char *path;
-    if ((path = lookup_str(cfg, "paths.bdm_prefix", NULL)))
-        copy_str(gBDMPrefix, path, sizeof(gBDMPrefix));
+
+    if ((path = lookup_str(cfg, "paths.bdm_prefix", NULL))) {
+        if (pathIsLegacyMassPath(path)) {
+            LOG("CONFIG: ignoring legacy mass BDM prefix '%s'\n", path);
+        } else if (pathResolveToTrue(resolved, sizeof(resolved), path) && pathIsDevicePath(resolved)) {
+            pathNormaliseDir(resolved, sizeof(resolved));
+            copy_str(gBDMPrefix, resolved, sizeof(gBDMPrefix));
+        } else {
+            LOG("CONFIG: ignoring invalid BDM prefix '%s'\n", path);
+        }
+    }
 
     if ((path = lookup_str(cfg, "paths.eth_prefix", NULL)))
         copy_str(gETHPrefix, path, sizeof(gETHPrefix));
-
     if ((path = lookup_str(cfg, "paths.mmce_prefix", NULL)))
         copy_str(gMMCEPrefix, path, sizeof(gMMCEPrefix));
 }
@@ -848,7 +850,10 @@ static void build_opl(config_setting_t *root)
     set_bool(group, "enable_write", gEnableWrite);
 
     group = add_group(root, "paths");
-    set_str(group, "bdm_prefix", gBDMPrefix);
+    if (!pathIsLegacyMassPath(gBDMPrefix) && pathIsDevicePath(gBDMPrefix))
+        set_str(group, "bdm_prefix", gBDMPrefix);
+    else
+        set_str(group, "bdm_prefix", "");
     set_str(group, "eth_prefix", gETHPrefix);
     set_str(group, "mmce_prefix", gMMCEPrefix);
 
@@ -900,8 +905,8 @@ static void parse_opl_cfg(config_t *cfg, int *out_theme_id, int *out_lang_id)
 
 int wOPLLoad(int *out_theme_id, int *out_lang_id)
 {
-    char dir[128];
     char path[256];
+    char old_path[256];
     config_t cfg;
 
     if (out_theme_id)
@@ -909,53 +914,58 @@ int wOPLLoad(int *out_theme_id, int *out_lang_id)
     if (out_lang_id)
         *out_lang_id = 0;
 
+    if (!ensure_config_dir())
+        return 0;
+
     // 1. Try new filename
-    if (probe_config_path(WOPL_FILENAME, dir, sizeof(dir), path, sizeof(path), 0)) {
-        config_init(&cfg);
-        if (config_read_file(&cfg, path)) {
-            cfgValidateBegin(path);
-            parse_opl_cfg(&cfg, out_theme_id, out_lang_id);
-            cfgValidateEnd();
-            config_destroy(&cfg);
-            copy_str(config_dir, dir, sizeof(config_dir));
-            LOG("CONFIG_WOPL: loaded from '%s'\n", path);
-            return 1;
-        }
-        log_config_error(path, &cfg);
-        config_destroy(&cfg);
-    }
+    if (!pathJoin(path, sizeof(path), config_dir, WOPL_FILENAME))
+        return 0;
 
-    // DELETE_WITH_MIGRATION
-    // 2. Try old filename.. migrate to new filename and delete old
-    if (probe_config_path(WOPL_FILENAME_OLD, dir, sizeof(dir), path, sizeof(path), 0)) {
-        int ok = 0;
-        config_init(&cfg);
-        if (config_read_file(&cfg, path) && config_lookup(&cfg, "display") != NULL) {
-            parse_opl_cfg(&cfg, out_theme_id, out_lang_id);
-            ok = 1;
-        }
+    config_init(&cfg);
+    if (config_read_file(&cfg, path)) {
+        cfgValidateBegin(path);
+        parse_opl_cfg(&cfg, out_theme_id, out_lang_id);
+        cfgValidateEnd();
         config_destroy(&cfg);
 
-        if (!ok) {
-            LOG("CONFIG_WOPL: old format detected, attempting legacy migration\n");
-            ok = cfgMigrateLegacyOPL(path, out_theme_id, out_lang_id);
-        }
-
-        if (!ok)
-            return 0;
-
-        copy_str(config_dir, dir, sizeof(config_dir));
-        if (wOPLSave()) {
-            char bak[256];
-            snprintf(bak, sizeof(bak), "%s.bak", path);
-            rename(path, bak);
-            LOG("CONFIG_WOPL: migrated to '%s'\n", WOPL_FILENAME);
-        }
+        LOG("CONFIG_WOPL: loaded from '%s'\n", path);
         return 1;
     }
-    // DELETE_WITH_MIGRATION
+    log_config_error(path, &cfg);
+    config_destroy(&cfg);
 
-    return 0;
+    // DELETE_WITH_MIGRATION
+    // 2. Try old filename from the selected config root only.
+    if (!pathJoin(old_path, sizeof(old_path), config_dir, WOPL_FILENAME_OLD))
+        return 0;
+
+    config_init(&cfg);
+    int ok = 0;
+
+    if (config_read_file(&cfg, old_path) && config_lookup(&cfg, "display") != NULL) {
+        parse_opl_cfg(&cfg, out_theme_id, out_lang_id);
+        ok = 1;
+    }
+    config_destroy(&cfg);
+
+    if (!ok) {
+        LOG("CONFIG_WOPL: old format detected at selected config root, attempting legacy migration\n");
+        ok = cfgMigrateLegacyOPL(old_path, out_theme_id, out_lang_id);
+    }
+
+    if (!ok)
+        return 0;
+
+    if (wOPLSave()) {
+        char bak[256];
+
+        snprintf(bak, sizeof(bak), "%s.bak", old_path);
+        rename(old_path, bak);
+        LOG("CONFIG_WOPL: migrated to '%s'\n", WOPL_FILENAME);
+    }
+
+    return 1;
+    // DELETE_WITH_MIGRATION
 }
 
 int wOPLSave(void)
@@ -1576,9 +1586,9 @@ int wOPLGameInfoSave(const char *path, const game_info_t *gi)
     return ok;
 }
 
-// ---------------------------------------------------------------------------------------------------------------------------------
-// Application level config handling.. oof i dont like the old logic.. TODO: split devices to seperate cfg change save/load logic
-// ---------------------------------------------------------------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// Application level config handling
+// ---------------------------------------------------------------------------
 
 char *gBaseMCDir; // used for thm/lang even after migration
 
@@ -1676,20 +1686,6 @@ int configLoad(int types)
     return lscret;
 }
 
-static int config_type_count(int types)
-{
-    int count = 0;
-
-    if (types & CONFIG_OPL)
-        count++;
-    if (types & CONFIG_NETWORK)
-        count++;
-    if (types & CONFIG_GAME)
-        count++;
-
-    return count;
-}
-
 static int save_all_to_current_dir(int types) // like the old configWriteMulti()
 {
     int result = 0;
@@ -1714,88 +1710,9 @@ static int save_all_to_current_dir(int types) // like the old configWriteMulti()
     return result;
 }
 
-static int save_all_to_dir(const char *dir, int types)
-{
-    int result = 0;
-
-    if (!dir || !dir[0])
-        return 0;
-
-    if (!strncmp(dir, "mc", 2))
-        sbCheckMCFolder();
-
-    if (types & CONFIG_OPL)
-        result += do_save_at_dir(dir, WOPL_FILENAME, build_opl);
-    if (types & CONFIG_NETWORK)
-        result += do_save_at_dir(dir, NET_FILENAME, build_net);
-    if (types & CONFIG_GAME)
-        result += do_save_at_dir(dir, GAME_FILENAME, build_global_game);
-
-    return result;
-}
-
-static int try_save_all_boot(int types)
-{
-    char dir[128];
-    char path[256];
-
-    if (types & CONFIG_OPL) {
-        if (probe_boot_config_path(WOPL_FILENAME, dir, sizeof(dir), path, sizeof(path), 1))
-            return save_all_to_dir(dir, types);
-    }
-
-    if (types & CONFIG_NETWORK) {
-        if (probe_boot_config_path(NET_FILENAME, dir, sizeof(dir), path, sizeof(path), 1))
-            return save_all_to_dir(dir, types);
-    }
-
-    if (types & CONFIG_GAME) {
-        if (probe_boot_config_path(GAME_FILENAME, dir, sizeof(dir), path, sizeof(path), 1))
-            return save_all_to_dir(dir, types);
-    }
-
-    return 0;
-}
-
-static int try_save_all_mc(int types)
-{
-    int mc = sysCheckMC();
-
-    if (mc < 0)
-        return 0;
-
-    char dir[128];
-    snprintf(dir, sizeof(dir), "mc%d:%s/", mc & 1, WOPL_CONFIG_NAME);
-
-    return save_all_to_dir(dir, types);
-}
-
-static int save_all_with_fallback(int types)
-{
-    int result;
-    int expected = config_type_count(types);
-
-    result = save_all_to_current_dir(types);
-
-    if (result == expected)
-        return result;
-
-    result = try_save_all_boot(types);
-
-    if (result == expected)
-        return result;
-
-    result = try_save_all_mc(types);
-
-    if (result == expected)
-        return result;
-
-    return 0;
-}
-
 static void _saveConfig()
 {
-    lscret = save_all_with_fallback(lscstatus);
+    lscret = save_all_to_current_dir(lscstatus);
     lscstatus = 0;
 }
 
