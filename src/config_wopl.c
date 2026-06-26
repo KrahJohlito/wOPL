@@ -415,6 +415,9 @@ static int normalise_true_config_dir(char *out, size_t out_len, const char *dir,
         if (!allowLegacyMass)
             return 0;
 
+        // Legacy mass:/massN: launch paths need USB BDM loaded before they can be resolved
+        bdmLoadModulesForLegacyMass();
+
         if (!bdmResolveLegacyPath(out, out_len, dir))
             return 0;
     } else {
