@@ -1128,14 +1128,19 @@ static int bdmParseLegacyMassPath(const char *path, int *index, const char **tai
         return 0;
 
     p = path + 4;
-    value = 0;
+    value = -1;
 
-    if (*p < '0' || *p > '9')
-        return 0;
+    // wLE seems to use mass: instead of mass0:
+    if (*p != ':') {
+        if (*p < '0' || *p > '9')
+            return 0;
 
-    while (*p >= '0' && *p <= '9') {
-        value = value * 10 + (*p - '0');
-        p++;
+        value = 0;
+
+        while (*p >= '0' && *p <= '9') {
+            value = value * 10 + (*p - '0');
+            p++;
+        }
     }
 
     if (*p != ':')
@@ -1215,16 +1220,22 @@ int bdmResolveLegacyPath(char *out, size_t out_len, const char *path)
     if (!bdmParseLegacyMassPath(path, &massIndex, &tail))
         return 0;
 
-    len = snprintf(massPath, sizeof(massPath), "mass%d:/", massIndex);
+    if (massIndex >= 0)
+        len = snprintf(massPath, sizeof(massPath), "mass%d:/", massIndex);
+    else
+        len = snprintf(massPath, sizeof(massPath), "mass:/");
+
     if (len < 0 || (size_t)len >= sizeof(massPath))
         return 0;
 
     dir = fileXioDopen(massPath);
-    if (dir < 0)
+    if (dir < 0) {
+        LOG("BDMSUPPORT: failed to open legacy path root '%s'\n", massPath);
         return 0;
+    }
 
     memset(driver, 0, sizeof(driver));
-    deviceIndex = massIndex;
+    deviceIndex = massIndex >= 0 ? massIndex : 0;
 
     fileXioIoctl2(dir, USBMASS_IOCTL_GET_DRIVERNAME, NULL, 0, driver, sizeof(driver) - 1);
     fileXioIoctl2(dir, USBMASS_IOCTL_GET_DEVICE_NUMBER, NULL, 0, &deviceIndex, sizeof(deviceIndex));

@@ -1660,8 +1660,12 @@ static int save_all_to_current_dir(int types) // like the old configWriteMulti()
 {
     int result = 0;
 
-    if (!ensure_config_dir())
+    if (!ensure_config_dir()) {
+        LOG("CONFIG: no config_dir selected for save\n");
         return 0;
+    }
+
+    LOG("CONFIG: saving to config_dir '%s'\n", config_dir);
 
     if (!strncmp(config_dir, "mc", 2))
         sbCheckMCFolder();
