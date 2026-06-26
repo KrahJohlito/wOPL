@@ -1683,20 +1683,6 @@ int configLoad(int types)
     return lscret;
 }
 
-static int config_type_count(int types)
-{
-    int count = 0;
-
-    if (types & CONFIG_OPL)
-        count++;
-    if (types & CONFIG_NETWORK)
-        count++;
-    if (types & CONFIG_GAME)
-        count++;
-
-    return count;
-}
-
 static int save_all_to_current_dir(int types) // like the old configWriteMulti()
 {
     int result = 0;
@@ -1717,88 +1703,9 @@ static int save_all_to_current_dir(int types) // like the old configWriteMulti()
     return result;
 }
 
-static int save_all_to_dir(const char *dir, int types)
-{
-    int result = 0;
-
-    if (!dir || !dir[0])
-        return 0;
-
-    if (!strncmp(dir, "mc", 2))
-        sbCheckMCFolder();
-
-    if (types & CONFIG_OPL)
-        result += do_save_at_dir(dir, WOPL_FILENAME, build_opl);
-    if (types & CONFIG_NETWORK)
-        result += do_save_at_dir(dir, NET_FILENAME, build_net);
-    if (types & CONFIG_GAME)
-        result += do_save_at_dir(dir, GAME_FILENAME, build_global_game);
-
-    return result;
-}
-
-static int try_save_all_boot(int types)
-{
-    char dir[128];
-    char path[256];
-
-    if (types & CONFIG_OPL) {
-        if (probe_boot_config_path(WOPL_FILENAME, dir, sizeof(dir), path, sizeof(path), 1))
-            return save_all_to_dir(dir, types);
-    }
-
-    if (types & CONFIG_NETWORK) {
-        if (probe_boot_config_path(NET_FILENAME, dir, sizeof(dir), path, sizeof(path), 1))
-            return save_all_to_dir(dir, types);
-    }
-
-    if (types & CONFIG_GAME) {
-        if (probe_boot_config_path(GAME_FILENAME, dir, sizeof(dir), path, sizeof(path), 1))
-            return save_all_to_dir(dir, types);
-    }
-
-    return 0;
-}
-
-static int try_save_all_mc(int types)
-{
-    int mc = sysCheckMC();
-
-    if (mc < 0)
-        return 0;
-
-    char dir[128];
-    snprintf(dir, sizeof(dir), "mc%d:%s/", mc & 1, WOPL_CONFIG_NAME);
-
-    return save_all_to_dir(dir, types);
-}
-
-static int save_all_with_fallback(int types)
-{
-    int result;
-    int expected = config_type_count(types);
-
-    result = save_all_to_current_dir(types);
-
-    if (result == expected)
-        return result;
-
-    result = try_save_all_boot(types);
-
-    if (result == expected)
-        return result;
-
-    result = try_save_all_mc(types);
-
-    if (result == expected)
-        return result;
-
-    return 0;
-}
-
 static void _saveConfig()
 {
-    lscret = save_all_with_fallback(lscstatus);
+    lscret = save_all_to_current_dir(lscstatus);
     lscstatus = 0;
 }
 
