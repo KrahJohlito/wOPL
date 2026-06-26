@@ -57,6 +57,7 @@
 #define BOOT_FILENAME "wopl_boot.cfg"
 
 static char config_dir[128] = {0};
+static char boot_dir[128] = {0};
 static char last_played[256] = {0};
 
 static char s_theme_name[128] = {0};
@@ -449,6 +450,8 @@ static int load_boot_config_from_dir(const char *boot_dir)
     if (!normalise_true_config_dir(boot_root, sizeof(boot_root), boot_dir, 1))
         return 0;
 
+    copy_str(boot_dir, boot_root, sizeof(boot_dir));
+
     if (!pathJoin(boot_path, sizeof(boot_path), boot_root, BOOT_FILENAME))
         return 0;
 
@@ -498,6 +501,7 @@ static int pick_default_config_dir(void)
             return 1;
 
         if (normalise_true_config_dir(true_dir, sizeof(true_dir), dir, 1)) {
+            copy_str(boot_dir, true_dir, sizeof(boot_dir));
             copy_str(config_dir, true_dir, sizeof(config_dir));
             return 1;
         }
@@ -508,6 +512,7 @@ static int pick_default_config_dir(void)
 
     if (mc >= 0) {
         snprintf(config_dir, sizeof(config_dir), "mc%d:%s/", mc & 1, WOPL_CONFIG_NAME);
+        copy_str(boot_dir, config_dir, sizeof(boot_dir));
         return 1;
     }
 
@@ -582,6 +587,48 @@ static int do_save(const char *filename, void (*build)(config_setting_t *))
         return 0;
 
     return do_save_at_dir(config_dir, filename, build);
+}
+
+// ---------------------------------------------------------------------------
+// Bootstrap config (wopl_boot.cfg)
+// ---------------------------------------------------------------------------
+
+static void build_boot(config_setting_t *root)
+{
+    config_setting_t *group;
+
+    group = add_group(root, "boot");
+    set_str(group, "config_dir", config_dir);
+}
+
+static int save_boot_config(void)
+{
+    char path[256];
+    config_t cfg;
+    config_setting_t *root;
+    int ok;
+
+    if (!boot_dir[0] || !config_dir[0])
+        return 1;
+
+    if (!pathJoin(path, sizeof(path), boot_dir, BOOT_FILENAME))
+        return 0;
+
+    config_init(&cfg);
+    root = config_root_setting(&cfg);
+    build_boot(root);
+
+    ok = config_write_file(&cfg, path);
+    config_destroy(&cfg);
+
+    if (!ok) {
+        LOG("CONFIG: failed to write boot config '%s'\n", path);
+        return 0;
+    }
+
+    LOG("CONFIG: saved boot config '%s'\n", path);
+
+    return 1;
 }
 
 // ---------------------------------------------------------------------------
@@ -1659,6 +1706,7 @@ int configLoad(int types)
 static int save_all_to_current_dir(int types) // like the old configWriteMulti()
 {
     int result = 0;
+    int expected = config_type_count(types);
 
     if (!ensure_config_dir()) {
         LOG("CONFIG: no config_dir selected for save\n");
@@ -1676,6 +1724,12 @@ static int save_all_to_current_dir(int types) // like the old configWriteMulti()
         result += do_save_at_dir(config_dir, NET_FILENAME, build_net);
     if (types & CONFIG_GAME)
         result += do_save_at_dir(config_dir, GAME_FILENAME, build_global_game);
+
+    if (result != expected)
+        return result;
+
+    if (!save_boot_config())
+        return 0;
 
     return result;
 }
