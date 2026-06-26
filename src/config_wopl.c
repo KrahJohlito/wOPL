@@ -1591,12 +1591,12 @@ void configApply(int themeID, int langID, int skipDeviceRefresh)
 
     // Check if we should refresh device support as well.
     if (skipDeviceRefresh == 0) {
-        initAllSupport(0);
+        bdmLoadEnabledDeviceModules();
 
+        initAllSupport(0);
         for (int i = 0; i < MODE_COUNT; i++) {
             if (list_support[i].support == NULL)
                 continue;
-
             moduleUpdateMenuInternal(&list_support[i], changed, langChanged);
         }
     } else {
