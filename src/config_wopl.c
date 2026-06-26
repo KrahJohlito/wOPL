@@ -359,6 +359,41 @@ static void sanitize_pad_sensitivity(void)
         gYSensitivity = 0;
 }
 
+static int config_path_has_device_prefix(const char *path, const char *prefix)
+{
+    size_t len;
+
+    if (!path || !prefix)
+        return 0;
+
+    len = strlen(prefix);
+
+    if (strncmp(path, prefix, len))
+        return 0;
+
+    path += len;
+
+    while (*path >= '0' && *path <= '9')
+        path++;
+
+    return *path == ':';
+}
+
+static void load_config_root_modules_for_path(const char *path)
+{
+    if (!path || !path[0])
+        return;
+
+    bdmLoadModulesForPath(path);
+
+    if (config_path_has_device_prefix(path, "hdd")) {
+        LOG("CONFIG: loading HDD modules for config root '%s'\n", path);
+
+        hddLoadModules();
+        hddLoadSupportModules();
+    }
+}
+
 static int normalise_true_config_dir(char *out, size_t out_len, const char *dir, int allowLegacyMass)
 {
     if (!out || !out_len || !dir || !dir[0])
@@ -380,8 +415,8 @@ static int normalise_true_config_dir(char *out, size_t out_len, const char *dir,
     if (!pathIsDevicePath(out))
         return 0;
 
-    // If the selected config root is on BDM.. load only the matching BDM driver before probing it
-    bdmLoadModulesForPath(out);
+    // If the selected config root needs optional modules.. load only the matching driver before probing it
+    load_config_root_modules_for_path(out);
 
     return path_exists(out);
 }
