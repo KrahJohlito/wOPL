@@ -19,6 +19,7 @@
 #include "include/supportbase.h"
 #include "include/bdmsupport.h"
 #include "include/hddsupport.h"
+#include "include/mmcesupport.h"
 #include "include/config_migration.h" // DELETE_WITH_MIGRATION
 #include "include/module.h"
 #include "include/pathsupport.h"
@@ -354,9 +355,54 @@ static void sanitize_pad_sensitivity(void)
 {
     if (gXSensitivity < 0 || gXSensitivity > 2)
         gXSensitivity = 0;
-
     if (gYSensitivity < 0 || gYSensitivity > 2)
         gYSensitivity = 0;
+}
+
+static int config_path_has_device_prefix(const char *path, const char *prefix)
+{
+    size_t len;
+
+    if (!path || !prefix)
+        return 0;
+
+    len = strlen(prefix);
+
+    if (strncmp(path, prefix, len))
+        return 0;
+
+    path += len;
+
+    while (*path >= '0' && *path <= '9')
+        path++;
+
+    return *path == ':';
+}
+
+static void prepare_config_root_modules(const char *path)
+{
+    if (!path || !path[0])
+        return;
+
+    // BDM/FAT roots: usbN:, mx4sioN:, ilinkN:, ataN:
+    bdmLoadModulesForPath(path);
+
+    // APA/PFS internal HDD root: hddN:
+    if (config_path_has_device_prefix(path, "hdd")) {
+        guiSetBootStatusIfActive("Loading HDD config root...");
+        LOG("CONFIG: loading HDD modules for config root '%s'\n", path);
+        hddLoadModules();
+        hddLoadSupportModules();
+        return;
+    }
+
+    // MMCE root: mmceN:
+    if (config_path_has_device_prefix(path, "mmce")) {
+        guiSetBootStatusIfActive("Loading MMCE config root...");
+        LOG("CONFIG: loading MMCE modules for config root '%s'\n", path);
+        mmceLoadModules();
+        return;
+    }
 }
 
 static int normalise_true_config_dir(char *out, size_t out_len, const char *dir, int allowLegacyMass)
@@ -380,16 +426,16 @@ static int normalise_true_config_dir(char *out, size_t out_len, const char *dir,
     if (!pathIsDevicePath(out))
         return 0;
 
-    // If the selected config root is on BDM.. load only the matching BDM driver before probing it
-    bdmLoadModulesForPath(out);
+    // Load only the modules required by this selected boot/config root before probing it
+    prepare_config_root_modules(out);
 
     return path_exists(out);
 }
 
 static int load_boot_config_from_dir(const char *boot_dir)
 {
+    char boot_root[128];
     char boot_path[256];
-    char default_dir[128];
     char resolved_dir[128];
     const char *value;
     config_t cfg;
@@ -398,16 +444,16 @@ static int load_boot_config_from_dir(const char *boot_dir)
     if (!boot_dir || !boot_dir[0])
         return 0;
 
-    if (!pathJoin(boot_path, sizeof(boot_path), boot_dir, BOOT_FILENAME))
+    // Prepare the boot/cwd root before trying to read wopl_boot.cfg from it
+    // Legacy massN: is allowed here only because this path came from argv0/cwd
+    if (!normalise_true_config_dir(boot_root, sizeof(boot_root), boot_dir, 1))
+        return 0;
+
+    if (!pathJoin(boot_path, sizeof(boot_path), boot_root, BOOT_FILENAME))
         return 0;
 
     if (!file_exists(boot_path))
         return 0;
-
-    default_dir[0] = '\0';
-
-    // config_dir defaults to cwd.. Legacy massN: boot dirs are resolved to true paths here
-    normalise_true_config_dir(default_dir, sizeof(default_dir), boot_dir, 1);
 
     config_init(&cfg);
 
@@ -420,6 +466,7 @@ static int load_boot_config_from_dir(const char *boot_dir)
     cfgValidateBegin(boot_path);
 
     if (cfgGetStr(&cfg, "boot.config_dir", &value)) {
+        // boot.config_dir is user selected config root.. Do not accept legacy massN: here
         if (normalise_true_config_dir(resolved_dir, sizeof(resolved_dir), value, 0)) {
             copy_str(config_dir, resolved_dir, sizeof(config_dir));
             have_config_dir = 1;
@@ -427,72 +474,17 @@ static int load_boot_config_from_dir(const char *boot_dir)
             LOG("CONFIG: ignoring invalid boot.config_dir '%s'\n", value);
     }
 
-    if (!have_config_dir && default_dir[0]) {
-        copy_str(config_dir, default_dir, sizeof(config_dir));
+    if (!have_config_dir) {
+        copy_str(config_dir, boot_root, sizeof(config_dir));
         have_config_dir = 1;
     }
 
     cfgValidateEnd();
     config_destroy(&cfg);
 
-    if (have_config_dir)
-        LOG("CONFIG: boot config '%s' config_dir='%s'\n", boot_path, config_dir);
+    LOG("CONFIG: boot config '%s' config_dir='%s'\n", boot_path, config_dir);
 
     return have_config_dir;
-}
-
-static int probe_dir_config_path(const char *dir, const char *filename, char *dir_out, size_t dir_len, char *path_out, size_t path_len, int for_write)
-{
-    char path[256];
-
-    if (!dir || !dir[0])
-        return 0;
-
-    if (!pathJoin(path, sizeof(path), dir, filename))
-        return 0;
-
-    if (!for_write && !file_exists(path))
-        return 0;
-
-    if (for_write && !path_exists(dir))
-        return 0;
-
-    copy_str(dir_out, dir, dir_len);
-    copy_str(path_out, path, path_len);
-
-    return 1;
-}
-
-static int probe_boot_config_path(const char *filename, char *dir_out, size_t dir_len, char *path_out, size_t path_len, int for_write)
-{
-    char dir[128];
-    char true_dir[128];
-
-    if (!pathGetBootDir(dir, sizeof(dir)))
-        return 0;
-
-    if (load_boot_config_from_dir(dir))
-        return probe_dir_config_path(config_dir, filename, dir_out, dir_len, path_out, path_len, for_write);
-
-    if (!normalise_true_config_dir(true_dir, sizeof(true_dir), dir, 1))
-        return 0;
-
-    return probe_dir_config_path(true_dir, filename, dir_out, dir_len, path_out, path_len, for_write);
-}
-
-static int probe_mc_config_path(const char *filename, char *dir_out, size_t dir_len, char *path_out, size_t path_len, int for_write)
-{
-    char dir[128];
-    int mc;
-
-    mc = sysCheckMC();
-
-    if (mc < 0)
-        return 0;
-
-    snprintf(dir, sizeof(dir), "mc%d:%s/", mc & 1, WOPL_CONFIG_NAME);
-
-    return probe_dir_config_path(dir, filename, dir_out, dir_len, path_out, path_len, for_write);
 }
 
 static int pick_default_config_dir(void)
@@ -511,6 +503,7 @@ static int pick_default_config_dir(void)
         }
     }
 
+    // Fallback only if no usable boot/cwd root exists
     mc = sysCheckMC();
 
     if (mc >= 0) {
@@ -521,20 +514,10 @@ static int pick_default_config_dir(void)
     return 0;
 }
 
-static int probe_config_path(const char *filename, char *dir_out, size_t dir_len, char *path_out, size_t path_len, int for_write)
-{
-    if (probe_boot_config_path(filename, dir_out, dir_len, path_out, path_len, for_write))
-        return 1;
-
-    if (probe_mc_config_path(filename, dir_out, dir_len, path_out, path_len, for_write))
-        return 1;
-
-    return 0;
-}
-
 static int ensure_mc_dir(const char *dir)
 {
     struct stat st;
+
     if (stat(dir, &st) == 0)
         return 1;
 
@@ -543,18 +526,8 @@ static int ensure_mc_dir(const char *dir)
 
 static int ensure_config_dir(void)
 {
-    char dir[128];
-    char path[256];
-
     if (config_dir[0])
         return 1;
-
-    if (probe_config_path(WOPL_FILENAME, dir, sizeof(dir), path, sizeof(path), 0) ||
-        probe_config_path(NET_FILENAME, dir, sizeof(dir), path, sizeof(path), 0) ||
-        probe_config_path(GAME_FILENAME, dir, sizeof(dir), path, sizeof(path), 0)) {
-        copy_str(config_dir, dir, sizeof(config_dir));
-        return 1;
-    }
 
     return pick_default_config_dir();
 }
