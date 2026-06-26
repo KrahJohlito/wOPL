@@ -260,6 +260,17 @@ void bdmLoadModulesForPath(const char *path)
     SignalSema(bdmLoadModuleLock);
 }
 
+void bdmLoadModulesForLegacyMass(void)
+{
+    LOG("BDMSUPPORT LoadModulesForLegacyMass\n");
+
+    bdmLoadBaseModules();
+
+    WaitSema(bdmLoadModuleLock);
+    bdmLoadUSBModules();
+    SignalSema(bdmLoadModuleLock);
+}
+
 void bdmLoadEnabledDeviceModules(void)
 {
     LOG("BDMSUPPORT LoadEnabledDeviceModules\n");
