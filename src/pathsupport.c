@@ -103,6 +103,11 @@ static int path_is_host_path(const char *path)
     return path && !strncmp(path, "host:", 5);
 }
 
+static int path_is_host_root(const char *path)
+{
+    return path && !strcmp(path, "host:");
+}
+
 static char path_dir_separator(const char *path)
 {
     if (path_is_host_path(path) && strchr(path, '\\'))
@@ -140,22 +145,26 @@ static int path_prepare_launch_root_path(char *out, size_t out_len, const char *
     if (!out || !out_len || !path || !path[0])
         return 0;
 
+    if (path_is_host_path(path)) {
+        const char *host_path = path + 5;
+
+        if (path_is_host_native_absolute(host_path)) {
+            copy_str(out, "host:", out_len);
+            return 1;
+        }
+
+        copy_str(out, path, out_len);
+        return 1;
+    }
+
     if (pathIsDevicePath(path) || pathIsLegacyMassPath(path)) {
         copy_str(out, path, out_len);
-
-        if (!path_is_host_path(out))
-            path_normalise_separators(out);
-
+        path_normalise_separators(out);
         return 1;
     }
 
     if (path_is_host_native_absolute(path)) {
-        len = snprintf(out, out_len, "host:%s", path);
-        if (len < 0 || (size_t)len >= out_len) {
-            out[0] = '\0';
-            return 0;
-        }
-
+        copy_str(out, "host:", out_len);
         return 1;
     }
 
@@ -174,6 +183,9 @@ void pathNormaliseDir(char *dir, size_t dir_len)
 
     if (!path_is_host_path(dir))
         path_normalise_separators(dir);
+
+    if (path_is_host_root(dir))
+        return;
 
     sep = path_dir_separator(dir);
     len = strlen(dir);
