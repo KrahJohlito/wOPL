@@ -728,13 +728,22 @@ static void parse_devices(config_t *cfg)
 
 static void parse_paths(config_t *cfg)
 {
+    char resolved[128];
     const char *path;
-    if ((path = lookup_str(cfg, "paths.bdm_prefix", NULL)))
-        copy_str(gBDMPrefix, path, sizeof(gBDMPrefix));
+
+    if ((path = lookup_str(cfg, "paths.bdm_prefix", NULL))) {
+        if (pathIsLegacyMassPath(path)) {
+            LOG("CONFIG: ignoring legacy mass BDM prefix '%s'\n", path);
+        } else if (pathResolveToTrue(resolved, sizeof(resolved), path) && pathIsDevicePath(resolved)) {
+            pathNormaliseDir(resolved, sizeof(resolved));
+            copy_str(gBDMPrefix, resolved, sizeof(gBDMPrefix));
+        } else {
+            LOG("CONFIG: ignoring invalid BDM prefix '%s'\n", path);
+        }
+    }
 
     if ((path = lookup_str(cfg, "paths.eth_prefix", NULL)))
         copy_str(gETHPrefix, path, sizeof(gETHPrefix));
-
     if ((path = lookup_str(cfg, "paths.mmce_prefix", NULL)))
         copy_str(gMMCEPrefix, path, sizeof(gMMCEPrefix));
 }
@@ -838,7 +847,10 @@ static void build_opl(config_setting_t *root)
     set_bool(group, "enable_write", gEnableWrite);
 
     group = add_group(root, "paths");
-    set_str(group, "bdm_prefix", gBDMPrefix);
+    if (!pathIsLegacyMassPath(gBDMPrefix) && pathIsDevicePath(gBDMPrefix))
+        set_str(group, "bdm_prefix", gBDMPrefix);
+    else
+        set_str(group, "bdm_prefix", "");
     set_str(group, "eth_prefix", gETHPrefix);
     set_str(group, "mmce_prefix", gMMCEPrefix);
 
