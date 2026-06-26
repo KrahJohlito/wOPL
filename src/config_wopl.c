@@ -433,7 +433,7 @@ static int normalise_true_config_dir(char *out, size_t out_len, const char *dir,
     return path_exists(out);
 }
 
-static int load_boot_config_from_dir(const char *boot_dir)
+static int load_boot_config_from_dir(const char *launch_dir)
 {
     char boot_root[128];
     char boot_path[256];
@@ -442,12 +442,12 @@ static int load_boot_config_from_dir(const char *boot_dir)
     config_t cfg;
     int have_config_dir = 0;
 
-    if (!boot_dir || !boot_dir[0])
+    if (!launch_dir || !launch_dir[0])
         return 0;
 
-    // Prepare the boot/cwd root before trying to read wopl_boot.cfg from it
-    // Legacy massN: is allowed here only because this path came from argv0/cwd
-    if (!normalise_true_config_dir(boot_root, sizeof(boot_root), boot_dir, 1))
+    // Prepare the boot/cwd root before trying to read wopl_boot.cfg from it.
+    // Legacy massN: is allowed here only because this path came from argv0/cwd.
+    if (!normalise_true_config_dir(boot_root, sizeof(boot_root), launch_dir, 1))
         return 0;
 
     copy_str(boot_dir, boot_root, sizeof(boot_dir));
@@ -1701,6 +1701,20 @@ int configLoad(int types)
     guiHandleDeferedIO(&lscstatus, _l(_STR_LOADING_SETTINGS), IO_CUSTOM_SIMPLEACTION, &_loadConfig);
 
     return lscret;
+}
+
+static int config_type_count(int types)
+{
+    int count = 0;
+
+    if (types & CONFIG_OPL)
+        count++;
+    if (types & CONFIG_NETWORK)
+        count++;
+    if (types & CONFIG_GAME)
+        count++;
+
+    return count;
 }
 
 static int save_all_to_current_dir(int types) // like the old configWriteMulti()
