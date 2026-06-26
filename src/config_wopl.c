@@ -1583,9 +1583,9 @@ int wOPLGameInfoSave(const char *path, const game_info_t *gi)
     return ok;
 }
 
-// ---------------------------------------------------------------------------------------------------------------------------------
-// Application level config handling.. oof i dont like the old logic.. TODO: split devices to seperate cfg change save/load logic
-// ---------------------------------------------------------------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// Application level config handling
+// ---------------------------------------------------------------------------
 
 char *gBaseMCDir; // used for thm/lang even after migration
 
