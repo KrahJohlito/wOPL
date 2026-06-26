@@ -452,6 +452,11 @@ static int load_boot_config_from_dir(const char *launch_dir)
 
     copy_str(boot_dir, boot_root, sizeof(boot_dir));
 
+    if (!pathJoin(boot_path, sizeof(boot_path), boot_root, BOOT_FILENAME)) {
+        LOG("CONFIG: failed to build boot cfg path from '%s'\n", boot_root);
+        return 0;
+    }
+
     LOG("CONFIG: boot root='%s' boot cfg='%s'\n", boot_root, boot_path);
 
     if (!file_exists(boot_path)) {
