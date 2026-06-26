@@ -98,6 +98,19 @@ static int path_is_alpha(char c)
     return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z');
 }
 
+static int path_is_host_path(const char *path)
+{
+    return path && !strncmp(path, "host:", 5);
+}
+
+static char path_dir_separator(const char *path)
+{
+    if (path_is_host_path(path) && strchr(path, '\\'))
+        return '\\';
+
+    return '/';
+}
+
 static int path_is_windows_absolute(const char *path)
 {
     return path && path_is_alpha(path[0]) && path[1] == ':' && (path[2] == '/' || path[2] == '\\');
@@ -129,7 +142,10 @@ static int path_prepare_launch_root_path(char *out, size_t out_len, const char *
 
     if (pathIsDevicePath(path) || pathIsLegacyMassPath(path)) {
         copy_str(out, path, out_len);
-        path_normalise_separators(out);
+
+        if (!path_is_host_path(out))
+            path_normalise_separators(out);
+
         return 1;
     }
 
@@ -140,7 +156,6 @@ static int path_prepare_launch_root_path(char *out, size_t out_len, const char *
             return 0;
         }
 
-        path_normalise_separators(out);
         return 1;
     }
 
@@ -150,18 +165,22 @@ static int path_prepare_launch_root_path(char *out, size_t out_len, const char *
 void pathNormaliseDir(char *dir, size_t dir_len)
 {
     size_t len;
+    char sep;
 
     if (!dir_len)
         return;
 
     dir[dir_len - 1] = '\0';
-    path_normalise_separators(dir);
 
+    if (!path_is_host_path(dir))
+        path_normalise_separators(dir);
+
+    sep = path_dir_separator(dir);
     len = strlen(dir);
 
-    if (len > 0 && dir[len - 1] != '/') {
+    if (len > 0 && dir[len - 1] != '/' && dir[len - 1] != '\\') {
         if (len + 1 < dir_len) {
-            dir[len] = '/';
+            dir[len] = sep;
             dir[len + 1] = '\0';
         }
     }
@@ -184,6 +203,13 @@ static int path_get_dirname(const char *path, char *dir_out, size_t dir_len, int
         return 0;
 
     slash = strrchr(path, '/');
+
+    if (path_is_host_path(path)) {
+        const char *backslash = strrchr(path, '\\');
+
+        if (!slash || (backslash && backslash > slash))
+            slash = backslash;
+    }
 
     if (!slash) {
         copy_str(dir_out, path, dir_len);
