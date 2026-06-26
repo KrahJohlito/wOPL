@@ -452,11 +452,12 @@ static int load_boot_config_from_dir(const char *launch_dir)
 
     copy_str(boot_dir, boot_root, sizeof(boot_dir));
 
-    if (!pathJoin(boot_path, sizeof(boot_path), boot_root, BOOT_FILENAME))
-        return 0;
+    LOG("CONFIG: boot root='%s' boot cfg='%s'\n", boot_root, boot_path);
 
-    if (!file_exists(boot_path))
+    if (!file_exists(boot_path)) {
+        LOG("CONFIG: no boot cfg at '%s'\n", boot_path);
         return 0;
+    }
 
     config_init(&cfg);
 
@@ -503,6 +504,7 @@ static int pick_default_config_dir(void)
         if (normalise_true_config_dir(true_dir, sizeof(true_dir), dir, 1)) {
             copy_str(boot_dir, true_dir, sizeof(boot_dir));
             copy_str(config_dir, true_dir, sizeof(config_dir));
+            LOG("CONFIG: using boot/cwd config_dir='%s'\n", config_dir);
             return 1;
         }
     }
@@ -513,6 +515,7 @@ static int pick_default_config_dir(void)
     if (mc >= 0) {
         snprintf(config_dir, sizeof(config_dir), "mc%d:%s/", mc & 1, WOPL_CONFIG_NAME);
         copy_str(boot_dir, config_dir, sizeof(boot_dir));
+        LOG("CONFIG: falling back to MC config_dir='%s'\n", config_dir);
         return 1;
     }
 
@@ -938,6 +941,8 @@ int wOPLLoad(int *out_theme_id, int *out_lang_id)
     if (!pathJoin(path, sizeof(path), config_dir, WOPL_FILENAME))
         return 0;
 
+    LOG("CONFIG_WOPL: trying '%s'\n", path);
+
     config_init(&cfg);
     if (config_read_file(&cfg, path)) {
         cfgValidateBegin(path);
@@ -948,6 +953,8 @@ int wOPLLoad(int *out_theme_id, int *out_lang_id)
         LOG("CONFIG_WOPL: loaded from '%s'\n", path);
         return 1;
     }
+
+    LOG("CONFIG_WOPL: failed new config '%s'\n", path);
     log_config_error(path, &cfg);
     config_destroy(&cfg);
 
@@ -1065,6 +1072,8 @@ int wOPLNetLoad(void)
 
     if (!pathJoin(path, sizeof(path), config_dir, NET_FILENAME))
         return 0;
+
+    LOG("CONFIG_NET: trying '%s'\n", path);
 
     // 1. Try new filename
     config_init(&cfg);
@@ -1269,6 +1278,8 @@ int wOPLGlobalGameLoad(void)
 
     if (!pathJoin(path, sizeof(path), config_dir, GAME_FILENAME))
         return 0;
+
+    LOG("CONFIG_GAME: trying '%s'\n", path);
 
     config_init(&cfg);
     if (config_read_file(&cfg, path)) {
