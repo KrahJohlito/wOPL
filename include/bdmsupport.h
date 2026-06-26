@@ -48,6 +48,7 @@ extern bdm_device_data_t *gAutoLaunchDeviceData;
 
 void bdmLoadModules(void);
 void bdmLoadModulesForPath(const char *path);
+void bdmLoadEnabledDeviceModules(void);
 void bdmLaunchGame(item_list_t *itemList, int id, per_game_cfg_t *pgcfg);
 
 void bdmInitSemaphore();

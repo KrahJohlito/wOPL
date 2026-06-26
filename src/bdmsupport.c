@@ -260,6 +260,16 @@ void bdmLoadModulesForPath(const char *path)
     SignalSema(bdmLoadModuleLock);
 }
 
+void bdmLoadEnabledDeviceModules(void)
+{
+    LOG("BDMSUPPORT LoadEnabledDeviceModules\n");
+
+    bdmLoadBaseModules();
+
+    // Settings have now been loaded.. so load enabled BDM drivers synchronously before bdmEnumerateDevices() runs
+    bdmLoadBlockDeviceModules();
+}
+
 static void bdmInit(item_list_t *itemList)
 {
     LOG("BDMSUPPORT Init\n");
