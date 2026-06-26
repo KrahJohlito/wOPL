@@ -359,12 +359,15 @@ static void sanitize_pad_sensitivity(void)
         gYSensitivity = 0;
 }
 
-static int normalise_true_config_dir(char *out, size_t out_len, const char *dir)
+static int normalise_true_config_dir(char *out, size_t out_len, const char *dir, int allowLegacyMass)
 {
     if (!out || !out_len || !dir || !dir[0])
         return 0;
 
     if (pathIsLegacyMassPath(dir)) {
+        if (!allowLegacyMass)
+            return 0;
+
         if (!bdmResolveLegacyPath(out, out_len, dir))
             return 0;
     } else {
@@ -403,8 +406,8 @@ static int load_boot_config_from_dir(const char *boot_dir)
 
     default_dir[0] = '\0';
 
-    // config_dir defaults to cwd. Legacy massN: boot dirs are resolved to true paths here.
-    normalise_true_config_dir(default_dir, sizeof(default_dir), boot_dir);
+    // config_dir defaults to cwd.. Legacy massN: boot dirs are resolved to true paths here
+    normalise_true_config_dir(default_dir, sizeof(default_dir), boot_dir, 1);
 
     config_init(&cfg);
 
@@ -417,7 +420,7 @@ static int load_boot_config_from_dir(const char *boot_dir)
     cfgValidateBegin(boot_path);
 
     if (cfgGetStr(&cfg, "boot.config_dir", &value)) {
-        if (normalise_true_config_dir(resolved_dir, sizeof(resolved_dir), value)) {
+        if (normalise_true_config_dir(resolved_dir, sizeof(resolved_dir), value, 0)) {
             copy_str(config_dir, resolved_dir, sizeof(config_dir));
             have_config_dir = 1;
         } else
@@ -471,7 +474,7 @@ static int probe_boot_config_path(const char *filename, char *dir_out, size_t di
     if (load_boot_config_from_dir(dir))
         return probe_dir_config_path(config_dir, filename, dir_out, dir_len, path_out, path_len, for_write);
 
-    if (!normalise_true_config_dir(true_dir, sizeof(true_dir), dir))
+    if (!normalise_true_config_dir(true_dir, sizeof(true_dir), dir, 1))
         return 0;
 
     return probe_dir_config_path(true_dir, filename, dir_out, dir_len, path_out, path_len, for_write);
@@ -502,7 +505,7 @@ static int pick_default_config_dir(void)
         if (load_boot_config_from_dir(dir))
             return 1;
 
-        if (normalise_true_config_dir(true_dir, sizeof(true_dir), dir)) {
+        if (normalise_true_config_dir(true_dir, sizeof(true_dir), dir, 1)) {
             copy_str(config_dir, true_dir, sizeof(config_dir));
             return 1;
         }
