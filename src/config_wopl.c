@@ -429,6 +429,10 @@ static int normalise_true_config_dir(char *out, size_t out_len, const char *dir,
     // Load only the modules required by this selected boot/config root before probing it
     prepare_config_root_modules(out);
 
+    // host: paths may not support stat() under pcsx2?
+    if (config_path_has_device_prefix(out, "host"))
+        return 1;
+
     return path_exists(out);
 }
 
