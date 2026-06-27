@@ -529,7 +529,7 @@ static int normalise_true_config_dir(char *out, size_t out_len, const char *dir,
             return 0;
         }
 
-        if (!resolve_legacy_mass_boot_path(out, out_len, dir)) {
+        if (!resolve_legacy_mass_boot_path(out, out_len, dir, 1)) {
             configEarlyLog("CONFIG: failed to resolve legacy mass path '%s'\n", dir);
             return 0;
         }
