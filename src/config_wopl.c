@@ -904,7 +904,7 @@ static void parse_paths(config_t *cfg)
     char resolved[128];
     const char *path;
 
-    if ((path = lookup_str(cfg, "paths.bdm_prefix", NULL))) {
+    if ((path = lookup_str(cfg, "paths.bdm_prefix", NULL)) && path[0]) {
         if (pathIsLegacyMassPath(path)) {
             configEarlyLog("CONFIG: ignoring legacy mass BDM prefix '%s'\n", path);
         } else if (pathResolveToTrue(resolved, sizeof(resolved), path) && pathIsDevicePath(resolved)) {
