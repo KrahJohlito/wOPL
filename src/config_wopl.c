@@ -466,9 +466,17 @@ static void prepare_config_root_modules(const char *path)
 #define CONFIG_ROOT_READY_RETRIES 20
 #define CONFIG_ROOT_READY_DELAY   8
 
-static int resolve_legacy_mass_boot_path(char *out, size_t out_len, const char *dir)
+static int resolve_legacy_mass_boot_path(char *out, size_t out_len, const char *dir, int allowModuleLoad)
 {
     int i;
+
+    if (bdmResolveLegacyPath(out, out_len, dir))
+        return 1;
+
+    if (!allowModuleLoad)
+        return 0;
+
+    bdmLoadModulesForLegacyMass();
 
     for (i = 0; i < CONFIG_ROOT_READY_RETRIES; i++) {
         if (bdmResolveLegacyPath(out, out_len, dir)) {
@@ -520,9 +528,6 @@ static int normalise_true_config_dir(char *out, size_t out_len, const char *dir,
             configEarlyLog("CONFIG: rejecting legacy mass path '%s'\n", dir);
             return 0;
         }
-
-        // Legacy mass:/massN: launch paths need USB BDM loaded before they can be resolved
-        bdmLoadModulesForLegacyMass();
 
         if (!resolve_legacy_mass_boot_path(out, out_len, dir)) {
             configEarlyLog("CONFIG: failed to resolve legacy mass path '%s'\n", dir);
