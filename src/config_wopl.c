@@ -105,12 +105,27 @@ static void configEarlyLog(const char *fmt, ...)
 
 static void configFlushEarlyLog(void)
 {
+    size_t pos = 0;
+    size_t chunk;
+
     if (!early_config_log_len)
         return;
 
     early_config_log[early_config_log_len] = '\0';
 
-    LOG("CONFIG EARLY LOG BEGIN\n%sCONFIG EARLY LOG END\n", early_config_log);
+    LOG("CONFIG EARLY LOG BEGIN\n");
+
+    while (pos < early_config_log_len) {
+        chunk = early_config_log_len - pos;
+
+        if (chunk > 240)
+            chunk = 240;
+
+        LOG("%.*s", (int)chunk, early_config_log + pos);
+        pos += chunk;
+    }
+
+    LOG("CONFIG EARLY LOG END\n");
 
     early_config_log_len = 0;
     early_config_log[0] = '\0';
@@ -452,38 +467,65 @@ static int normalise_true_config_dir(char *out, size_t out_len, const char *dir,
 {
     int legacyLaunchPath;
 
-    if (!out || !out_len || !dir || !dir[0])
+    if (!out || !out_len || !dir || !dir[0]) {
+        configEarlyLog("CONFIG: normalise failed invalid dir='%s'\n", dir ? dir : "(null)");
         return 0;
+    }
 
     legacyLaunchPath = pathIsLegacyMassPath(dir);
 
+    configEarlyLog("CONFIG: normalise dir='%s' allowLegacyMass=%d legacy=%d\n", dir, allowLegacyMass, legacyLaunchPath);
+
     if (legacyLaunchPath) {
-        if (!allowLegacyMass)
+        if (!allowLegacyMass) {
+            configEarlyLog("CONFIG: rejecting legacy mass path '%s'\n", dir);
             return 0;
+        }
 
         // Legacy mass:/massN: launch paths need USB BDM loaded before they can be resolved
         bdmLoadModulesForLegacyMass();
 
-        if (!bdmResolveLegacyPath(out, out_len, dir))
+        if (!bdmResolveLegacyPath(out, out_len, dir)) {
+            configEarlyLog("CONFIG: failed to resolve legacy mass path '%s'\n", dir);
             return 0;
+        }
+
+        configEarlyLog("CONFIG: resolved legacy config dir '%s' -> '%s'\n", dir, out);
     } else {
-        if (!pathResolveToTrue(out, out_len, dir))
+        if (!pathResolveToTrue(out, out_len, dir)) {
+            configEarlyLog("CONFIG: failed to resolve true config dir '%s'\n", dir);
             return 0;
+        }
+
+        configEarlyLog("CONFIG: resolved true config dir '%s' -> '%s'\n", dir, out);
     }
 
     pathNormaliseDir(out, out_len);
 
-    if (!pathIsDevicePath(out))
+    configEarlyLog("CONFIG: normalised config dir='%s'\n", out);
+
+    if (!pathIsDevicePath(out)) {
+        configEarlyLog("CONFIG: rejected non-device config dir '%s'\n", out);
         return 0;
+    }
 
     // Load only the modules required by this selected boot/config root before probing it
     prepare_config_root_modules(out);
 
     // If this came from argv0/cwd as legacy mass: trust the resolved boot root.. early boot stat() can fail here
-    if (legacyLaunchPath)
+    if (legacyLaunchPath) {
+        configEarlyLog("CONFIG: trusting legacy launch config dir '%s'\n", out);
         return 1;
+    }
 
-    return path_exists(out);
+    if (!path_exists(out)) {
+        configEarlyLog("CONFIG: config dir stat failed '%s'\n", out);
+        return 0;
+    }
+
+    configEarlyLog("CONFIG: config dir exists '%s'\n", out);
+
+    return 1;
 }
 
 static int load_boot_config_from_dir(const char *launch_dir)
