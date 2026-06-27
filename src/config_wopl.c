@@ -79,18 +79,6 @@ int gFAVFramesDelay = MENU_MIN_INACTIVE_FRAMES;
 static char early_config_log[8192];
 static size_t early_config_log_len = 0;
 
-static void configBootStatusf(const char *fmt, ...)
-{
-    char status[64];
-    va_list args;
-
-    va_start(args, fmt);
-    vsnprintf(status, sizeof(status), fmt, args);
-    va_end(args);
-
-    guiShowBootStatus(status);
-}
-
 static void configEarlyLog(const char *fmt, ...)
 {
     va_list args;
@@ -478,15 +466,14 @@ static void prepare_config_root_modules(const char *path)
 #define CONFIG_ROOT_READY_RETRIES 20
 #define CONFIG_ROOT_READY_DELAY   8
 
-static int wait_for_config_root_ready(const char *path)
+static int resolve_legacy_mass_boot_path(char *out, size_t out_len, const char *dir)
 {
     int i;
 
     for (i = 0; i < CONFIG_ROOT_READY_RETRIES; i++) {
-        configBootStatusf("Waiting %.34s %d/%d", path, i + 1, CONFIG_ROOT_READY_RETRIES);
-        if (path_exists(path)) {
+        if (bdmResolveLegacyPath(out, out_len, dir)) {
             if (i > 0)
-                configEarlyLog("CONFIG: config root ready after %d retries '%s'\n", i, path);
+                configEarlyLog("CONFIG: resolved legacy mass path after %d retries\n", i);
 
             return 1;
         }
@@ -497,16 +484,14 @@ static int wait_for_config_root_ready(const char *path)
     return 0;
 }
 
-static int resolve_legacy_mass_boot_path(char *out, size_t out_len, const char *dir)
+static int wait_for_config_root_ready(const char *path)
 {
     int i;
 
     for (i = 0; i < CONFIG_ROOT_READY_RETRIES; i++) {
-        configBootStatusf("Resolving config root... %d/%d", i + 1, CONFIG_ROOT_READY_RETRIES);
-
-        if (bdmResolveLegacyPathByDeviceScan(out, out_len, dir)) {
+        if (path_exists(path)) {
             if (i > 0)
-                configEarlyLog("CONFIG: resolved legacy mass path after %d retries\n", i);
+                configEarlyLog("CONFIG: config root ready after %d retries '%s'\n", i, path);
 
             return 1;
         }
@@ -535,8 +520,6 @@ static int normalise_true_config_dir(char *out, size_t out_len, const char *dir,
             configEarlyLog("CONFIG: rejecting legacy mass path '%s'\n", dir);
             return 0;
         }
-
-        guiSetBootStatusIfActive("Resolving config root...");
 
         // Legacy mass:/massN: launch paths need USB BDM loaded before they can be resolved
         bdmLoadModulesForLegacyMass();
