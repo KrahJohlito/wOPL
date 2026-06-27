@@ -478,16 +478,15 @@ static void prepare_config_root_modules(const char *path)
 #define CONFIG_ROOT_READY_RETRIES 20
 #define CONFIG_ROOT_READY_DELAY   8
 
-static int resolve_legacy_mass_boot_path(char *out, size_t out_len, const char *dir)
+static int wait_for_config_root_ready(const char *path)
 {
     int i;
 
     for (i = 0; i < CONFIG_ROOT_READY_RETRIES; i++) {
-        configBootStatusf("Resolving config root... %d/%d", i + 1, CONFIG_ROOT_READY_RETRIES);
-
-        if (bdmResolveLegacyPath(out, out_len, dir)) {
+        configBootStatusf("Waiting for config root... %d/%d", i + 1, CONFIG_ROOT_READY_RETRIES);
+        if (path_exists(path)) {
             if (i > 0)
-                configEarlyLog("CONFIG: resolved legacy mass path after %d retries\n", i);
+                configEarlyLog("CONFIG: config root ready after %d retries '%s'\n", i, path);
 
             return 1;
         }
@@ -498,16 +497,113 @@ static int resolve_legacy_mass_boot_path(char *out, size_t out_len, const char *
     return 0;
 }
 
-static int wait_for_config_root_ready(const char *path)
+static int parse_legacy_mass_boot_path(const char *path, int *index, const char **tail)
 {
+    const char *p;
+    int value = -1;
+
+    if (!path || strncmp(path, "mass", 4))
+        return 0;
+
+    p = path + 4;
+
+    if (*p != ':') {
+        if (*p < '0' || *p > '9')
+            return 0;
+
+        value = 0;
+
+        while (*p >= '0' && *p <= '9') {
+            value = value * 10 + (*p - '0');
+            p++;
+        }
+    }
+
+    if (*p != ':')
+        return 0;
+
+    if (index)
+        *index = value;
+
+    if (tail)
+        *tail = p + 1;
+
+    return 1;
+}
+
+static int try_config_root_candidate(char *out, size_t out_len, const char *prefix, int index, const char *tail)
+{
+    char candidate[128];
+    int len;
+
+    if (!prefix || index < 0 || !tail)
+        return 0;
+
+    len = snprintf(candidate, sizeof(candidate), "%s%d:%s", prefix, index, tail);
+    if (len < 0 || (size_t)len >= sizeof(candidate))
+        return 0;
+
+    pathNormaliseDir(candidate, sizeof(candidate));
+
+    if (!pathIsDevicePath(candidate))
+        return 0;
+
+    prepare_config_root_modules(candidate);
+
+    if (!wait_for_config_root_ready(candidate))
+        return 0;
+
+    copy_str(out, candidate, out_len);
+
+    return 1;
+}
+
+static int try_config_root_candidates(char *out, size_t out_len, int preferredIndex, const char *tail)
+{
+    static const char *prefixes[] = {
+        "usb",
+        "ilink",
+        "mx4sio",
+        "ata",
+    };
+
+    int i;
+    unsigned int p;
+
+    if (preferredIndex >= 0) {
+        for (p = 0; p < sizeof(prefixes) / sizeof(prefixes[0]); p++) {
+            if (try_config_root_candidate(out, out_len, prefixes[p], preferredIndex, tail))
+                return 1;
+        }
+    }
+
+    for (i = 0; i < MAX_BDM_DEVICES; i++) {
+        if (i == preferredIndex)
+            continue;
+
+        for (p = 0; p < sizeof(prefixes) / sizeof(prefixes[0]); p++) {
+            if (try_config_root_candidate(out, out_len, prefixes[p], i, tail))
+                return 1;
+        }
+    }
+
+    return 0;
+}
+
+static int resolve_legacy_mass_boot_path(char *out, size_t out_len, const char *dir)
+{
+    const char *tail;
+    int preferredIndex;
     int i;
 
-    for (i = 0; i < CONFIG_ROOT_READY_RETRIES; i++) {
-        configBootStatusf("Waiting for config root... %d/%d", i + 1, CONFIG_ROOT_READY_RETRIES);
+    if (!parse_legacy_mass_boot_path(dir, &preferredIndex, &tail))
+        return 0;
 
-        if (path_exists(path)) {
+    for (i = 0; i < CONFIG_ROOT_READY_RETRIES; i++) {
+        configBootStatusf("Resolving config root... %d/%d", i + 1, CONFIG_ROOT_READY_RETRIES);
+        if (try_config_root_candidates(out, out_len, preferredIndex, tail)) {
             if (i > 0)
-                configEarlyLog("CONFIG: config root ready after %d retries '%s'\n", i, path);
+                configEarlyLog("CONFIG: resolved legacy mass boot path after %d retries\n", i);
 
             return 1;
         }
