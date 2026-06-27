@@ -584,10 +584,26 @@ static int ensure_mc_dir(const char *dir)
 
 static int ensure_config_dir(void)
 {
+    const char *launch;
+    char cwd[128];
+    int ok;
+
     if (config_dir[0])
         return 1;
 
-    return pick_default_config_dir();
+    launch = pathGetLaunchPath();
+
+    cwd[0] = '\0';
+    if (getcwd(cwd, sizeof(cwd)) == NULL)
+        copy_str(cwd, "(getcwd failed)", sizeof(cwd));
+
+    configEarlyLog("CONFIG: ensure_config_dir launch='%s' cwd='%s'\n", launch ? launch : "(null)", cwd);
+
+    ok = pick_default_config_dir();
+
+    configEarlyLog("CONFIG: ensure_config_dir result=%d config_dir='%s' boot_dir='%s'\n", ok, config_dir, boot_dir);
+
+    return ok;
 }
 
 static int do_save_at_dir(const char *dir, const char *filename, void (*build)(config_setting_t *))
@@ -984,6 +1000,8 @@ int wOPLLoad(int *out_theme_id, int *out_lang_id)
     if (out_lang_id)
         *out_lang_id = 0;
 
+    configEarlyLog("CONFIG_WOPL: enter config_dir='%s'\n", config_dir);
+
     if (!ensure_config_dir())
         return 0;
 
@@ -1113,6 +1131,8 @@ static void build_net(config_setting_t *root)
 
 int wOPLNetLoad(void)
 {
+    configEarlyLog("CONFIG_NET: enter config_dir='%s'\n", config_dir);
+
     if (!ensure_config_dir())
         return 0;
 
@@ -1320,6 +1340,8 @@ static void build_global_game(config_setting_t *root)
 
 int wOPLGlobalGameLoad(void)
 {
+    configEarlyLog("CONFIG_GAME: enter config_dir='%s'\n", config_dir);
+
     if (!ensure_config_dir())
         return 0;
 
@@ -1725,6 +1747,11 @@ void _loadConfig() // called directly by initializer at boot before GUI is ready
 {
     int themeID = -1, langID = -1;
     int result = 0;
+    int have_config_dir;
+
+    have_config_dir = ensure_config_dir();
+
+    configEarlyLog("CONFIG: initial config root result=%d config_dir='%s' boot_dir='%s'\n", have_config_dir, config_dir, boot_dir);
 
     if (lscstatus & CONFIG_OPL) {
         if (wOPLLoad(&themeID, &langID))
