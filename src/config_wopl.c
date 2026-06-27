@@ -475,8 +475,8 @@ static void prepare_config_root_modules(const char *path)
     }
 }
 
-#define CONFIG_ROOT_READY_RETRIES 20
-#define CONFIG_ROOT_READY_DELAY   8
+#define CONFIG_ROOT_READY_RETRIES 10
+#define CONFIG_ROOT_READY_DELAY   1
 
 static int wait_for_config_root_ready(const char *path)
 {
@@ -631,17 +631,13 @@ static int normalise_true_config_dir(char *out, size_t out_len, const char *dir,
             return 0;
         }
 
-        guiSetBootStatusIfActive("Resolving config root...");
+        // Legacy mass:/massN: is only accepted here because it came from argv0/cwd.
+        copy_str(out, dir, out_len);
+        pathNormaliseDir(out, out_len);
 
-        // Legacy mass:/massN: launch paths need USB BDM loaded before they can be resolved
-        bdmLoadModulesForLegacyMass();
+        configEarlyLog("CONFIG: using legacy launch config dir '%s'\n", out);
 
-        if (!resolve_legacy_mass_boot_path(out, out_len, dir)) {
-            configEarlyLog("CONFIG: failed to resolve legacy mass path '%s'\n", dir);
-            return 0;
-        }
-
-        configEarlyLog("CONFIG: resolved legacy config dir '%s' -> '%s'\n", dir, out);
+        return 1;
     } else {
         if (!pathResolveToTrue(out, out_len, dir)) {
             configEarlyLog("CONFIG: failed to resolve true config dir '%s'\n", dir);
@@ -875,6 +871,11 @@ static int save_boot_config(void)
 
     if (!boot_dir[0] || !config_dir[0])
         return 1;
+
+    if (pathIsLegacyMassPath(config_dir)) {
+        configEarlyLog("CONFIG: not saving legacy mass boot config_dir '%s'\n", config_dir);
+        return 1;
+    }
 
     if (!pathJoin(path, sizeof(path), boot_dir, BOOT_FILENAME))
         return 0;
