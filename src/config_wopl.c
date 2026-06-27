@@ -574,8 +574,8 @@ static int load_boot_config_from_dir(const char *launch_dir)
     if (!launch_dir || !launch_dir[0])
         return 0;
 
-    // Prepare the boot/cwd root before trying to read wopl_boot.cfg from it.
-    // Legacy massN: is allowed here only because this path came from argv0/cwd.
+    // Prepare the boot/cwd root before trying to read wopl_boot.cfg from it
+    // Legacy massN: is allowed here only because this path came from argv0/cwd
     if (!normalise_true_config_dir(boot_root, sizeof(boot_root), launch_dir, 1))
         return 0;
 
