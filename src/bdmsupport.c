@@ -268,6 +268,9 @@ void bdmLoadModulesForLegacyMass(void)
 
     WaitSema(bdmLoadModuleLock);
     bdmLoadUSBModules();
+    //bdmLoadiLinkModules();
+    //bdmLoadMX4SIOModules();
+    bdmLoadBdmHDDModules();
     SignalSema(bdmLoadModuleLock);
 }
 
@@ -318,6 +321,9 @@ static int bdmNeedsUpdate(item_list_t *itemList)
     if (!pDeviceData)
         return 0;
 
+    opl_io_module_t *pOwner = (opl_io_module_t *)itemList->owner;
+    int visible = pOwner != NULL && pOwner->menuItem.visible == 1;
+
     ioPutRequest(IO_CUSTOM_SIMPLEACTION, &bdmLoadBlockDeviceModules);
 
     // Check for forced refresh from deleting or renaming a game.
@@ -328,8 +334,7 @@ static int bdmNeedsUpdate(item_list_t *itemList)
 
     // If the device menu is visible double check the device type and if support for this device type is enabled. If the user switches device support
     // to off for a bdm device we want to hide the menu even though the drivers are still loaded and the device is being detected by bdm.
-    opl_io_module_t *pOwner = (opl_io_module_t *)itemList->owner;
-    if (pOwner != NULL && pOwner->menuItem.visible == 1) {
+    if (visible) {
         int deviceEnabled = 0;
         switch (pDeviceData->bdmDeviceType) {
             case BDM_TYPE_USB:
@@ -356,6 +361,7 @@ static int bdmNeedsUpdate(item_list_t *itemList)
 
     if (pDeviceData->bdmULSizePrev != -2 && pDeviceData->bdmDeviceTick == BdmGeneration)
         return 0;
+
     pDeviceData->bdmDeviceTick = BdmGeneration;
 
     // Check if the device has been connected or removed.
@@ -1278,6 +1284,83 @@ int bdmResolveLegacyPath(char *out, size_t out_len, const char *path)
     return 1;
 }
 
+static int bdmBuildResolvedLegacyCandidate(char *out, size_t out_len, const char *truePrefix, const char *tail)
+{
+    int len;
+
+    if (!out || !out_len || !truePrefix || !truePrefix[0])
+        return 0;
+
+    if (tail && tail[0])
+        len = snprintf(out, out_len, "%s%s", truePrefix, tail);
+    else
+        len = snprintf(out, out_len, "%s/", truePrefix);
+
+    if (len < 0 || (size_t)len >= out_len) {
+        out[0] = '\0';
+        return 0;
+    }
+
+    return 1;
+}
+
+static int bdmResolveLegacyPathFromDeviceListPass(char *out, size_t out_len, const char *tail, int massIndex, int strictIndex)
+{
+    int i;
+    struct stat st;
+
+    if (!bdmDeviceListInitialized)
+        return 0;
+
+    for (i = 0; i < MAX_BDM_TRUE_DEVICES; i++) {
+        bdm_device_data_t *pDeviceData = bdmDeviceList[i].priv;
+        char candidate[128];
+
+        if (!pDeviceData || !pDeviceData->bdmTruePrefix[0])
+            continue;
+
+        if (strictIndex && massIndex >= 0 && pDeviceData->massDeviceIndex != massIndex)
+            continue;
+
+        if (!bdmBuildResolvedLegacyCandidate(candidate, sizeof(candidate), pDeviceData->bdmTruePrefix, tail))
+            continue;
+
+        if (stat(candidate, &st) != 0)
+            continue;
+
+        snprintf(out, out_len, "%s", candidate);
+        LOG("BDMSUPPORT: resolved legacy path from device list '%s'\n", out);
+
+        return 1;
+    }
+
+    return 0;
+}
+
+int bdmResolveLegacyPathFromDeviceList(char *out, size_t out_len, const char *path)
+{
+    const char *tail;
+    int massIndex;
+
+    if (!out || !out_len || !path)
+        return 0;
+
+    if (!bdmParseLegacyMassPath(path, &massIndex, &tail))
+        return 0;
+
+    // First try a strict match using the reported BDM device number
+    if (bdmResolveLegacyPathFromDeviceListPass(out, out_len, tail, massIndex, 1))
+        return 1;
+
+    // Fallback wLE massN: does not always match the true BDM index
+    if (bdmResolveLegacyPathFromDeviceListPass(out, out_len, tail, massIndex, 0))
+        return 1;
+
+    LOG("BDMSUPPORT: could not resolve legacy path from device list '%s'\n", path);
+
+    return 0;
+}
+
 int bdmUpdateDeviceData(item_list_t *itemList)
 {
     int deviceType;
@@ -1321,6 +1404,13 @@ int bdmUpdateDeviceData(item_list_t *itemList)
 
     // If we opened the device and the menu isn't visible (OR is visible but hasn't been initialized ex: manual device start) initialize device info.
     if (dir >= 0 && (visible == 0 || pDeviceData->bdmPrefix[0] == '\0')) {
+        int hadDevice = pDeviceData->bdmTruePrefix[0] != '\0' || pDeviceData->bdmPrefix[0] != '\0';
+        int oldDeviceType = pDeviceData->bdmDeviceType;
+        int oldMassDeviceIndex = pDeviceData->massDeviceIndex;
+        char oldTruePrefix[sizeof(pDeviceData->bdmTruePrefix)];
+
+        snprintf(oldTruePrefix, sizeof(oldTruePrefix), "%s", pDeviceData->bdmTruePrefix);
+
         if (!bdmSetupDeviceData(pDeviceData, itemList, deviceType, deviceIndex, dir)) {
             fileXioDclose(dir);
             return 0;
@@ -1341,20 +1431,38 @@ int bdmUpdateDeviceData(item_list_t *itemList)
 
         // Close the device handle.
         fileXioDclose(dir);
-        return 1;
+
+        if (!hadDevice)
+            return 1;
+
+        if (oldDeviceType != pDeviceData->bdmDeviceType)
+            return 1;
+
+        if (oldMassDeviceIndex != pDeviceData->massDeviceIndex)
+            return 1;
+
+        if (strcmp(oldTruePrefix, pDeviceData->bdmTruePrefix))
+            return 1;
+
+        return 0;
     } else if (dir < 0 && visible == 1) {
+        int hadDevice = pDeviceData->bdmTruePrefix[0] != '\0';
+
         // Device has been removed, make the menu item invisible. We can't really cleanup resources (like the game list) just yet
         // as we don't know if the data is being used asynchronously.
         pDeviceData->bdmTruePrefix[0] = '\0';
         pDeviceData->bdmPrefix[0] = '\0';
-
         if (itemList->owner != NULL) {
             LOG("bdmUpdateDeviceData: setting device %d invisible\n", itemList->mode);
             ((opl_io_module_t *)itemList->owner)->menuItem.visible = 0;
         }
 
-        LOG("BDM device: %d (%d) disconnected\n", itemList->mode, pDeviceData->massDeviceIndex);
-        return -1;
+        if (hadDevice) {
+            LOG("BDM device: %d (%d) disconnected\n", itemList->mode, pDeviceData->massDeviceIndex);
+            return -1;
+        }
+
+        return 0;
     }
 
     // No change to the device state detected.
