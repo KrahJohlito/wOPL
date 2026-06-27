@@ -506,6 +506,8 @@ static int normalise_true_config_dir(char *out, size_t out_len, const char *dir,
         guiSetBootStatusIfActive("Loading legacy mass support...");
         bdmLoadModulesForLegacyMass();
 
+        delay(8);
+
         copy_str(out, dir, out_len);
         pathNormaliseDir(out, out_len);
 
@@ -573,8 +575,9 @@ static int load_boot_config_from_dir(const char *launch_dir)
     configEarlyLog("CONFIG: boot root='%s' boot cfg='%s'\n", boot_root, boot_path);
 
     if (!file_exists(boot_path)) {
-        configEarlyLog("CONFIG: no boot cfg at '%s'\n", boot_path);
-        return 0;
+        configEarlyLog("CONFIG: no boot cfg at '%s', using boot root\n", boot_path);
+        copy_str(config_dir, boot_root, sizeof(config_dir));
+        return 1;
     }
 
     config_init(&cfg);
