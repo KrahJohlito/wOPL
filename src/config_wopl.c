@@ -562,26 +562,24 @@ static int try_config_root_candidates(char *out, size_t out_len, int preferredIn
 {
     static const char *prefixes[] = {
         "usb",
-        "ilink",
-        "mx4sio",
         "ata",
+        "mx4sio",
+        "ilink",
     };
 
     int i;
     unsigned int p;
 
-    if (preferredIndex >= 0) {
-        for (p = 0; p < sizeof(prefixes) / sizeof(prefixes[0]); p++) {
-            if (try_config_root_candidate(out, out_len, prefixes[p], preferredIndex, tail))
-                return 1;
-        }
+    if (try_config_root_candidate(out, out_len, "usb", 0, tail))
+        return 1;
+
+    for (i = 1; i < MAX_BDM_DEVICES; i++) {
+        if (try_config_root_candidate(out, out_len, "usb", i, tail))
+            return 1;
     }
 
-    for (i = 0; i < MAX_BDM_DEVICES; i++) {
-        if (i == preferredIndex)
-            continue;
-
-        for (p = 0; p < sizeof(prefixes) / sizeof(prefixes[0]); p++) {
+    for (p = 1; p < sizeof(prefixes) / sizeof(prefixes[0]); p++) {
+        for (i = 0; i < MAX_BDM_DEVICES; i++) {
             if (try_config_root_candidate(out, out_len, prefixes[p], i, tail))
                 return 1;
         }
