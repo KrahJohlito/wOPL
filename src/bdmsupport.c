@@ -268,6 +268,9 @@ void bdmLoadModulesForLegacyMass(void)
 
     WaitSema(bdmLoadModuleLock);
     bdmLoadUSBModules();
+    //bdmLoadiLinkModules();
+    //bdmLoadMX4SIOModules();
+    bdmLoadBdmHDDModules();
     SignalSema(bdmLoadModuleLock);
 }
 
@@ -1276,6 +1279,83 @@ int bdmResolveLegacyPath(char *out, size_t out_len, const char *path)
     LOG("BDMSUPPORT: resolved legacy path '%s' -> '%s'\n", path, out);
 
     return 1;
+}
+
+static int bdmBuildResolvedLegacyCandidate(char *out, size_t out_len, const char *truePrefix, const char *tail)
+{
+    int len;
+
+    if (!out || !out_len || !truePrefix || !truePrefix[0])
+        return 0;
+
+    if (tail && tail[0])
+        len = snprintf(out, out_len, "%s%s", truePrefix, tail);
+    else
+        len = snprintf(out, out_len, "%s/", truePrefix);
+
+    if (len < 0 || (size_t)len >= out_len) {
+        out[0] = '\0';
+        return 0;
+    }
+
+    return 1;
+}
+
+static int bdmResolveLegacyPathFromDeviceListPass(char *out, size_t out_len, const char *tail, int massIndex, int strictIndex)
+{
+    int i;
+    struct stat st;
+
+    if (!bdmDeviceListInitialized)
+        return 0;
+
+    for (i = 0; i < MAX_BDM_TRUE_DEVICES; i++) {
+        bdm_device_data_t *pDeviceData = bdmDeviceList[i].priv;
+        char candidate[128];
+
+        if (!pDeviceData || !pDeviceData->bdmTruePrefix[0])
+            continue;
+
+        if (strictIndex && massIndex >= 0 && pDeviceData->massDeviceIndex != massIndex)
+            continue;
+
+        if (!bdmBuildResolvedLegacyCandidate(candidate, sizeof(candidate), pDeviceData->bdmTruePrefix, tail))
+            continue;
+
+        if (stat(candidate, &st) != 0)
+            continue;
+
+        snprintf(out, out_len, "%s", candidate);
+        LOG("BDMSUPPORT: resolved legacy path from device list '%s'\n", out);
+
+        return 1;
+    }
+
+    return 0;
+}
+
+int bdmResolveLegacyPathFromDeviceList(char *out, size_t out_len, const char *path)
+{
+    const char *tail;
+    int massIndex;
+
+    if (!out || !out_len || !path)
+        return 0;
+
+    if (!bdmParseLegacyMassPath(path, &massIndex, &tail))
+        return 0;
+
+    // First try a strict match using the reported BDM device number
+    if (bdmResolveLegacyPathFromDeviceListPass(out, out_len, tail, massIndex, 1))
+        return 1;
+
+    // Fallback wLE massN: does not always match the true BDM index
+    if (bdmResolveLegacyPathFromDeviceListPass(out, out_len, tail, massIndex, 0))
+        return 1;
+
+    LOG("BDMSUPPORT: could not resolve legacy path from device list '%s'\n", path);
+
+    return 0;
 }
 
 int bdmUpdateDeviceData(item_list_t *itemList)
