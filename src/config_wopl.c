@@ -88,7 +88,7 @@ static void configBootStatusf(const char *fmt, ...)
     vsnprintf(status, sizeof(status), fmt, args);
     va_end(args);
 
-    guiSetBootStatusIfActive(status);
+    guiShowBootStatus(status);
 }
 
 static void configEarlyLog(const char *fmt, ...)
