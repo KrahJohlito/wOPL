@@ -1278,6 +1278,76 @@ int bdmResolveLegacyPath(char *out, size_t out_len, const char *path)
     return 1;
 }
 
+int bdmResolveLegacyPathByDeviceScan(char *out, size_t out_len, const char *path)
+{
+    const char *tail;
+    int massIndex;
+    int typeSlot;
+    int deviceType;
+    int deviceIndex;
+    int len;
+
+    if (!out || !out_len || !path)
+        return 0;
+
+    if (!bdmParseLegacyMassPath(path, &massIndex, &tail))
+        return 0;
+
+    for (typeSlot = 0; typeSlot < 4; typeSlot++) {
+        switch (typeSlot) {
+            case 0:
+                deviceType = BDM_TYPE_USB;
+                break;
+            case 1:
+                deviceType = BDM_TYPE_ILINK;
+                break;
+            case 2:
+                deviceType = BDM_TYPE_SDC;
+                break;
+            case 3:
+                deviceType = BDM_TYPE_ATA;
+                break;
+            default:
+                continue;
+        }
+
+        bdmLoadBaseModules();
+
+        WaitSema(bdmLoadModuleLock);
+        bdmLoadBlockDeviceModulesForType(deviceType);
+        SignalSema(bdmLoadModuleLock);
+
+        for (deviceIndex = 0; deviceIndex < MAX_BDM_DEVICES; deviceIndex++) {
+            bdm_device_data_t data;
+            int dir = bdmOpenTrueDevice(deviceType, deviceIndex);
+
+            if (dir < 0)
+                break;
+
+            memset(&data, 0, sizeof(data));
+
+            if (bdmSetupDeviceData(&data, NULL, deviceType, deviceIndex, dir)) {
+                fileXioDclose(dir);
+
+                if (massIndex < 0 || data.massDeviceIndex == massIndex) {
+                    len = snprintf(out, out_len, "%s%s", data.bdmTruePrefix, tail);
+
+                    if (len < 0 || (size_t)len >= out_len) {
+                        out[0] = '\0';
+                        return 0;
+                    }
+
+                    LOG("BDMSUPPORT: resolved legacy path by device scan '%s' -> '%s'\n", path, out);
+                    return 1;
+                }
+            } else
+                fileXioDclose(dir);
+        }
+    }
+
+    return 0;
+}
+
 int bdmUpdateDeviceData(item_list_t *itemList)
 {
     int deviceType;
