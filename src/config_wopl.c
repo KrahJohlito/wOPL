@@ -463,6 +463,45 @@ static void prepare_config_root_modules(const char *path)
     }
 }
 
+#define CONFIG_ROOT_READY_RETRIES 20
+#define CONFIG_ROOT_READY_DELAY   8
+
+static int resolve_legacy_mass_boot_path(char *out, size_t out_len, const char *dir)
+{
+    int i;
+
+    for (i = 0; i < CONFIG_ROOT_READY_RETRIES; i++) {
+        if (bdmResolveLegacyPath(out, out_len, dir)) {
+            if (i > 0)
+                configEarlyLog("CONFIG: resolved legacy mass path after %d retries\n", i);
+
+            return 1;
+        }
+
+        delay(CONFIG_ROOT_READY_DELAY);
+    }
+
+    return 0;
+}
+
+static int wait_for_config_root_ready(const char *path)
+{
+    int i;
+
+    for (i = 0; i < CONFIG_ROOT_READY_RETRIES; i++) {
+        if (path_exists(path)) {
+            if (i > 0)
+                configEarlyLog("CONFIG: config root ready after %d retries '%s'\n", i, path);
+
+            return 1;
+        }
+
+        delay(CONFIG_ROOT_READY_DELAY);
+    }
+
+    return 0;
+}
+
 static int normalise_true_config_dir(char *out, size_t out_len, const char *dir, int allowLegacyMass)
 {
     int legacyLaunchPath;
@@ -485,7 +524,7 @@ static int normalise_true_config_dir(char *out, size_t out_len, const char *dir,
         // Legacy mass:/massN: launch paths need USB BDM loaded before they can be resolved
         bdmLoadModulesForLegacyMass();
 
-        if (!bdmResolveLegacyPath(out, out_len, dir)) {
+        if (!resolve_legacy_mass_boot_path(out, out_len, dir)) {
             configEarlyLog("CONFIG: failed to resolve legacy mass path '%s'\n", dir);
             return 0;
         }
@@ -509,21 +548,16 @@ static int normalise_true_config_dir(char *out, size_t out_len, const char *dir,
         return 0;
     }
 
-    // Load only the modules required by this selected boot/config root before probing it
+    // Load only the modules required by this selected boot/config root before probing it.
     prepare_config_root_modules(out);
 
-    // If this came from argv0/cwd as legacy mass: trust the resolved boot root.. early boot stat() can fail here
-    if (legacyLaunchPath) {
-        configEarlyLog("CONFIG: trusting legacy launch config dir '%s'\n", out);
-        return 1;
-    }
-
-    if (!path_exists(out)) {
-        configEarlyLog("CONFIG: config dir stat failed '%s'\n", out);
+    // BDM modules may be loaded but the filesystem/device might not be ready..
+    if (!wait_for_config_root_ready(out)) {
+        configEarlyLog("CONFIG: config root not ready '%s'\n", out);
         return 0;
     }
 
-    configEarlyLog("CONFIG: config dir exists '%s'\n", out);
+    configEarlyLog("CONFIG: config root ready '%s'\n", out);
 
     return 1;
 }
