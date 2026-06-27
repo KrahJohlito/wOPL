@@ -463,26 +463,8 @@ static void prepare_config_root_modules(const char *path)
     }
 }
 
-#define CONFIG_ROOT_READY_RETRIES 20
-#define CONFIG_ROOT_READY_DELAY   8
-
-static int resolve_legacy_mass_boot_path(char *out, size_t out_len, const char *dir)
-{
-    int i;
-
-    for (i = 0; i < CONFIG_ROOT_READY_RETRIES; i++) {
-        if (bdmResolveLegacyPath(out, out_len, dir)) {
-            if (i > 0)
-                configEarlyLog("CONFIG: resolved legacy mass path after %d retries\n", i);
-
-            return 1;
-        }
-
-        delay(CONFIG_ROOT_READY_DELAY);
-    }
-
-    return 0;
-}
+#define CONFIG_ROOT_READY_RETRIES 10
+#define CONFIG_ROOT_READY_DELAY   3
 
 static int wait_for_config_root_ready(const char *path)
 {
@@ -521,15 +503,15 @@ static int normalise_true_config_dir(char *out, size_t out_len, const char *dir,
             return 0;
         }
 
-        // Legacy mass:/massN: launch paths need USB BDM loaded before they can be resolved
+        guiSetBootStatusIfActive("Loading legacy mass support...");
         bdmLoadModulesForLegacyMass();
 
-        if (!resolve_legacy_mass_boot_path(out, out_len, dir)) {
-            configEarlyLog("CONFIG: failed to resolve legacy mass path '%s'\n", dir);
-            return 0;
-        }
+        copy_str(out, dir, out_len);
+        pathNormaliseDir(out, out_len);
 
-        configEarlyLog("CONFIG: resolved legacy config dir '%s' -> '%s'\n", dir, out);
+        configEarlyLog("CONFIG: using legacy launch config dir '%s'\n", out);
+
+        return 1;
     } else {
         if (!pathResolveToTrue(out, out_len, dir)) {
             configEarlyLog("CONFIG: failed to resolve true config dir '%s'\n", dir);
@@ -763,6 +745,11 @@ static int save_boot_config(void)
 
     if (!boot_dir[0] || !config_dir[0])
         return 1;
+
+    if (pathIsLegacyMassPath(config_dir)) {
+        configEarlyLog("CONFIG: not saving unresolved legacy boot config_dir '%s'\n", config_dir);
+        return 1;
+    }
 
     if (!pathJoin(path, sizeof(path), boot_dir, BOOT_FILENAME))
         return 0;
@@ -1827,6 +1814,33 @@ void configApply(int themeID, int langID, int skipDeviceRefresh)
 #endif
 }
 
+static int resolve_legacy_config_dir(void)
+{
+    char resolved[128];
+
+    if (!pathIsLegacyMassPath(config_dir))
+        return 1;
+
+    configEarlyLog("CONFIG: resolving legacy config_dir '%s'\n", config_dir);
+
+    if (!bdmResolveLegacyPathFromDeviceList(resolved, sizeof(resolved), config_dir)) {
+        configEarlyLog("CONFIG: could not resolve legacy config_dir '%s'\n", config_dir);
+        return 0;
+    }
+
+    pathNormaliseDir(resolved, sizeof(resolved));
+
+    if (!pathIsDevicePath(resolved) || pathIsLegacyMassPath(resolved)) {
+        configEarlyLog("CONFIG: rejected resolved config_dir '%s'\n", resolved);
+        return 0;
+    }
+
+    configEarlyLog("CONFIG: resolved config_dir '%s' -> '%s'\n", config_dir, resolved);
+    copy_str(config_dir, resolved, sizeof(config_dir));
+
+    return 1;
+}
+
 void _loadConfig() // called directly by initializer at boot before GUI is ready
 {
     int themeID = -1, langID = -1;
@@ -1856,6 +1870,8 @@ void _loadConfig() // called directly by initializer at boot before GUI is ready
     configEarlyLog("CONFIG: load requested=0x%X result=0x%X config_dir='%s'\n", lscstatus, result, config_dir);
 
     configApply(themeID, langID, 0);
+    resolve_legacy_config_dir();
+
     lscret = result;
     lscstatus = 0;
     if (result)
@@ -1900,6 +1916,8 @@ static int save_all_to_current_dir(int types) // like the old configWriteMulti()
         LOG("CONFIG: no config_dir selected for save\n");
         return 0;
     }
+
+    resolve_legacy_config_dir();
 
     LOG("CONFIG: saving to config_dir '%s'\n", config_dir);
 
