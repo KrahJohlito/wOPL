@@ -483,7 +483,7 @@ static int wait_for_config_root_ready(const char *path)
     int i;
 
     for (i = 0; i < CONFIG_ROOT_READY_RETRIES; i++) {
-        configBootStatusf("Waiting for config root... %d/%d", i + 1, CONFIG_ROOT_READY_RETRIES);
+        configBootStatusf("Waiting %.34s %d/%d", path, i + 1, CONFIG_ROOT_READY_RETRIES);
         if (path_exists(path)) {
             if (i > 0)
                 configEarlyLog("CONFIG: config root ready after %d retries '%s'\n", i, path);
@@ -531,6 +531,12 @@ static int parse_legacy_mass_boot_path(const char *path, int *index, const char 
     return 1;
 }
 
+static int config_root_ready_once(const char *path)
+{
+    configBootStatusf("Checking %.42s", path);
+    return path_exists(path);
+}
+
 static int try_config_root_candidate(char *out, size_t out_len, const char *prefix, int index, const char *tail)
 {
     char candidate[128];
@@ -550,7 +556,7 @@ static int try_config_root_candidate(char *out, size_t out_len, const char *pref
 
     prepare_config_root_modules(candidate);
 
-    if (!wait_for_config_root_ready(candidate))
+    if (!config_root_ready_once(candidate))
         return 0;
 
     copy_str(out, candidate, out_len);
