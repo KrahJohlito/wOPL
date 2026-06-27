@@ -1701,8 +1701,6 @@ void configApply(int themeID, int langID, int skipDeviceRefresh)
     if (skipDeviceRefresh == 0) {
         bdmLoadEnabledDeviceModules();
 
-        configFlushEarlyLog();
-
         initAllSupport(0);
         for (int i = 0; i < MODE_COUNT; i++) {
             if (list_support[i].support == NULL)
@@ -1743,6 +1741,8 @@ void _loadConfig() // called directly by initializer at boot before GUI is ready
     if (lscstatus & CONFIG_GAME)
         if (wOPLGlobalGameLoad())
             result |= CONFIG_GAME;
+
+    configEarlyLog("CONFIG: load requested=0x%X result=0x%X config_dir='%s'\n", lscstatus, result, config_dir);
 
     configApply(themeID, langID, 0);
     lscret = result;
