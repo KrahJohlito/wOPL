@@ -76,7 +76,7 @@ int gMMCEFramesDelay = MENU_MIN_INACTIVE_FRAMES;
 int gAPPFramesDelay = MENU_MIN_INACTIVE_FRAMES;
 int gFAVFramesDelay = MENU_MIN_INACTIVE_FRAMES;
 
-static char early_config_log[4096];
+static char early_config_log[8192];
 static size_t early_config_log_len = 0;
 
 static void configEarlyLog(const char *fmt, ...)
@@ -450,10 +450,14 @@ static void prepare_config_root_modules(const char *path)
 
 static int normalise_true_config_dir(char *out, size_t out_len, const char *dir, int allowLegacyMass)
 {
+    int legacyLaunchPath;
+
     if (!out || !out_len || !dir || !dir[0])
         return 0;
 
-    if (pathIsLegacyMassPath(dir)) {
+    legacyLaunchPath = pathIsLegacyMassPath(dir);
+
+    if (legacyLaunchPath) {
         if (!allowLegacyMass)
             return 0;
 
@@ -474,6 +478,10 @@ static int normalise_true_config_dir(char *out, size_t out_len, const char *dir,
 
     // Load only the modules required by this selected boot/config root before probing it
     prepare_config_root_modules(out);
+
+    // If this came from argv0/cwd as legacy mass: trust the resolved boot root.. early boot stat() can fail here
+    if (legacyLaunchPath)
+        return 1;
 
     return path_exists(out);
 }
