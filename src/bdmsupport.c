@@ -359,8 +359,19 @@ static int bdmNeedsUpdate(item_list_t *itemList)
             pOwner->menuItem.visible = 0;
     }
 
-    if (pDeviceData->bdmULSizePrev != -2 && pDeviceData->bdmDeviceTick == BdmGeneration)
+    if (pDeviceData->bdmULSizePrev != -2 && pDeviceData->bdmDeviceTick == BdmGeneration) {
+        if (!visible)
+            return 0;
+
+        result = bdmUpdateDeviceData(itemList);
+
+        if (result == -1) {
+            sfxPlay(SFX_BD_DISCONNECT);
+            return result;
+        }
+
         return 0;
+    }
 
     pDeviceData->bdmDeviceTick = BdmGeneration;
 
