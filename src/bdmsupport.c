@@ -1398,18 +1398,24 @@ int bdmUpdateDeviceData(item_list_t *itemList)
             return 0;
     }
 
-    // Try to open the device by its real BDM prefix.
-    // Verify the device is actually alive..
-    int dir = bdmOpenTrueDevice(deviceType, deviceIndex);
-    if (dir >= 0) {
-        char driver[32];
-        memset(driver, 0, sizeof(driver));
+    int removed = 0;
+    if (visible == 1 && && pDeviceData->bdmPrefix[0] != '\0' && pDeviceData->massDeviceIndex >= 0) {
+        char massPath[16];
+        int massDir;
 
-        if (fileXioIoctl2(dir, USBMASS_IOCTL_GET_DRIVERNAME, NULL, 0, driver, sizeof(driver) - 1) != 0 || driver[0] == '\0') {
-            fileXioDclose(dir);
-            dir = -1;
+        snprintf(massPath, sizeof(massPath), "mass%d:/", pDeviceData->massDeviceIndex);
+        massDir = fileXioDopen(massPath);
+
+        if (massDir >= 0)
+            fileXioDclose(massDir);
+        else {
+            LOG("bdmUpdateDeviceData: mass root %s missing\n", massPath);
+            removed = 1;
         }
     }
+
+    // Try to open the device by its real BDM prefix.
+    int dir = removed ? -1 : bdmOpenTrueDevice(deviceType, deviceIndex);
 
     //LOG("BDM poll mode=%d type=%d idx=%d dir=%d gen=%u vis=%d\n", itemList->mode, deviceType, deviceIndex, dir, BdmGeneration, visible);
 
