@@ -79,7 +79,6 @@ static unsigned int BdmGeneration = 0;
 static void bdmEventHandler(void *packet, void *opt)
 {
     BdmGeneration++;
-    LOG("BDM event gen=%u\n", BdmGeneration);
 }
 
 static void bdmLoadUSBModules(void)
