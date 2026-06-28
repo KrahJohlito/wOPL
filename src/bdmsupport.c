@@ -1405,7 +1405,7 @@ int bdmUpdateDeviceData(item_list_t *itemList)
 
         snprintf(massPath, sizeof(massPath), "mass%d:/", pDeviceData->massDeviceIndex);
         massDir = fileXioDopen(massPath);
-
+        LOG("PROBE mode=%d true_dir=%d massIdx=%d mass_dir=%d\n", itemList->mode, dir, pDeviceData->massDeviceIndex, massDir);
         if (massDir >= 0)
             fileXioDclose(massDir);
         else {
