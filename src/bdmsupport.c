@@ -359,7 +359,7 @@ static int bdmNeedsUpdate(item_list_t *itemList)
             pOwner->menuItem.visible = 0;
     }
 
-    if (pDeviceData->bdmULSizePrev != -2 && pDeviceData->bdmDeviceTick == BdmGeneration && !visible)
+    if (pDeviceData->bdmULSizePrev != -2 && pDeviceData->bdmDeviceTick == BdmGeneration)
         return 0;
 
     pDeviceData->bdmDeviceTick = BdmGeneration;
