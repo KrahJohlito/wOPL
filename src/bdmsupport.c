@@ -304,6 +304,38 @@ static void bdmInit(item_list_t *itemList)
     itemList->enabled = 1;
 }
 
+static int bdmCheckVisibleDevicesRemoved(item_list_t *currentItem)
+{
+    int i, result, changed = 0;
+
+    if (!bdmDeviceListInitialized)
+        return 0;
+
+    for (i = 0; i < MAX_BDM_TRUE_DEVICES; i++) {
+        item_list_t *pDeviceSupport = &bdmDeviceList[i];
+        bdm_device_data_t *pDeviceData = (bdm_device_data_t *)pDeviceSupport->priv;
+        opl_io_module_t *pOwner = (opl_io_module_t *)pDeviceSupport->owner;
+
+        if (pDeviceSupport == currentItem)
+            continue;
+
+        if (!pDeviceData || !pOwner || pOwner->menuItem.visible != 1)
+            continue;
+
+        if (pDeviceData->bdmPrefix[0] == '\0')
+            continue;
+
+        result = bdmUpdateDeviceData(pDeviceSupport);
+
+        if (result == -1) {
+            sfxPlay(SFX_BD_DISCONNECT);
+            changed = 1;
+        }
+    }
+
+    return changed;
+}
+
 static int bdmNeedsUpdate(item_list_t *itemList)
 {
     char path[256];
@@ -359,7 +391,10 @@ static int bdmNeedsUpdate(item_list_t *itemList)
             pOwner->menuItem.visible = 0;
     }
 
-    if (pDeviceData->bdmULSizePrev != -2 && pDeviceData->bdmDeviceTick == BdmGeneration)
+    if (bdmCheckVisibleDevicesRemoved(itemList))
+        return 1;
+
+    if (pDeviceData->bdmULSizePrev != -2 && pDeviceData->bdmDeviceTick == BdmGeneration && !visible)
         return 0;
 
     pDeviceData->bdmDeviceTick = BdmGeneration;
@@ -421,6 +456,11 @@ static int bdmNeedsUpdate(item_list_t *itemList)
 static int bdmUpdateGameList(item_list_t *itemList)
 {
     bdm_device_data_t *pDeviceData = (bdm_device_data_t *)itemList->priv;
+
+    if (bdmUpdateDeviceData(itemList) == -1) {
+        sfxPlay(SFX_BD_DISCONNECT);
+        return 0;
+    }
 
     guiSetBootStatusIfActive("Scanning block device games...");
 
