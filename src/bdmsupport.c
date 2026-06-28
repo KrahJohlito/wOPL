@@ -1398,7 +1398,8 @@ int bdmUpdateDeviceData(item_list_t *itemList)
             return 0;
     }
 
-    int removed = 0;
+    //int removed = 0;
+    int dir = bdmOpenTrueDevice(deviceType, deviceIndex);
     if (visible == 1 && pDeviceData->bdmPrefix[0] != '\0' && pDeviceData->massDeviceIndex >= 0) {
         char massPath[16];
         int massDir;
@@ -1415,7 +1416,7 @@ int bdmUpdateDeviceData(item_list_t *itemList)
     }
 
     // Try to open the device by its real BDM prefix.
-    int dir = removed ? -1 : bdmOpenTrueDevice(deviceType, deviceIndex);
+    //int dir = removed ? -1 : bdmOpenTrueDevice(deviceType, deviceIndex);
 
     LOG("BDM poll mode=%d type=%d idx=%d dir=%d gen=%u vis=%d\n", itemList->mode, deviceType, deviceIndex, dir, BdmGeneration, visible);
 
