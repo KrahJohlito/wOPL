@@ -18,6 +18,31 @@ static void copy_str(char *dst, const char *src, size_t size)
     dst[size - 1] = '\0';
 }
 
+static void path_normalise_separators(char *path, size_t size)
+{
+    char *p;
+    size_t len;
+
+    if (!path || !size)
+        return;
+
+    path[size - 1] = '\0';
+
+    for (p = path; *p; p++) {
+        if (*p == '\\')
+            *p = '/';
+    }
+
+    if (!strncmp(path, "host:", 5) && path[5] != '/' && path[5] != '\0') {
+        len = strlen(path);
+
+        if (len + 1 < size) {
+            memmove(path + 6, path + 5, len - 4);
+            path[5] = '/';
+        }
+    }
+}
+
 static int path_starts_with_device(const char *path, const char *device)
 {
     const char *suffix;
@@ -117,27 +142,30 @@ void pathNormaliseDir(char *dir, size_t dir_len)
 
 static int path_get_dirname(const char *path, char *dir_out, size_t dir_len, int allowLegacyMass)
 {
+    char tmp[256];
     const char *slash;
 
     if (!path || !path[0] || !dir_len)
         return 0;
 
-    if (!pathIsDevicePath(path) && (!allowLegacyMass || !pathIsLegacyMassPath(path)))
+    copy_str(tmp, path, sizeof(tmp));
+    path_normalise_separators(tmp, sizeof(tmp));
+
+    if (!pathIsDevicePath(tmp) && (!allowLegacyMass || !pathIsLegacyMassPath(tmp)))
         return 0;
 
-    slash = strrchr(path, '/');
-
+    slash = strrchr(tmp, '/');
     if (!slash) {
-        copy_str(dir_out, path, dir_len);
+        copy_str(dir_out, tmp, dir_len);
         pathNormaliseDir(dir_out, dir_len);
         return 1;
     }
 
-    if ((size_t)(slash - path + 1) >= dir_len)
+    if ((size_t)(slash - tmp + 1) >= dir_len)
         return 0;
 
-    memcpy(dir_out, path, slash - path + 1);
-    dir_out[slash - path + 1] = '\0';
+    memcpy(dir_out, tmp, slash - tmp + 1);
+    dir_out[slash - tmp + 1] = '\0';
 
     return 1;
 }
