@@ -79,6 +79,7 @@ static unsigned int BdmGeneration = 0;
 static void bdmEventHandler(void *packet, void *opt)
 {
     BdmGeneration++;
+    LOG("BDM event gen=%u\n", BdmGeneration);
 }
 
 static void bdmLoadUSBModules(void)
@@ -359,7 +360,7 @@ static int bdmNeedsUpdate(item_list_t *itemList)
             pOwner->menuItem.visible = 0;
     }
 
-    if (pDeviceData->bdmULSizePrev != -2 && pDeviceData->bdmDeviceTick == BdmGeneration)
+    if (pDeviceData->bdmULSizePrev != -2 && pDeviceData->bdmDeviceTick == BdmGeneration && !visible)
         return 0;
 
     pDeviceData->bdmDeviceTick = BdmGeneration;
