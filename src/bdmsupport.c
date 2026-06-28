@@ -1399,8 +1399,19 @@ int bdmUpdateDeviceData(item_list_t *itemList)
     }
 
     // Try to open the device by its real BDM prefix.
+    // Verify the device is actually alive..
     int dir = bdmOpenTrueDevice(deviceType, deviceIndex);
-    LOG("BDM poll mode=%d type=%d idx=%d dir=%d gen=%u vis=%d\n", itemList->mode, deviceType, deviceIndex, dir, BdmGeneration, visible);
+    if (dir >= 0) {
+        char driver[32];
+        memset(driver, 0, sizeof(driver));
+
+        if (fileXioIoctl2(dir, USBMASS_IOCTL_GET_DRIVERNAME, NULL, 0, driver, sizeof(driver) - 1) != 0 || driver[0] == '\0') {
+            fileXioDclose(dir);
+            dir = -1;
+        }
+    }
+
+    //LOG("BDM poll mode=%d type=%d idx=%d dir=%d gen=%u vis=%d\n", itemList->mode, deviceType, deviceIndex, dir, BdmGeneration, visible);
 
     // If we opened the device and the menu isn't visible (OR is visible but hasn't been initialized ex: manual device start) initialize device info.
     if (dir >= 0 && (visible == 0 || pDeviceData->bdmPrefix[0] == '\0')) {
