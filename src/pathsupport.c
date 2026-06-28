@@ -107,7 +107,7 @@ void pathNormaliseDir(char *dir, size_t dir_len)
     dir[dir_len - 1] = '\0';
     len = strlen(dir);
 
-    if (len > 0 && dir[len - 1] != '/') {
+    if (len > 0 && dir[len - 1] != '/' && dir[len - 1] != '\\') {
         if (len + 1 < dir_len) {
             dir[len] = '/';
             dir[len + 1] = '\0';
@@ -126,6 +126,9 @@ static int path_get_dirname(const char *path, char *dir_out, size_t dir_len, int
         return 0;
 
     slash = strrchr(path, '/');
+    const char *bslash = strrchr(path, '\\');
+    if (bslash && (!slash || bslash > slash))
+        slash = bslash;
 
     if (!slash) {
         copy_str(dir_out, path, dir_len);
