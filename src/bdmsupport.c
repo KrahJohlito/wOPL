@@ -1399,7 +1399,7 @@ int bdmUpdateDeviceData(item_list_t *itemList)
     }
 
     int removed = 0;
-    if (visible == 1 && && pDeviceData->bdmPrefix[0] != '\0' && pDeviceData->massDeviceIndex >= 0) {
+    if (visible == 1 && pDeviceData->bdmPrefix[0] != '\0' && pDeviceData->massDeviceIndex >= 0) {
         char massPath[16];
         int massDir;
 
