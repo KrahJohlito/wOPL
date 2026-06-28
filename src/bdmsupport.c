@@ -1398,7 +1398,7 @@ int bdmUpdateDeviceData(item_list_t *itemList)
             return 0;
     }
 
-    //int removed = 0;
+    int removed = 0;
     int dir = bdmOpenTrueDevice(deviceType, deviceIndex);
     if (visible == 1 && pDeviceData->bdmPrefix[0] != '\0' && pDeviceData->massDeviceIndex >= 0) {
         char massPath[16];
