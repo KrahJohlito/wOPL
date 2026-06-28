@@ -75,10 +75,12 @@ static int bdmBuildTruePath(char *path, size_t pathSize, int deviceType, int dev
 static int bdmOpenTrueDevice(int deviceType, int deviceIndex);
 
 static unsigned int BdmGeneration = 0;
+static volatile int bdmHotplugDirty = 0;
 
 static void bdmEventHandler(void *packet, void *opt)
 {
     BdmGeneration++;
+    bdmHotplugDirty = 1;
 }
 
 static void bdmLoadUSBModules(void)
@@ -317,6 +319,12 @@ static int bdmNeedsUpdate(item_list_t *itemList)
     if (gBDMStartMode == START_MODE_DISABLED)
         return 0;
 
+    if (bdmHotplugDirty) {
+        bdmHotplugDirty = 0;
+        bdmInitDevicesData();
+        return 1;
+    }
+
     bdm_device_data_t *pDeviceData = (bdm_device_data_t *)itemList->priv;
     if (!pDeviceData)
         return 0;
@@ -359,7 +367,7 @@ static int bdmNeedsUpdate(item_list_t *itemList)
             pOwner->menuItem.visible = 0;
     }
 
-    if (pDeviceData->bdmULSizePrev != -2 && pDeviceData->bdmDeviceTick == BdmGeneration)
+    if (pDeviceData->bdmULSizePrev != -2 && pDeviceData->bdmDeviceTick == BdmGeneration && !visible)
         return 0;
 
     pDeviceData->bdmDeviceTick = BdmGeneration;
