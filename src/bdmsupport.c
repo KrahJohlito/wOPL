@@ -1404,6 +1404,13 @@ int bdmUpdateDeviceData(item_list_t *itemList)
 
     // If we opened the device and the menu isn't visible (OR is visible but hasn't been initialized ex: manual device start) initialize device info.
     if (dir >= 0 && (visible == 0 || pDeviceData->bdmPrefix[0] == '\0')) {
+        int hadDevice = pDeviceData->bdmTruePrefix[0] != '\0' || pDeviceData->bdmPrefix[0] != '\0';
+        int oldDeviceType = pDeviceData->bdmDeviceType;
+        int oldMassDeviceIndex = pDeviceData->massDeviceIndex;
+        char oldTruePrefix[sizeof(pDeviceData->bdmTruePrefix)];
+
+        snprintf(oldTruePrefix, sizeof(oldTruePrefix), "%s", pDeviceData->bdmTruePrefix);
+
         if (!bdmSetupDeviceData(pDeviceData, itemList, deviceType, deviceIndex, dir)) {
             fileXioDclose(dir);
             return 0;
@@ -1424,7 +1431,20 @@ int bdmUpdateDeviceData(item_list_t *itemList)
 
         // Close the device handle.
         fileXioDclose(dir);
-        return 1;
+
+        if (!hadDevice)
+            return 1;
+
+        if (oldDeviceType != pDeviceData->bdmDeviceType)
+            return 1;
+
+        if (oldMassDeviceIndex != pDeviceData->massDeviceIndex)
+            return 1;
+
+        if (strcmp(oldTruePrefix, pDeviceData->bdmTruePrefix))
+            return 1;
+
+        return 0;
     } else if (dir < 0 && visible == 1) {
         int hadDevice = pDeviceData->bdmTruePrefix[0] != '\0';
 
