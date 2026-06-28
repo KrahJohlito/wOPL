@@ -1413,8 +1413,8 @@ int bdmUpdateDeviceData(item_list_t *itemList)
     int dir = bdmOpenTrueDevice(deviceType, deviceIndex);
     // LOG("opendir %s -> %d\n", path, dir);
 
-    // If we opened the device and the menu isn't visible (OR is visible but hasn't been initialized ex: manual device start) initialize device info.
-    if (dir >= 0 && (visible == 0 || pDeviceData->bdmPrefix[0] == '\0')) {
+    // If we opened the device, initialize or verify device info.
+    if (dir >= 0) {
         int hadDevice = pDeviceData->bdmTruePrefix[0] != '\0' || pDeviceData->bdmPrefix[0] != '\0';
         int oldDeviceType = pDeviceData->bdmDeviceType;
         int oldMassDeviceIndex = pDeviceData->massDeviceIndex;
@@ -1424,39 +1424,41 @@ int bdmUpdateDeviceData(item_list_t *itemList)
 
         if (!bdmSetupDeviceData(pDeviceData, itemList, deviceType, deviceIndex, dir)) {
             fileXioDclose(dir);
+            dir = -1;
+        } else {
+            // If the device is backed by the ATA driver then get the supported LBA size for the drive.
+            if (pDeviceData->bdmDeviceType == BDM_TYPE_ATA) {
+                bdmResolveLBA_UDMA(pDeviceData);
+                LOG("BDM device: %d (%d LBA%d UDMA%d) %s -> %s\n", itemList->mode, pDeviceData->massDeviceIndex, (pDeviceData->bdmHddIsLBA48 == 1 ? 48 : 28), pDeviceData->ataHighestUDMAMode, pDeviceData->bdmPrefix, pDeviceData->bdmDriver);
+            } else if (visible == 0 || oldDeviceType != pDeviceData->bdmDeviceType || oldMassDeviceIndex != pDeviceData->massDeviceIndex || strcmp(oldTruePrefix, pDeviceData->bdmTruePrefix))
+                LOG("BDM device: %d (%d) %s -> %s\n", itemList->mode, pDeviceData->massDeviceIndex, pDeviceData->bdmPrefix, pDeviceData->bdmDriver);
+
+            // Make the menu item visible.
+            if (itemList->owner != NULL && visible == 0) {
+                LOG("bdmUpdateDeviceData: setting device %d visible\n", itemList->mode);
+                ((opl_io_module_t *)itemList->owner)->menuItem.visible = 1;
+            }
+
+            // Close the device handle.
+            fileXioDclose(dir);
+
+            if (!hadDevice)
+                return 1;
+
+            if (oldDeviceType != pDeviceData->bdmDeviceType)
+                return 1;
+
+            if (oldMassDeviceIndex != pDeviceData->massDeviceIndex)
+                return 1;
+
+            if (strcmp(oldTruePrefix, pDeviceData->bdmTruePrefix))
+                return 1;
+
             return 0;
         }
+    }
 
-        // If the device is backed by the ATA driver then get the supported LBA size for the drive.
-        if (pDeviceData->bdmDeviceType == BDM_TYPE_ATA) {
-            bdmResolveLBA_UDMA(pDeviceData);
-            LOG("BDM device: %d (%d LBA%d UDMA%d) %s -> %s\n", itemList->mode, pDeviceData->massDeviceIndex, (pDeviceData->bdmHddIsLBA48 == 1 ? 48 : 28), pDeviceData->ataHighestUDMAMode, pDeviceData->bdmPrefix, pDeviceData->bdmDriver);
-        } else
-            LOG("BDM device: %d (%d) %s -> %s\n", itemList->mode, pDeviceData->massDeviceIndex, pDeviceData->bdmPrefix, pDeviceData->bdmDriver);
-
-        // Make the menu item visible.
-        if (itemList->owner != NULL) {
-            LOG("bdmUpdateDeviceData: setting device %d visible\n", itemList->mode);
-            ((opl_io_module_t *)itemList->owner)->menuItem.visible = 1;
-        }
-
-        // Close the device handle.
-        fileXioDclose(dir);
-
-        if (!hadDevice)
-            return 1;
-
-        if (oldDeviceType != pDeviceData->bdmDeviceType)
-            return 1;
-
-        if (oldMassDeviceIndex != pDeviceData->massDeviceIndex)
-            return 1;
-
-        if (strcmp(oldTruePrefix, pDeviceData->bdmTruePrefix))
-            return 1;
-
-        return 0;
-    } else if (dir < 0 && visible == 1) {
+    if (dir < 0 && visible == 1) {
         int hadDevice = pDeviceData->bdmTruePrefix[0] != '\0';
 
         // Device has been removed, make the menu item invisible. We can't really cleanup resources (like the game list) just yet
@@ -1477,8 +1479,6 @@ int bdmUpdateDeviceData(item_list_t *itemList)
     }
 
     // No change to the device state detected.
-    if (dir >= 0)
-        fileXioDclose(dir);
     return 0;
 }
 
