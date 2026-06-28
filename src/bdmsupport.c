@@ -1416,7 +1416,7 @@ int bdmUpdateDeviceData(item_list_t *itemList)
     }
 
     // Try to open the device by its real BDM prefix.
-    //int dir = removed ? -1 : bdmOpenTrueDevice(deviceType, deviceIndex);
+    dir = removed ? -1 : bdmOpenTrueDevice(deviceType, deviceIndex);
 
     LOG("BDM poll mode=%d type=%d idx=%d dir=%d gen=%u vis=%d\n", itemList->mode, deviceType, deviceIndex, dir, BdmGeneration, visible);
 
