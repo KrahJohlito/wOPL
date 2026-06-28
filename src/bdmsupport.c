@@ -305,6 +305,9 @@ static int bdmNeedsUpdate(item_list_t *itemList)
     if (!pDeviceData)
         return 0;
 
+    opl_io_module_t *pOwner = (opl_io_module_t *)itemList->owner;
+    int visible = pOwner != NULL && pOwner->menuItem.visible == 1;
+
     ioPutRequest(IO_CUSTOM_SIMPLEACTION, &bdmLoadBlockDeviceModules);
 
     // Check for forced refresh from deleting or renaming a game.
@@ -315,8 +318,7 @@ static int bdmNeedsUpdate(item_list_t *itemList)
 
     // If the device menu is visible double check the device type and if support for this device type is enabled. If the user switches device support
     // to off for a bdm device we want to hide the menu even though the drivers are still loaded and the device is being detected by bdm.
-    opl_io_module_t *pOwner = (opl_io_module_t *)itemList->owner;
-    if (pOwner != NULL && pOwner->menuItem.visible == 1) {
+    if (visible) {
         int deviceEnabled = 0;
         switch (pDeviceData->bdmDeviceType) {
             case BDM_TYPE_USB:
@@ -343,6 +345,7 @@ static int bdmNeedsUpdate(item_list_t *itemList)
 
     if (pDeviceData->bdmULSizePrev != -2 && pDeviceData->bdmDeviceTick == BdmGeneration)
         return 0;
+
     pDeviceData->bdmDeviceTick = BdmGeneration;
 
     // Check if the device has been connected or removed.
@@ -1407,18 +1410,23 @@ int bdmUpdateDeviceData(item_list_t *itemList)
         fileXioDclose(dir);
         return 1;
     } else if (dir < 0 && visible == 1) {
+        int hadDevice = pDeviceData->bdmTruePrefix[0] != '\0';
+
         // Device has been removed, make the menu item invisible. We can't really cleanup resources (like the game list) just yet
         // as we don't know if the data is being used asynchronously.
         pDeviceData->bdmTruePrefix[0] = '\0';
         pDeviceData->bdmPrefix[0] = '\0';
-
         if (itemList->owner != NULL) {
             LOG("bdmUpdateDeviceData: setting device %d invisible\n", itemList->mode);
             ((opl_io_module_t *)itemList->owner)->menuItem.visible = 0;
         }
 
-        LOG("BDM device: %d (%d) disconnected\n", itemList->mode, pDeviceData->massDeviceIndex);
-        return -1;
+        if (hadDevice) {
+            LOG("BDM device: %d (%d) disconnected\n", itemList->mode, pDeviceData->massDeviceIndex);
+            return -1;
+        }
+
+        return 0;
     }
 
     // No change to the device state detected.
