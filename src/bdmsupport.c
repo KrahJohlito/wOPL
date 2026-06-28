@@ -359,7 +359,7 @@ static int bdmNeedsUpdate(item_list_t *itemList)
             pOwner->menuItem.visible = 0;
     }
 
-    if (pDeviceData->bdmULSizePrev != -2 && pDeviceData->bdmDeviceTick == BdmGeneration)
+    if (pDeviceData->bdmULSizePrev != -2 && pDeviceData->bdmDeviceTick == BdmGeneration && !visible)
         return 0;
 
     pDeviceData->bdmDeviceTick = BdmGeneration;
@@ -1400,6 +1400,15 @@ int bdmUpdateDeviceData(item_list_t *itemList)
 
     // Try to open the device by its real BDM prefix.
     int dir = bdmOpenTrueDevice(deviceType, deviceIndex);
+    if (dir >= 0 && visible == 1 && pDeviceData->bdmPrefix[0] != '\0') {
+        iox_dirent_t dirent;
+
+        if (fileXioDread(dir, &dirent) < 0) {
+            fileXioDclose(dir);
+            dir = -1;
+        }
+    }
+
     // LOG("opendir %s -> %d\n", path, dir);
 
     // If we opened the device and the menu isn't visible (OR is visible but hasn't been initialized ex: manual device start) initialize device info.
