@@ -1417,7 +1417,7 @@ int bdmUpdateDeviceData(item_list_t *itemList)
     // Try to open the device by its real BDM prefix.
     int dir = removed ? -1 : bdmOpenTrueDevice(deviceType, deviceIndex);
 
-    //LOG("BDM poll mode=%d type=%d idx=%d dir=%d gen=%u vis=%d\n", itemList->mode, deviceType, deviceIndex, dir, BdmGeneration, visible);
+    LOG("BDM poll mode=%d type=%d idx=%d dir=%d gen=%u vis=%d\n", itemList->mode, deviceType, deviceIndex, dir, BdmGeneration, visible);
 
     // If we opened the device and the menu isn't visible (OR is visible but hasn't been initialized ex: manual device start) initialize device info.
     if (dir >= 0 && (visible == 0 || pDeviceData->bdmPrefix[0] == '\0')) {
