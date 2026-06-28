@@ -1398,27 +1398,19 @@ int bdmUpdateDeviceData(item_list_t *itemList)
             return 0;
     }
 
-    int removed = 0;
+    // Try to open the device by its real BDM prefix.
     int dir = bdmOpenTrueDevice(deviceType, deviceIndex);
-    if (visible == 1 && pDeviceData->bdmPrefix[0] != '\0' && pDeviceData->massDeviceIndex >= 0) {
-        char massPath[16];
-        int massDir;
+    if (dir >= 0 && visible == 1 && pDeviceData->bdmPrefix[0] != '\0') {
+        char truePath[16];
+        struct stat dst;
 
-        snprintf(massPath, sizeof(massPath), "mass%d:/", pDeviceData->massDeviceIndex);
-        massDir = fileXioDopen(massPath);
-        LOG("PROBE mode=%d true_dir=%d massIdx=%d mass_dir=%d\n", itemList->mode, dir, pDeviceData->massDeviceIndex, massDir);
-        if (massDir >= 0)
-            fileXioDclose(massDir);
-        else {
-            LOG("bdmUpdateDeviceData: mass root %s missing\n", massPath);
-            removed = 1;
+        if (!bdmBuildTruePath(truePath, sizeof(truePath), deviceType, deviceIndex, 1) || stat(truePath, &dst) != 0) {
+            fileXioDclose(dir);
+            dir = -1;
         }
     }
 
-    // Try to open the device by its real BDM prefix.
-    dir = removed ? -1 : bdmOpenTrueDevice(deviceType, deviceIndex);
-
-    LOG("BDM poll mode=%d type=%d idx=%d dir=%d gen=%u vis=%d\n", itemList->mode, deviceType, deviceIndex, dir, BdmGeneration, visible);
+    // LOG("opendir %s -> %d\n", path, dir);
 
     // If we opened the device and the menu isn't visible (OR is visible but hasn't been initialized ex: manual device start) initialize device info.
     if (dir >= 0 && (visible == 0 || pDeviceData->bdmPrefix[0] == '\0')) {
