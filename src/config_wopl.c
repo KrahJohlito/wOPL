@@ -620,6 +620,8 @@ static int pick_default_config_dir(void)
     int mc;
 
     if (pathGetBootDir(dir, sizeof(dir))) {
+        configEarlyLog("CONFIG: pathGetBootDir returned '%s'\n", dir);
+
         if (load_boot_config_from_dir(dir))
             return 1;
 
@@ -629,7 +631,8 @@ static int pick_default_config_dir(void)
             configEarlyLog("CONFIG: using boot/cwd config_dir='%s'\n", config_dir);
             return 1;
         }
-    }
+    } else
+        configEarlyLog("CONFIG: pathGetBootDir failed\n");
 
     // Fallback only if no usable boot/cwd root exists
     mc = sysCheckMC();
