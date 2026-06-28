@@ -21,7 +21,6 @@ static void copy_str(char *dst, const char *src, size_t size)
 static void path_normalise_separators(char *path, size_t size)
 {
     char *p;
-    size_t len;
 
     if (!path || !size)
         return;
@@ -31,15 +30,6 @@ static void path_normalise_separators(char *path, size_t size)
     for (p = path; *p; p++) {
         if (*p == '\\')
             *p = '/';
-    }
-
-    if (!strncmp(path, "host:", 5) && path[5] != '/' && path[5] != '\0') {
-        len = strlen(path);
-
-        if (len + 1 < size) {
-            memmove(path + 6, path + 5, len - 4);
-            path[5] = '/';
-        }
     }
 }
 
