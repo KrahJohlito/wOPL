@@ -617,22 +617,7 @@ static int pick_default_config_dir(void)
 {
     char dir[128];
     char true_dir[128];
-    char cwd[128];
-    char boot_path[256];
     int mc;
-
-    // PCSX2 can pass argv0 as host:C:\path\wopl.elf.. which is awkward to dirname safely
-    cwd[0] = '\0';
-    if (getcwd(cwd, sizeof(cwd)) != NULL) {
-        pathNormaliseDir(cwd, sizeof(cwd));
-
-        if (config_path_has_device_prefix(cwd, "host") && pathJoin(boot_path, sizeof(boot_path), cwd, BOOT_FILENAME)) {
-            configEarlyLog("CONFIG: checking host cwd boot cfg '%s'\n", boot_path);
-
-            if (file_exists(boot_path) && load_boot_config_from_dir(cwd))
-                return 1;
-        }
-    }
 
     if (pathGetBootDir(dir, sizeof(dir))) {
         configEarlyLog("CONFIG: pathGetBootDir returned '%s'\n", dir);
