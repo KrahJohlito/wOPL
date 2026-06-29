@@ -1832,7 +1832,8 @@ static int save_all_to_current_dir(int types) // like the old configWriteMulti()
         return 0;
     }
 
-    resolve_legacy_config_dir();
+    if (!resolve_legacy_config_dir())
+        return 0;
 
     LOG("CONFIG: saving to config_dir '%s'\n", config_dir);
 
