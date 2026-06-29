@@ -1907,7 +1907,7 @@ static int save_all_to_current_dir(int types) // like the old configWriteMulti()
     configFlushEarlyLog();
 
     if (!strncmp(config_dir, "mc", 2))
-        sbEnsureMCConfigFolder(config_dir));
+        sbEnsureMCConfigFolder(config_dir);
 
     if (types & CONFIG_OPL)
         result += do_save_at_dir(config_dir, WOPL_FILENAME, build_opl);
