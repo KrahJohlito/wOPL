@@ -612,26 +612,17 @@ static int pick_default_config_dir(void)
     }
 
     // Fallback only if no usable boot/cwd root exists
-    mc = sysCheckMC();
+    // Prefer the MC slot that already has the wOPL config folder
+    mc = sbCheckMC();
 
     if (mc >= 0) {
-        snprintf(config_dir, sizeof(config_dir), "mc%d:%s/", mc & 1, WOPL_CONFIG_NAME);
+        snprintf(config_dir, sizeof(config_dir), "mc%c:%s/", mc, WOPL_CONFIG_NAME);
         copy_str(boot_dir, config_dir, sizeof(boot_dir));
         configEarlyLog("CONFIG: falling back to MC config_dir='%s'\n", config_dir);
         return 1;
     }
 
     return 0;
-}
-
-static int ensure_mc_dir(const char *dir)
-{
-    struct stat st;
-
-    if (stat(dir, &st) == 0)
-        return 1;
-
-    return mkdir(dir, 0777) == 0 || errno == EEXIST;
 }
 
 static int ensure_config_dir(void)
@@ -667,20 +658,6 @@ static int do_save_at_dir(const char *dir, const char *filename, void (*build)(c
 
     if (!pathJoin(path, sizeof(path), dir, filename))
         return 0;
-
-    if (!strncmp(dir, "mc", 2)) {
-        char mc_dir[128];
-        copy_str(mc_dir, dir, sizeof(mc_dir));
-        size_t len = strlen(mc_dir);
-
-        if (len > 0 && mc_dir[len - 1] == '/')
-            mc_dir[len - 1] = '\0';
-
-        if (!ensure_mc_dir(mc_dir)) {
-            configEarlyLog("CONFIG: failed to create MC dir '%s'\n", mc_dir);
-            return 0;
-        }
-    }
 
     config_t cfg;
     config_init(&cfg);
