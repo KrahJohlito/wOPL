@@ -34,7 +34,7 @@
 
 #define BDM_MODE_UPDATE_DELAY MENU_UPD_DELAY_GENREFRESH
 
-#define MAX_BDM_TRUE_DEVICES (MAX_BDM_DEVICES * 4)
+#define MAX_BDM_TRUE_DEVICES MAX_BDM_DEVICES
 
 #include "include/mcemu.h"
 
@@ -1004,7 +1004,7 @@ void bdmInitDevicesData()
             // Setup the device list item.
             item_list_t *pDeviceSupport = &bdmDeviceList[i];
             memcpy(pDeviceSupport, &bdmGameList, sizeof(item_list_t));
-            pDeviceSupport->mode = i;
+            pDeviceSupport->mode = BDM_MODE + i;
 
             // Setup the per-device data.
             bdm_device_data_t *pDeviceData = (bdm_device_data_t *)malloc(sizeof(bdm_device_data_t));
@@ -1021,7 +1021,7 @@ void bdmInitDevicesData()
     // Refresh the visibility of the menu.
     for (int i = 0; i < MAX_BDM_TRUE_DEVICES; i++) {
         // Register the device structure into the UI.
-        initSupport(&bdmDeviceList[i], i, 0);
+        initSupport(&bdmDeviceList[i], BDM_MODE + i, 0);
 
         // If bdm support is set to auto then make the page invisible and reset the bdm tick counter, when a bdm device is mounted it will dynamically be made visible.
         // If bdm support is set to manual then only make the first page visible.
@@ -1379,24 +1379,12 @@ int bdmUpdateDeviceData(item_list_t *itemList)
 
     int visible = itemList->owner != NULL ? ((opl_io_module_t *)itemList->owner)->menuItem.visible : 0;
 
-    deviceIndex = itemList->mode % MAX_BDM_DEVICES;
+    deviceIndex = itemList->mode - BDM_MODE;
 
-    switch (itemList->mode / MAX_BDM_DEVICES) {
-        case 0:
-            deviceType = BDM_TYPE_USB;
-            break;
-        case 1:
-            deviceType = BDM_TYPE_ILINK;
-            break;
-        case 2:
-            deviceType = BDM_TYPE_SDC;
-            break;
-        case 3:
-            deviceType = BDM_TYPE_ATA;
-            break;
-        default:
-            return 0;
-    }
+    if (deviceIndex < 0 || deviceIndex >= MAX_BDM_DEVICES)
+        return 0;
+
+    deviceType = BDM_TYPE_USB;
 
     // Try to open the device by its real BDM prefix.
     int dir = bdmOpenTrueDevice(deviceType, deviceIndex);
