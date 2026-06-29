@@ -179,7 +179,8 @@ static int normalise_mc_config_dir(char *out, int out_size, const char *dir)
     if (!out || out_size <= 0 || !dir)
         return 0;
 
-    snprintf(out, out_size, "%s", dir);
+    if (snprintf(out, out_size, "%s", dir) >= out_size)
+        return 0;
 
     len = strlen(out);
     if (len <= 0)
