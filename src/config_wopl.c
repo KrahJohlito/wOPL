@@ -1937,6 +1937,8 @@ static int save_all_to_current_dir(int types) // like the old configWriteMulti()
     int expected = config_type_count(types);
 
     if (!ensure_config_dir()) {
+        configEarlyLog("CONFIG: save failed, no config_dir\n");
+        configFlushEarlyLog();
         LOG("CONFIG: no config_dir selected for save\n");
         return 0;
     }
