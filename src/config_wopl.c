@@ -613,56 +613,6 @@ static int load_boot_config_from_dir(const char *launch_dir)
     return have_config_dir;
 }
 
-static int mc_root_exists(int slot)
-{
-    char path[8];
-    DIR *dir;
-
-    snprintf(path, sizeof(path), "mc%d:/", slot);
-
-    dir = opendir(path);
-    if (!dir)
-        return 0;
-
-    closedir(dir);
-    return 1;
-}
-
-static int mc_config_dir_exists(int slot)
-{
-    char path[64];
-    DIR *dir;
-
-    snprintf(path, sizeof(path), "mc%d:%s/", slot, WOPL_CONFIG_NAME);
-
-    dir = opendir(path);
-    if (!dir)
-        return 0;
-
-    closedir(dir);
-    return 1;
-}
-
-static int pick_config_mc_slot(void)
-{
-    int mc0_present = mc_root_exists(0);
-    int mc1_present = mc_root_exists(1);
-
-    if (mc0_present && mc_config_dir_exists(0))
-        return 0;
-
-    if (mc1_present && mc_config_dir_exists(1))
-        return 1;
-
-    if (mc0_present)
-        return 0;
-
-    if (mc1_present)
-        return 1;
-
-    return -1;
-}
-
 static int pick_default_config_dir(void)
 {
     char dir[128];
@@ -1957,7 +1907,7 @@ static int save_all_to_current_dir(int types) // like the old configWriteMulti()
     configFlushEarlyLog();
 
     if (!strncmp(config_dir, "mc", 2))
-        sbCheckMCFolder();
+        sbEnsureMCConfigFolder(config_dir));
 
     if (types & CONFIG_OPL)
         result += do_save_at_dir(config_dir, WOPL_FILENAME, build_opl);
