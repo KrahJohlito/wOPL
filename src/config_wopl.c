@@ -32,8 +32,6 @@
 #include <dirent.h>
 #include <unistd.h>
 
-#include <stdarg.h>
-
 #ifdef __DEBUG
 #include "include/debug.h"
 #endif
@@ -75,61 +73,6 @@ int gHDDFramesDelay = MENU_MIN_INACTIVE_FRAMES;
 int gMMCEFramesDelay = MENU_MIN_INACTIVE_FRAMES;
 int gAPPFramesDelay = MENU_MIN_INACTIVE_FRAMES;
 int gFAVFramesDelay = MENU_MIN_INACTIVE_FRAMES;
-
-static char early_config_log[8192];
-static size_t early_config_log_len = 0;
-
-static void configEarlyLog(const char *fmt, ...)
-{
-    va_list args;
-    int written;
-    size_t remaining;
-
-    if (early_config_log_len >= sizeof(early_config_log) - 1)
-        return;
-
-    remaining = sizeof(early_config_log) - early_config_log_len;
-
-    va_start(args, fmt);
-    written = vsnprintf(early_config_log + early_config_log_len, remaining, fmt, args);
-    va_end(args);
-
-    if (written <= 0)
-        return;
-
-    if ((size_t)written >= remaining)
-        early_config_log_len = sizeof(early_config_log) - 1;
-    else
-        early_config_log_len += written;
-}
-
-static void configFlushEarlyLog(void)
-{
-    size_t pos = 0;
-    size_t chunk;
-
-    if (!early_config_log_len)
-        return;
-
-    early_config_log[early_config_log_len] = '\0';
-
-    LOG("CONFIG EARLY LOG BEGIN\n");
-
-    while (pos < early_config_log_len) {
-        chunk = early_config_log_len - pos;
-
-        if (chunk > 240)
-            chunk = 240;
-
-        LOG("%.*s", (int)chunk, early_config_log + pos);
-        pos += chunk;
-    }
-
-    LOG("CONFIG EARLY LOG END\n");
-
-    early_config_log_len = 0;
-    early_config_log[0] = '\0';
-}
 
 // ---------------------------------------------------------------------------
 // Config error logging
@@ -473,7 +416,7 @@ static int wait_for_config_root_ready(const char *path)
     for (i = 0; i < CONFIG_ROOT_READY_RETRIES; i++) {
         if (path_exists(path)) {
             if (i > 0)
-                configEarlyLog("CONFIG: config root ready after %d retries '%s'\n", i, path);
+                LOG("CONFIG: config root ready after %d retries '%s'\n", i, path);
 
             return 1;
         }
@@ -489,17 +432,17 @@ static int normalise_true_config_dir(char *out, size_t out_len, const char *dir,
     int legacyLaunchPath;
 
     if (!out || !out_len || !dir || !dir[0]) {
-        configEarlyLog("CONFIG: normalise failed invalid dir='%s'\n", dir ? dir : "(null)");
+        LOG("CONFIG: normalise failed invalid dir='%s'\n", dir ? dir : "(null)");
         return 0;
     }
 
     legacyLaunchPath = pathIsLegacyMassPath(dir);
 
-    configEarlyLog("CONFIG: normalise dir='%s' allowLegacyMass=%d legacy=%d\n", dir, allowLegacyMass, legacyLaunchPath);
+    LOG("CONFIG: normalise dir='%s' allowLegacyMass=%d legacy=%d\n", dir, allowLegacyMass, legacyLaunchPath);
 
     if (legacyLaunchPath) {
         if (!allowLegacyMass) {
-            configEarlyLog("CONFIG: rejecting legacy mass path '%s'\n", dir);
+            LOG("CONFIG: rejecting legacy mass path '%s'\n", dir);
             return 0;
         }
 
@@ -511,24 +454,24 @@ static int normalise_true_config_dir(char *out, size_t out_len, const char *dir,
         copy_str(out, dir, out_len);
         pathNormaliseDir(out, out_len);
 
-        configEarlyLog("CONFIG: using legacy launch config dir '%s'\n", out);
+        LOG("CONFIG: using legacy launch config dir '%s'\n", out);
 
         return 1;
     } else {
         if (!pathResolveToTrue(out, out_len, dir)) {
-            configEarlyLog("CONFIG: failed to resolve true config dir '%s'\n", dir);
+            LOG("CONFIG: failed to resolve true config dir '%s'\n", dir);
             return 0;
         }
 
-        configEarlyLog("CONFIG: resolved true config dir '%s' -> '%s'\n", dir, out);
+        LOG("CONFIG: resolved true config dir '%s' -> '%s'\n", dir, out);
     }
 
     pathNormaliseDir(out, out_len);
 
-    configEarlyLog("CONFIG: normalised config dir='%s'\n", out);
+    LOG("CONFIG: normalised config dir='%s'\n", out);
 
     if (!pathIsDevicePath(out)) {
-        configEarlyLog("CONFIG: rejected non-device config dir '%s'\n", out);
+        LOG("CONFIG: rejected non-device config dir '%s'\n", out);
         return 0;
     }
 
@@ -537,11 +480,11 @@ static int normalise_true_config_dir(char *out, size_t out_len, const char *dir,
 
     // BDM modules may be loaded but the filesystem/device might not be ready..
     if (!wait_for_config_root_ready(out)) {
-        configEarlyLog("CONFIG: config root not ready '%s'\n", out);
+        LOG("CONFIG: config root not ready '%s'\n", out);
         return 0;
     }
 
-    configEarlyLog("CONFIG: config root ready '%s'\n", out);
+    LOG("CONFIG: config root ready '%s'\n", out);
 
     return 1;
 }
@@ -568,14 +511,14 @@ static int load_boot_config_from_dir(const char *launch_dir)
     legacy_boot_root = pathIsLegacyMassPath(boot_root);
 
     if (!pathJoin(boot_path, sizeof(boot_path), boot_root, BOOT_FILENAME)) {
-        configEarlyLog("CONFIG: failed to build boot cfg path from '%s'\n", boot_root);
+        LOG("CONFIG: failed to build boot cfg path from '%s'\n", boot_root);
         return 0;
     }
 
-    configEarlyLog("CONFIG: boot root='%s' boot cfg='%s'\n", boot_root, boot_path);
+    LOG("CONFIG: boot root='%s' boot cfg='%s'\n", boot_root, boot_path);
 
     if (!file_exists(boot_path)) {
-        configEarlyLog("CONFIG: no boot cfg at '%s', using boot root\n", boot_path);
+        LOG("CONFIG: no boot cfg at '%s', using boot root\n", boot_path);
         copy_str(config_dir, boot_root, sizeof(config_dir));
         return 1;
     }
@@ -596,9 +539,9 @@ static int load_boot_config_from_dir(const char *launch_dir)
             copy_str(config_dir, resolved_dir, sizeof(config_dir));
             have_config_dir = 1;
         } else
-            configEarlyLog("CONFIG: ignoring invalid boot.config_dir '%s'\n", value);
+            LOG("CONFIG: ignoring invalid boot.config_dir '%s'\n", value);
     } else if (legacy_boot_root)
-        configEarlyLog("CONFIG: ignoring boot.config_dir while using legacy launch root '%s'\n", boot_root);
+        LOG("CONFIG: ignoring boot.config_dir while using legacy launch root '%s'\n", boot_root);
 
     if (!have_config_dir) {
         copy_str(config_dir, boot_root, sizeof(config_dir));
@@ -608,7 +551,7 @@ static int load_boot_config_from_dir(const char *launch_dir)
     cfgValidateEnd();
     config_destroy(&cfg);
 
-    configEarlyLog("CONFIG: boot config '%s' config_dir='%s'\n", boot_path, config_dir);
+    LOG("CONFIG: boot config '%s' config_dir='%s'\n", boot_path, config_dir);
 
     return have_config_dir;
 }
@@ -626,7 +569,7 @@ static int pick_default_config_dir(void)
         if (normalise_true_config_dir(true_dir, sizeof(true_dir), dir, 1)) {
             copy_str(boot_dir, true_dir, sizeof(boot_dir));
             copy_str(config_dir, true_dir, sizeof(config_dir));
-            configEarlyLog("CONFIG: using boot/cwd config_dir='%s'\n", config_dir);
+            LOG("CONFIG: using boot/cwd config_dir='%s'\n", config_dir);
             return 1;
         }
     }
@@ -638,7 +581,7 @@ static int pick_default_config_dir(void)
     if (mc >= 0) {
         snprintf(config_dir, sizeof(config_dir), "mc%c:%s/", mc, WOPL_CONFIG_NAME);
         copy_str(boot_dir, config_dir, sizeof(boot_dir));
-        configEarlyLog("CONFIG: falling back to MC config_dir='%s'\n", config_dir);
+        LOG("CONFIG: falling back to MC config_dir='%s'\n", config_dir);
         return 1;
     }
 
@@ -660,11 +603,11 @@ static int ensure_config_dir(void)
     if (getcwd(cwd, sizeof(cwd)) == NULL)
         copy_str(cwd, "(getcwd failed)", sizeof(cwd));
 
-    configEarlyLog("CONFIG: ensure_config_dir launch='%s' cwd='%s'\n", launch ? launch : "(null)", cwd);
+    LOG("CONFIG: ensure_config_dir launch='%s' cwd='%s'\n", launch ? launch : "(null)", cwd);
 
     ok = pick_default_config_dir();
 
-    configEarlyLog("CONFIG: ensure_config_dir result=%d config_dir='%s' boot_dir='%s'\n", ok, config_dir, boot_dir);
+    LOG("CONFIG: ensure_config_dir result=%d config_dir='%s' boot_dir='%s'\n", ok, config_dir, boot_dir);
 
     return ok;
 }
@@ -689,12 +632,12 @@ static int do_save_at_dir(const char *dir, const char *filename, void (*build)(c
     config_destroy(&cfg);
 
     if (!ok) {
-        configEarlyLog("CONFIG: failed to write '%s'\n", path);
+        LOG("CONFIG: failed to write '%s'\n", path);
         return 0;
     }
 
     copy_str(config_dir, dir, sizeof(config_dir));
-    configEarlyLog("CONFIG: saved to '%s'\n", path);
+    LOG("CONFIG: saved to '%s'\n", path);
 
     return 1;
 }
@@ -730,7 +673,7 @@ static int save_boot_config(void)
         return 1;
 
     if (pathIsLegacyMassPath(config_dir)) {
-        configEarlyLog("CONFIG: not saving unresolved legacy boot config_dir '%s'\n", config_dir);
+        LOG("CONFIG: not saving unresolved legacy boot config_dir '%s'\n", config_dir);
         return 1;
     }
 
@@ -745,11 +688,11 @@ static int save_boot_config(void)
     config_destroy(&cfg);
 
     if (!ok) {
-        configEarlyLog("CONFIG: failed to write boot config '%s'\n", path);
+        LOG("CONFIG: failed to write boot config '%s'\n", path);
         return 0;
     }
 
-    configEarlyLog("CONFIG: saved boot config '%s'\n", path);
+    LOG("CONFIG: saved boot config '%s'\n", path);
 
     return 1;
 }
@@ -876,12 +819,12 @@ static void parse_paths(config_t *cfg)
 
     if ((path = lookup_str(cfg, "paths.bdm_prefix", NULL)) && path[0]) {
         if (pathIsLegacyMassPath(path)) {
-            configEarlyLog("CONFIG: ignoring legacy mass BDM prefix '%s'\n", path);
+            LOG("CONFIG: ignoring legacy mass BDM prefix '%s'\n", path);
         } else if (pathResolveToTrue(resolved, sizeof(resolved), path) && pathIsDevicePath(resolved)) {
             pathNormaliseDir(resolved, sizeof(resolved));
             copy_str(gBDMPrefix, resolved, sizeof(gBDMPrefix));
         } else {
-            configEarlyLog("CONFIG: ignoring invalid BDM prefix '%s'\n", path);
+            LOG("CONFIG: ignoring invalid BDM prefix '%s'\n", path);
         }
     }
 
@@ -1054,7 +997,7 @@ int wOPLLoad(int *out_theme_id, int *out_lang_id)
     if (out_lang_id)
         *out_lang_id = 0;
 
-    configEarlyLog("CONFIG_WOPL: enter config_dir='%s'\n", config_dir);
+    LOG("CONFIG_WOPL: enter config_dir='%s'\n", config_dir);
 
     if (!ensure_config_dir())
         return 0;
@@ -1063,7 +1006,7 @@ int wOPLLoad(int *out_theme_id, int *out_lang_id)
     if (!pathJoin(path, sizeof(path), config_dir, WOPL_FILENAME))
         return 0;
 
-    configEarlyLog("CONFIG_WOPL: trying '%s'\n", path);
+    LOG("CONFIG_WOPL: trying '%s'\n", path);
 
     config_init(&cfg);
     if (config_read_file(&cfg, path)) {
@@ -1072,11 +1015,11 @@ int wOPLLoad(int *out_theme_id, int *out_lang_id)
         cfgValidateEnd();
         config_destroy(&cfg);
 
-        configEarlyLog("CONFIG_WOPL: loaded from '%s'\n", path);
+        LOG("CONFIG_WOPL: loaded from '%s'\n", path);
         return 1;
     }
 
-    configEarlyLog("CONFIG_WOPL: failed new config '%s'\n", path);
+    LOG("CONFIG_WOPL: failed new config '%s'\n", path);
     log_config_error(path, &cfg);
     config_destroy(&cfg);
 
@@ -1095,7 +1038,7 @@ int wOPLLoad(int *out_theme_id, int *out_lang_id)
     config_destroy(&cfg);
 
     if (!ok) {
-        configEarlyLog("CONFIG_WOPL: old format detected at selected config root, attempting legacy migration\n");
+        LOG("CONFIG_WOPL: old format detected at selected config root, attempting legacy migration\n");
         ok = cfgMigrateLegacyOPL(old_path, out_theme_id, out_lang_id);
     }
 
@@ -1107,7 +1050,7 @@ int wOPLLoad(int *out_theme_id, int *out_lang_id)
 
         snprintf(bak, sizeof(bak), "%s.bak", old_path);
         rename(old_path, bak);
-        configEarlyLog("CONFIG_WOPL: migrated to '%s'\n", WOPL_FILENAME);
+        LOG("CONFIG_WOPL: migrated to '%s'\n", WOPL_FILENAME);
     }
 
     return 1;
@@ -1185,7 +1128,7 @@ static void build_net(config_setting_t *root)
 
 int wOPLNetLoad(void)
 {
-    configEarlyLog("CONFIG_NET: enter config_dir='%s'\n", config_dir);
+    LOG("CONFIG_NET: enter config_dir='%s'\n", config_dir);
 
     if (!ensure_config_dir())
         return 0;
@@ -1197,7 +1140,7 @@ int wOPLNetLoad(void)
     if (!pathJoin(path, sizeof(path), config_dir, NET_FILENAME))
         return 0;
 
-    configEarlyLog("CONFIG_NET: trying '%s'\n", path);
+    LOG("CONFIG_NET: trying '%s'\n", path);
 
     // 1. Try new filename
     config_init(&cfg);
@@ -1206,7 +1149,7 @@ int wOPLNetLoad(void)
         parse_net(&cfg);
         cfgValidateEnd();
         config_destroy(&cfg);
-        configEarlyLog("CONFIG_NET: loaded from '%s'\n", path);
+        LOG("CONFIG_NET: loaded from '%s'\n", path);
         return 1;
     }
     log_config_error(path, &cfg);
@@ -1394,7 +1337,7 @@ static void build_global_game(config_setting_t *root)
 
 int wOPLGlobalGameLoad(void)
 {
-    configEarlyLog("CONFIG_GAME: enter config_dir='%s'\n", config_dir);
+    LOG("CONFIG_GAME: enter config_dir='%s'\n", config_dir);
 
     if (!ensure_config_dir())
         return 0;
@@ -1405,7 +1348,7 @@ int wOPLGlobalGameLoad(void)
     if (!pathJoin(path, sizeof(path), config_dir, GAME_FILENAME))
         return 0;
 
-    configEarlyLog("CONFIG_GAME: trying '%s'\n", path);
+    LOG("CONFIG_GAME: trying '%s'\n", path);
 
     config_init(&cfg);
     if (config_read_file(&cfg, path)) {
@@ -1413,7 +1356,7 @@ int wOPLGlobalGameLoad(void)
         parse_global_game(&cfg);
         cfgValidateEnd();
         config_destroy(&cfg);
-        configEarlyLog("CONFIG_GAME: loaded from '%s'\n", path);
+        LOG("CONFIG_GAME: loaded from '%s'\n", path);
         return 1;
     }
     log_config_error(path, &cfg);
@@ -1804,21 +1747,21 @@ static int resolve_legacy_config_dir(void)
     if (!pathIsLegacyMassPath(config_dir))
         return 1;
 
-    configEarlyLog("CONFIG: resolving legacy config_dir '%s'\n", config_dir);
+    LOG("CONFIG: resolving legacy config_dir '%s'\n", config_dir);
 
     if (!bdmResolveLegacyPathFromDeviceList(resolved, sizeof(resolved), config_dir)) {
-        configEarlyLog("CONFIG: could not resolve legacy config_dir '%s'\n", config_dir);
+        LOG("CONFIG: could not resolve legacy config_dir '%s'\n", config_dir);
         return 0;
     }
 
     pathNormaliseDir(resolved, sizeof(resolved));
 
     if (!pathIsDevicePath(resolved) || pathIsLegacyMassPath(resolved)) {
-        configEarlyLog("CONFIG: rejected resolved config_dir '%s'\n", resolved);
+        LOG("CONFIG: rejected resolved config_dir '%s'\n", resolved);
         return 0;
     }
 
-    configEarlyLog("CONFIG: resolved config_dir '%s' -> '%s'\n", config_dir, resolved);
+    LOG("CONFIG: resolved config_dir '%s' -> '%s'\n", config_dir, resolved);
     copy_str(config_dir, resolved, sizeof(config_dir));
 
     return 1;
@@ -1832,7 +1775,7 @@ void _loadConfig() // called directly by initializer at boot before GUI is ready
 
     have_config_dir = ensure_config_dir();
 
-    configEarlyLog("CONFIG: initial config root result=%d config_dir='%s' boot_dir='%s'\n", have_config_dir, config_dir, boot_dir);
+    LOG("CONFIG: initial config root result=%d config_dir='%s' boot_dir='%s'\n", have_config_dir, config_dir, boot_dir);
 
     if (lscstatus & CONFIG_OPL) {
         if (wOPLLoad(&themeID, &langID))
@@ -1850,7 +1793,7 @@ void _loadConfig() // called directly by initializer at boot before GUI is ready
         if (wOPLGlobalGameLoad())
             result |= CONFIG_GAME;
 
-    configEarlyLog("CONFIG: load requested=0x%X result=0x%X config_dir='%s'\n", lscstatus, result, config_dir);
+    LOG("CONFIG: load requested=0x%X result=0x%X config_dir='%s'\n", lscstatus, result, config_dir);
 
     configApply(themeID, langID, 0);
     resolve_legacy_config_dir();
@@ -1903,8 +1846,6 @@ static int save_all_to_current_dir(int types) // like the old configWriteMulti()
     resolve_legacy_config_dir();
 
     LOG("CONFIG: saving to config_dir '%s'\n", config_dir);
-
-    configFlushEarlyLog();
 
     if (!strncmp(config_dir, "mc", 2))
         sbEnsureMCConfigFolder(config_dir);
