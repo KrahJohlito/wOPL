@@ -58,7 +58,6 @@ int pathIsDevicePath(const char *path)
         "ilink",
         "ata",
         "hdd",
-        "host",
         "mmce",
         NULL};
 
