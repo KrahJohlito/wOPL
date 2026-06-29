@@ -252,7 +252,7 @@ void bdmLoadModulesForLegacyMass(void)
 
     WaitSema(bdmLoadModuleLock);
     bdmLoadUSBModules();
-    bdmLoadiLinkModules();
+    //bdmLoadiLinkModules();
     bdmLoadMX4SIOModules();
     bdmLoadBdmHDDModules();
     SignalSema(bdmLoadModuleLock);
