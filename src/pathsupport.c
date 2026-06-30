@@ -177,16 +177,6 @@ int pathGetBootDir(char *dir_out, size_t dir_len)
     return 1;
 }
 
-int pathResolveToTrue(char *out, size_t out_len, const char *path)
-{
-    if (!out || !out_len || !path)
-        return 0;
-
-    copy_str(out, path, out_len);
-
-    return 1;
-}
-
 int pathJoin(char *out, size_t out_len, const char *dir, const char *name)
 {
     int len;

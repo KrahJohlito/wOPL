@@ -435,14 +435,8 @@ static int normalise_true_config_dir(char *out, size_t out_len, const char *dir,
         LOG("CONFIG: using legacy launch config dir '%s'\n", out);
 
         return 1;
-    } else {
-        if (!pathResolveToTrue(out, out_len, dir)) {
-            LOG("CONFIG: failed to resolve true config dir '%s'\n", dir);
-            return 0;
-        }
-
-        LOG("CONFIG: resolved true config dir '%s' -> '%s'\n", dir, out);
-    }
+    } else
+        copy_str(out, dir, out_len);
 
     pathNormaliseDir(out, out_len);
 
