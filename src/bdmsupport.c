@@ -1121,38 +1121,7 @@ static int bdmOpenTrueDevice(int deviceType, int deviceIndex)
 
 static int bdmParseLegacyMassPath(const char *path, int *index, const char **tail)
 {
-    const char *p;
-    int value;
-
-    if (!path || strncmp(path, "mass", 4))
-        return 0;
-
-    p = path + 4;
-    value = -1;
-
-    // wLE seems to use mass: instead of mass0:
-    if (*p != ':') {
-        if (*p < '0' || *p > '9')
-            return 0;
-
-        value = 0;
-
-        while (*p >= '0' && *p <= '9') {
-            value = value * 10 + (*p - '0');
-            p++;
-        }
-    }
-
-    if (*p != ':')
-        return 0;
-
-    if (index)
-        *index = value;
-
-    if (tail)
-        *tail = p + 1;
-
-    return 1;
+    return pathGetDeviceIndex(path, "mass", index, tail, 0);
 }
 
 static int bdmSetDeviceTypeAndTruePrefix(bdm_device_data_t *pDeviceData, item_list_t *itemList, int deviceType, int deviceIndex)

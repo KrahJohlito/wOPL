@@ -18,10 +18,11 @@ static void copy_str(char *dst, const char *src, size_t size)
     dst[size - 1] = '\0';
 }
 
-int pathHasDevicePrefix(const char *path, const char *device)
+int pathGetDeviceIndex(const char *path, const char *device, int *index, const char **tail, int requireIndex)
 {
     const char *suffix;
     size_t len;
+    int value = -1;
 
     if (!path || !device)
         return 0;
@@ -33,38 +34,36 @@ int pathHasDevicePrefix(const char *path, const char *device)
 
     suffix = path + len;
 
-    while (*suffix >= '0' && *suffix <= '9')
-        suffix++;
+    if (*suffix != ':') {
+        if (*suffix < '0' || *suffix > '9')
+            return 0;
 
-    return *suffix == ':';
-}
+        value = 0;
 
-int pathGetDeviceIndex(const char *path, const char *device, int *index)
-{
-    const char *suffix;
-    int value = 0;
-
-    if (!path || !device || !index)
-        return 0;
-
-    if (!pathHasDevicePrefix(path, device))
-        return 0;
-
-    suffix = path + strlen(device);
-
-    if (*suffix < '0' || *suffix > '9')
-        return 0;
-
-    while (*suffix >= '0' && *suffix <= '9') {
-        value = value * 10 + (*suffix - '0');
-        suffix++;
+        while (*suffix >= '0' && *suffix <= '9') {
+            value = value * 10 + (*suffix - '0');
+            suffix++;
+        }
     }
 
     if (*suffix != ':')
         return 0;
 
-    *index = value;
+    if (requireIndex && value < 0)
+        return 0;
+
+    if (index)
+        *index = value;
+
+    if (tail)
+        *tail = suffix + 1;
+
     return 1;
+}
+
+int pathHasDevicePrefix(const char *path, const char *device)
+{
+    return pathGetDeviceIndex(path, device, NULL, NULL, 0);
 }
 
 void pathSetLaunchPath(const char *path)
