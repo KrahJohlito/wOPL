@@ -104,24 +104,8 @@ int pathIsDevicePath(const char *path)
 
 int pathIsLegacyMassPath(const char *path)
 {
-    const char *p;
-
-    if (!path || strncmp(path, "mass", 4))
-        return 0;
-
-    p = path + 4;
-
-    // wLE seems to use mass: instead of mass0:
-    if (*p == ':')
-        return 1;
-
-    if (*p < '0' || *p > '9')
-        return 0;
-
-    while (*p >= '0' && *p <= '9')
-        p++;
-
-    return *p == ':';
+    // wLE seems to use mass: instead of mass0:.. pathHasDevicePrefix() intentionally accepts both forms because the devN is optional
+    return pathHasDevicePrefix(path, "mass");
 }
 
 void pathNormaliseDir(char *dir, size_t dir_len)
