@@ -16,6 +16,7 @@
 #include "include/module.h"
 #include "include/initializer.h"
 #include "include/config_wopl.h"
+#include "include/pathsupport.h"
 #include <fcntl.h>
 #include <stdlib.h>
 #include <ps2sdkapi.h>
@@ -158,35 +159,15 @@ static void bdmLoadBlockDeviceModules(void)
     SignalSema(bdmLoadModuleLock);
 }
 
-static int bdmPathHasDevicePrefix(const char *path, const char *prefix)
-{
-    size_t len;
-
-    if (!path || !prefix)
-        return 0;
-
-    len = strlen(prefix);
-
-    if (strncmp(path, prefix, len))
-        return 0;
-
-    path += len;
-
-    while (*path >= '0' && *path <= '9')
-        path++;
-
-    return *path == ':';
-}
-
 static int bdmGetDeviceTypeFromPath(const char *path)
 {
-    if (bdmPathHasDevicePrefix(path, "usb"))
+    if (pathHasDevicePrefix(path, "usb"))
         return BDM_TYPE_USB;
-    if (bdmPathHasDevicePrefix(path, "ilink"))
+    if (pathHasDevicePrefix(path, "ilink"))
         return BDM_TYPE_ILINK;
-    if (bdmPathHasDevicePrefix(path, "mx4sio"))
+    if (pathHasDevicePrefix(path, "mx4sio"))
         return BDM_TYPE_SDC;
-    if (bdmPathHasDevicePrefix(path, "ata"))
+    if (pathHasDevicePrefix(path, "ata"))
         return BDM_TYPE_ATA;
 
     return BDM_TYPE_UNKNOWN;
