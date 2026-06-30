@@ -1119,11 +1119,6 @@ static int bdmOpenTrueDevice(int deviceType, int deviceIndex)
     return fileXioDopen(path);
 }
 
-static int bdmParseLegacyMassPath(const char *path, int *index, const char **tail)
-{
-    return pathGetDeviceIndex(path, "mass", index, tail, 0);
-}
-
 static int bdmSetDeviceTypeAndTruePrefix(bdm_device_data_t *pDeviceData, item_list_t *itemList, int deviceType, int deviceIndex)
 {
     if (!pDeviceData)
@@ -1232,7 +1227,7 @@ int bdmResolveLegacyPath(char *out, size_t out_len, const char *path)
     if (!out || !out_len || !path)
         return 0;
 
-    if (!bdmParseLegacyMassPath(path, &massIndex, &tail))
+    if (!pathGetDeviceIndex(path, "mass", &massIndex, &tail, 0))
         return 0;
 
     // First try a strict match using the reported BDM device number
