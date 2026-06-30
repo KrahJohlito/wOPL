@@ -438,8 +438,6 @@ static int normalise_true_config_dir(char *out, size_t out_len, const char *dir,
 
     legacyLaunchPath = pathIsLegacyMassPath(dir);
 
-    LOG("CONFIG: normalise dir='%s' allowLegacyMass=%d legacy=%d\n", dir, allowLegacyMass, legacyLaunchPath);
-
     if (legacyLaunchPath) {
         if (!allowLegacyMass) {
             LOG("CONFIG: rejecting legacy mass path '%s'\n", dir);
@@ -467,8 +465,6 @@ static int normalise_true_config_dir(char *out, size_t out_len, const char *dir,
     }
 
     pathNormaliseDir(out, out_len);
-
-    LOG("CONFIG: normalised config dir='%s'\n", out);
 
     if (!pathIsDevicePath(out)) {
         LOG("CONFIG: rejected non-device config dir '%s'\n", out);
@@ -604,11 +600,7 @@ static int ensure_config_dir(void)
     if (getcwd(cwd, sizeof(cwd)) == NULL)
         copy_str(cwd, "(getcwd failed)", sizeof(cwd));
 
-    LOG("CONFIG: ensure_config_dir launch='%s' cwd='%s'\n", launch ? launch : "(null)", cwd);
-
     ok = pick_default_config_dir();
-
-    LOG("CONFIG: ensure_config_dir result=%d config_dir='%s' boot_dir='%s'\n", ok, config_dir, boot_dir);
 
     return ok;
 }
@@ -1001,8 +993,6 @@ int wOPLLoad(int *out_theme_id, int *out_lang_id)
     if (!pathJoin(path, sizeof(path), config_dir, WOPL_FILENAME))
         return 0;
 
-    LOG("CONFIG_WOPL: trying '%s'\n", path);
-
     config_init(&cfg);
     if (config_read_file(&cfg, path)) {
         cfgValidateBegin(path);
@@ -1134,8 +1124,6 @@ int wOPLNetLoad(void)
 
     if (!pathJoin(path, sizeof(path), config_dir, NET_FILENAME))
         return 0;
-
-    LOG("CONFIG_NET: trying '%s'\n", path);
 
     // 1. Try new filename
     config_init(&cfg);
@@ -1342,8 +1330,6 @@ int wOPLGlobalGameLoad(void)
 
     if (!pathJoin(path, sizeof(path), config_dir, GAME_FILENAME))
         return 0;
-
-    LOG("CONFIG_GAME: trying '%s'\n", path);
 
     config_init(&cfg);
     if (config_read_file(&cfg, path)) {
