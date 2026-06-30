@@ -1701,47 +1701,40 @@ void configApply(int themeID, int langID, int skipDeviceRefresh)
 #endif
 }
 
-static int resolve_legacy_config_paths(void)
+static int resolve_legacy_config_path(char *dir, size_t dir_len, const char *label)
 {
     char resolved[128];
 
-    if (pathIsLegacyMassPath(config_dir)) {
-        LOG("CONFIG: resolving legacy config_dir '%s'\n", config_dir);
+    if (!pathIsLegacyMassPath(dir))
+        return 1;
 
-        if (!bdmResolveLegacyPath(resolved, sizeof(resolved), config_dir)) {
-            LOG("CONFIG: could not resolve legacy config_dir '%s'\n", config_dir);
-            return 0;
-        }
+    LOG("CONFIG: resolving legacy %s '%s'\n", label, dir);
 
-        pathNormaliseDir(resolved, sizeof(resolved));
-
-        if (!pathIsDevicePath(resolved) || pathIsLegacyMassPath(resolved)) {
-            LOG("CONFIG: rejected resolved config_dir '%s'\n", resolved);
-            return 0;
-        }
-
-        LOG("CONFIG: resolved config_dir '%s' -> '%s'\n", config_dir, resolved);
-        copy_str(config_dir, resolved, sizeof(config_dir));
+    if (!bdmResolveLegacyPath(resolved, sizeof(resolved), dir)) {
+        LOG("CONFIG: could not resolve legacy %s '%s'\n", label, dir);
+        return 0;
     }
 
-    if (pathIsLegacyMassPath(boot_dir)) {
-        LOG("CONFIG: resolving legacy boot_dir '%s'\n", boot_dir);
+    pathNormaliseDir(resolved, sizeof(resolved));
 
-        if (!bdmResolveLegacyPath(resolved, sizeof(resolved), boot_dir)) {
-            LOG("CONFIG: could not resolve legacy boot_dir '%s'\n", boot_dir);
-            return 0;
-        }
-
-        pathNormaliseDir(resolved, sizeof(resolved));
-
-        if (!pathIsDevicePath(resolved) || pathIsLegacyMassPath(resolved)) {
-            LOG("CONFIG: rejected resolved boot_dir '%s'\n", resolved);
-            return 0;
-        }
-
-        LOG("CONFIG: resolved boot_dir '%s' -> '%s'\n", boot_dir, resolved);
-        copy_str(boot_dir, resolved, sizeof(boot_dir));
+    if (!pathIsDevicePath(resolved) || pathIsLegacyMassPath(resolved)) {
+        LOG("CONFIG: rejected resolved %s '%s'\n", label, resolved);
+        return 0;
     }
+
+    LOG("CONFIG: resolved %s '%s' -> '%s'\n", label, dir, resolved);
+    copy_str(dir, resolved, dir_len);
+
+    return 1;
+}
+
+static int resolve_legacy_config_paths(void)
+{
+    if (!resolve_legacy_config_path(config_dir, sizeof(config_dir), "config_dir"))
+        return 0;
+
+    if (!resolve_legacy_config_path(boot_dir, sizeof(boot_dir), "boot_dir"))
+        return 0;
 
     return 1;
 }
