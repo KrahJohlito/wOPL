@@ -1379,15 +1379,33 @@ int bdmUpdateDeviceData(item_list_t *itemList)
 
     int visible = itemList->owner != NULL ? ((opl_io_module_t *)itemList->owner)->menuItem.visible : 0;
 
-    deviceIndex = itemList->mode - BDM_MODE;
+    int slotIndex = itemList->mode - BDM_MODE;
+    int found = 0;
+    int dir = -1;
 
-    if (deviceIndex < 0 || deviceIndex >= MAX_BDM_DEVICES)
+    if (slotIndex < 0 || slotIndex >= MAX_BDM_DEVICES)
         return 0;
 
-    deviceType = BDM_TYPE_USB;
+    for (int type = BDM_TYPE_USB; type <= BDM_TYPE_ATA && dir < 0; type++) {
+        if ((type == BDM_TYPE_USB && !gEnableUSB) || (type == BDM_TYPE_ILINK && !gEnableILK) || (type == BDM_TYPE_SDC && !gEnableMX4SIO) || (type == BDM_TYPE_ATA && !gEnableBdmHDD))
+            continue;
 
-    // Try to open the device by its real BDM prefix.
-    int dir = bdmOpenTrueDevice(deviceType, deviceIndex);
+        for (int index = 0; index < MAX_BDM_DEVICES; index++) {
+            int testDir = bdmOpenTrueDevice(type, index);
+            if (testDir < 0)
+                continue;
+
+            if (found == slotIndex) {
+                deviceType = type;
+                deviceIndex = index;
+                dir = testDir;
+                break;
+            }
+
+            fileXioDclose(testDir);
+            found++;
+        }
+    }
     // LOG("opendir %s -> %d\n", path, dir);
 
     // If we opened the device and the menu isn't visible (OR is visible but hasn't been initialized ex: manual device start) initialize device info.
