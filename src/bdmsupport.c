@@ -139,24 +139,6 @@ static void bdmLoadBdmHDDModules(void)
     }
 }
 
-static void bdmLoadBlockDeviceModulesForType(int deviceType)
-{
-    switch (deviceType) {
-        case BDM_TYPE_USB:
-            bdmLoadUSBModules();
-            break;
-        case BDM_TYPE_ILINK:
-            bdmLoadiLinkModules();
-            break;
-        case BDM_TYPE_SDC:
-            bdmLoadMX4SIOModules();
-            break;
-        case BDM_TYPE_ATA:
-            bdmLoadBdmHDDModules();
-            break;
-    }
-}
-
 static void bdmLoadBlockDeviceModules(void)
 {
     WaitSema(bdmLoadModuleLock);
@@ -256,7 +238,22 @@ void bdmLoadModulesForPath(const char *path)
     bdmLoadBaseModules();
 
     WaitSema(bdmLoadModuleLock);
-    bdmLoadBlockDeviceModulesForType(deviceType);
+
+    switch (deviceType) {
+        case BDM_TYPE_USB:
+            bdmLoadUSBModules();
+            break;
+        case BDM_TYPE_ILINK:
+            bdmLoadiLinkModules();
+            break;
+        case BDM_TYPE_SDC:
+            bdmLoadMX4SIOModules();
+            break;
+        case BDM_TYPE_ATA:
+            bdmLoadBdmHDDModules();
+            break;
+    }
+
     SignalSema(bdmLoadModuleLock);
 }
 
@@ -277,6 +274,11 @@ void bdmLoadModulesForLegacyMass(void)
 void bdmLoadEnabledDeviceModules(void)
 {
     LOG("BDMSUPPORT LoadEnabledDeviceModules\n");
+
+    if (!gEnableUSB && !gEnableILK && !gEnableMX4SIO && !gEnableBdmHDD) {
+        LOG("BDMSUPPORT no enabled BDM devices\n");
+        return;
+    }
 
     bdmLoadBaseModules();
 
