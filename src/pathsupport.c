@@ -39,6 +39,34 @@ int pathHasDevicePrefix(const char *path, const char *device)
     return *suffix == ':';
 }
 
+int pathGetDeviceIndex(const char *path, const char *device, int *index)
+{
+    const char *suffix;
+    int value = 0;
+
+    if (!path || !device || !index)
+        return 0;
+
+    if (!pathHasDevicePrefix(path, device))
+        return 0;
+
+    suffix = path + strlen(device);
+
+    if (*suffix < '0' || *suffix > '9')
+        return 0;
+
+    while (*suffix >= '0' && *suffix <= '9') {
+        value = value * 10 + (*suffix - '0');
+        suffix++;
+    }
+
+    if (*suffix != ':')
+        return 0;
+
+    *index = value;
+    return 1;
+}
+
 void pathSetLaunchPath(const char *path)
 {
     copy_str(launchPath, path, sizeof(launchPath));
