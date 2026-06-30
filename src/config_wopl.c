@@ -567,22 +567,10 @@ static int pick_default_config_dir(void)
 
 static int ensure_config_dir(void)
 {
-    const char *launch;
-    char cwd[128];
-    int ok;
-
     if (config_dir[0])
         return 1;
 
-    launch = pathGetLaunchPath();
-
-    cwd[0] = '\0';
-    if (getcwd(cwd, sizeof(cwd)) == NULL)
-        copy_str(cwd, "(getcwd failed)", sizeof(cwd));
-
-    ok = pick_default_config_dir();
-
-    return ok;
+    return pick_default_config_dir();
 }
 
 static int do_save_at_dir(const char *dir, const char *filename, void (*build)(config_setting_t *))
