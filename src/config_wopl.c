@@ -533,15 +533,16 @@ static int load_boot_config_from_dir(const char *launch_dir)
 
     cfgValidateBegin(boot_path);
 
-    if (!legacy_boot_root && cfgGetStr(&cfg, "boot.config_dir", &value)) {
+    if (cfgGetStr(&cfg, "boot.config_dir", &value) && value[0]) {
         // boot.config_dir is user selected config root.. Do not accept legacy massN: here
-        if (normalise_true_config_dir(resolved_dir, sizeof(resolved_dir), value, 0)) {
+        if (pathIsLegacyMassPath(value)) {
+            LOG("CONFIG: ignoring legacy boot.config_dir '%s'\n", value);
+        } else if (normalise_true_config_dir(resolved_dir, sizeof(resolved_dir), value, 0)) {
             copy_str(config_dir, resolved_dir, sizeof(config_dir));
             have_config_dir = 1;
         } else
             LOG("CONFIG: ignoring invalid boot.config_dir '%s'\n", value);
-    } else if (legacy_boot_root)
-        LOG("CONFIG: ignoring boot.config_dir while using legacy launch root '%s'\n", boot_root);
+    }
 
     if (!have_config_dir) {
         copy_str(config_dir, boot_root, sizeof(config_dir));
