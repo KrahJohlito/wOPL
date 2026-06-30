@@ -18,7 +18,7 @@ static void copy_str(char *dst, const char *src, size_t size)
     dst[size - 1] = '\0';
 }
 
-static int path_starts_with_device(const char *path, const char *device)
+int pathHasDevicePrefix(const char *path, const char *device)
 {
     const char *suffix;
     size_t len;
@@ -67,7 +67,7 @@ int pathIsDevicePath(const char *path)
         return 0;
 
     for (i = 0; devices[i] != NULL; i++) {
-        if (path_starts_with_device(path, devices[i]))
+        if (pathHasDevicePrefix(path, devices[i]))
             return 1;
     }
 

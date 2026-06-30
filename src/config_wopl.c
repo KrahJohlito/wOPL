@@ -360,26 +360,6 @@ static void sanitize_pad_sensitivity(void)
         gYSensitivity = 0;
 }
 
-static int config_path_has_device_prefix(const char *path, const char *prefix)
-{
-    size_t len;
-
-    if (!path || !prefix)
-        return 0;
-
-    len = strlen(prefix);
-
-    if (strncmp(path, prefix, len))
-        return 0;
-
-    path += len;
-
-    while (*path >= '0' && *path <= '9')
-        path++;
-
-    return *path == ':';
-}
-
 static void prepare_config_root_modules(const char *path)
 {
     if (!path || !path[0])
@@ -389,7 +369,7 @@ static void prepare_config_root_modules(const char *path)
     bdmLoadModulesForPath(path);
 
     // APA/PFS internal HDD root: hddN:
-    if (config_path_has_device_prefix(path, "hdd")) {
+    if (pathHasDevicePrefix(path, "hdd")) {
         guiSetBootStatusIfActive("Loading HDD config root...");
         LOG("CONFIG: loading HDD modules for config root '%s'\n", path);
         hddLoadModules();
@@ -398,7 +378,7 @@ static void prepare_config_root_modules(const char *path)
     }
 
     // MMCE root: mmceN:
-    if (config_path_has_device_prefix(path, "mmce")) {
+    if (pathHasDevicePrefix(path, "mmce")) {
         guiSetBootStatusIfActive("Loading MMCE config root...");
         LOG("CONFIG: loading MMCE modules for config root '%s'\n", path);
         mmceLoadModules();
@@ -670,7 +650,7 @@ static int save_boot_config(void)
         return 1;
     }
 
-    if (config_path_has_device_prefix(boot_dir, "mc") && !sbEnsureMCConfigFolder(boot_dir)) {
+    if (pathHasDevicePrefix(boot_dir, "mc") && !sbEnsureMCConfigFolder(boot_dir)) {
         LOG("CONFIG: failed to prepare MC boot folder '%s'\n", boot_dir);
         return 0;
     }
@@ -1847,7 +1827,7 @@ static int save_all_to_current_dir(int types) // like the old configWriteMulti()
 
     LOG("CONFIG: saving to config_dir '%s'\n", config_dir);
 
-    if (config_path_has_device_prefix(config_dir, "mc") && !sbEnsureMCConfigFolder(config_dir)) {
+    if (pathHasDevicePrefix(config_dir, "mc") && !sbEnsureMCConfigFolder(config_dir)) {
         LOG("CONFIG: failed to prepare MC config folder '%s'\n", config_dir);
         return 0;
     }
