@@ -1734,29 +1734,47 @@ void configApply(int themeID, int langID, int skipDeviceRefresh)
 #endif
 }
 
-static int resolve_legacy_config_dir(void)
+static int resolve_legacy_config_paths(void)
 {
     char resolved[128];
 
-    if (!pathIsLegacyMassPath(config_dir))
-        return 1;
+    if (pathIsLegacyMassPath(config_dir)) {
+        LOG("CONFIG: resolving legacy config_dir '%s'\n", config_dir);
 
-    LOG("CONFIG: resolving legacy config_dir '%s'\n", config_dir);
+        if (!bdmResolveLegacyPathFromDeviceList(resolved, sizeof(resolved), config_dir)) {
+            LOG("CONFIG: could not resolve legacy config_dir '%s'\n", config_dir);
+            return 0;
+        }
 
-    if (!bdmResolveLegacyPathFromDeviceList(resolved, sizeof(resolved), config_dir)) {
-        LOG("CONFIG: could not resolve legacy config_dir '%s'\n", config_dir);
-        return 0;
+        pathNormaliseDir(resolved, sizeof(resolved));
+
+        if (!pathIsDevicePath(resolved) || pathIsLegacyMassPath(resolved)) {
+            LOG("CONFIG: rejected resolved config_dir '%s'\n", resolved);
+            return 0;
+        }
+
+        LOG("CONFIG: resolved config_dir '%s' -> '%s'\n", config_dir, resolved);
+        copy_str(config_dir, resolved, sizeof(config_dir));
     }
 
-    pathNormaliseDir(resolved, sizeof(resolved));
+    if (pathIsLegacyMassPath(boot_dir)) {
+        LOG("CONFIG: resolving legacy boot_dir '%s'\n", boot_dir);
 
-    if (!pathIsDevicePath(resolved) || pathIsLegacyMassPath(resolved)) {
-        LOG("CONFIG: rejected resolved config_dir '%s'\n", resolved);
-        return 0;
+        if (!bdmResolveLegacyPathFromDeviceList(resolved, sizeof(resolved), boot_dir)) {
+            LOG("CONFIG: could not resolve legacy boot_dir '%s'\n", boot_dir);
+            return 0;
+        }
+
+        pathNormaliseDir(resolved, sizeof(resolved));
+
+        if (!pathIsDevicePath(resolved) || pathIsLegacyMassPath(resolved)) {
+            LOG("CONFIG: rejected resolved boot_dir '%s'\n", resolved);
+            return 0;
+        }
+
+        LOG("CONFIG: resolved boot_dir '%s' -> '%s'\n", boot_dir, resolved);
+        copy_str(boot_dir, resolved, sizeof(boot_dir));
     }
-
-    LOG("CONFIG: resolved config_dir '%s' -> '%s'\n", config_dir, resolved);
-    copy_str(config_dir, resolved, sizeof(config_dir));
 
     return 1;
 }
@@ -1790,7 +1808,7 @@ void _loadConfig() // called directly by initializer at boot before GUI is ready
     LOG("CONFIG: load requested=0x%X result=0x%X config_dir='%s'\n", lscstatus, result, config_dir);
 
     configApply(themeID, langID, 0);
-    resolve_legacy_config_dir();
+    resolve_legacy_config_paths();
 
     lscret = result;
     lscstatus = 0;
@@ -1837,7 +1855,7 @@ static int save_all_to_current_dir(int types) // like the old configWriteMulti()
         return 0;
     }
 
-    if (!resolve_legacy_config_dir())
+    if (!resolve_legacy_config_paths())
         return 0;
 
     LOG("CONFIG: saving to config_dir '%s'\n", config_dir);
