@@ -1742,7 +1742,7 @@ static int resolve_legacy_config_paths(void)
     if (pathIsLegacyMassPath(config_dir)) {
         LOG("CONFIG: resolving legacy config_dir '%s'\n", config_dir);
 
-        if (!bdmResolveLegacyPathFromDeviceList(resolved, sizeof(resolved), config_dir)) {
+        if (!bdmResolveLegacyPath(resolved, sizeof(resolved), config_dir)) {
             LOG("CONFIG: could not resolve legacy config_dir '%s'\n", config_dir);
             return 0;
         }
@@ -1761,7 +1761,7 @@ static int resolve_legacy_config_paths(void)
     if (pathIsLegacyMassPath(boot_dir)) {
         LOG("CONFIG: resolving legacy boot_dir '%s'\n", boot_dir);
 
-        if (!bdmResolveLegacyPathFromDeviceList(resolved, sizeof(resolved), boot_dir)) {
+        if (!bdmResolveLegacyPath(resolved, sizeof(resolved), boot_dir)) {
             LOG("CONFIG: could not resolve legacy boot_dir '%s'\n", boot_dir);
             return 0;
         }

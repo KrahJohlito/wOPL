@@ -1221,71 +1221,6 @@ static int bdmSetupDeviceData(bdm_device_data_t *pDeviceData, item_list_t *itemL
     return 1;
 }
 
-int bdmResolveLegacyPath(char *out, size_t out_len, const char *path)
-{
-    char massPath[16];
-    char truePrefix[16];
-    char driver[32];
-    const char *tail;
-    int massIndex;
-    int deviceIndex;
-    int deviceType;
-    int dir;
-    int len;
-
-    if (!out || !out_len || !path)
-        return 0;
-
-    if (!bdmParseLegacyMassPath(path, &massIndex, &tail))
-        return 0;
-
-    if (massIndex >= 0)
-        len = snprintf(massPath, sizeof(massPath), "mass%d:/", massIndex);
-    else
-        len = snprintf(massPath, sizeof(massPath), "mass:/");
-
-    if (len < 0 || (size_t)len >= sizeof(massPath))
-        return 0;
-
-    dir = fileXioDopen(massPath);
-    if (dir < 0) {
-        LOG("BDMSUPPORT: failed to open legacy path root '%s'\n", massPath);
-        return 0;
-    }
-
-    memset(driver, 0, sizeof(driver));
-    deviceIndex = massIndex >= 0 ? massIndex : 0;
-
-    fileXioIoctl2(dir, USBMASS_IOCTL_GET_DRIVERNAME, NULL, 0, driver, sizeof(driver) - 1);
-    fileXioIoctl2(dir, USBMASS_IOCTL_GET_DEVICE_NUMBER, NULL, 0, &deviceIndex, sizeof(deviceIndex));
-
-    fileXioDclose(dir);
-
-    if (!strcmp(driver, "usb"))
-        deviceType = BDM_TYPE_USB;
-    else if (!strcmp(driver, "sdc") && strlen(driver) == 3)
-        deviceType = BDM_TYPE_SDC;
-    else if (!strcmp(driver, "sd") && strlen(driver) == 2)
-        deviceType = BDM_TYPE_ILINK;
-    else if (!strcmp(driver, "ata") && strlen(driver) == 3)
-        deviceType = BDM_TYPE_ATA;
-    else
-        return 0;
-
-    if (!bdmBuildTruePath(truePrefix, sizeof(truePrefix), deviceType, deviceIndex, 0))
-        return 0;
-
-    len = snprintf(out, out_len, "%s%s", truePrefix, tail);
-    if (len < 0 || (size_t)len >= out_len) {
-        out[0] = '\0';
-        return 0;
-    }
-
-    LOG("BDMSUPPORT: resolved legacy path '%s' -> '%s'\n", path, out);
-
-    return 1;
-}
-
 static int bdmBuildResolvedLegacyCandidate(char *out, size_t out_len, const char *truePrefix, const char *tail)
 {
     int len;
@@ -1306,7 +1241,7 @@ static int bdmBuildResolvedLegacyCandidate(char *out, size_t out_len, const char
     return 1;
 }
 
-static int bdmResolveLegacyPathFromDeviceListPass(char *out, size_t out_len, const char *tail, int massIndex, int strictIndex)
+static int bdmResolveLegacyPathPass(char *out, size_t out_len, const char *tail, int massIndex, int strictIndex)
 {
     int i;
     struct stat st;
@@ -1339,7 +1274,7 @@ static int bdmResolveLegacyPathFromDeviceListPass(char *out, size_t out_len, con
     return 0;
 }
 
-int bdmResolveLegacyPathFromDeviceList(char *out, size_t out_len, const char *path)
+int bdmResolveLegacyPath(char *out, size_t out_len, const char *path)
 {
     const char *tail;
     int massIndex;
@@ -1351,11 +1286,11 @@ int bdmResolveLegacyPathFromDeviceList(char *out, size_t out_len, const char *pa
         return 0;
 
     // First try a strict match using the reported BDM device number
-    if (bdmResolveLegacyPathFromDeviceListPass(out, out_len, tail, massIndex, 1))
+    if (bdmResolveLegacyPathPass(out, out_len, tail, massIndex, 1))
         return 1;
 
     // Fallback wLE massN: does not always match the true BDM index
-    if (bdmResolveLegacyPathFromDeviceListPass(out, out_len, tail, massIndex, 0))
+    if (bdmResolveLegacyPathPass(out, out_len, tail, massIndex, 0))
         return 1;
 
     LOG("BDMSUPPORT: could not resolve legacy path from device list '%s'\n", path);
