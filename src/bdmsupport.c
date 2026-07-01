@@ -1227,7 +1227,7 @@ int bdmResolveLegacyPath(char *out, size_t out_len, const char *path)
     if (!out || !out_len || !path)
         return 0;
 
-    if (!pathGetDeviceIndex(path, "mass", &massIndex, &tail, 0))
+    if (!pathParseDevicePrefix(path, "mass", &massIndex, &tail, 0))
         return 0;
 
     // First try a strict match using the reported BDM device number

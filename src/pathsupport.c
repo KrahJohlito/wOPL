@@ -18,7 +18,7 @@ static void copy_str(char *dst, const char *src, size_t size)
     dst[size - 1] = '\0';
 }
 
-int pathGetDeviceIndex(const char *path, const char *device, int *index, const char **tail, int requireIndex)
+int pathParseDevicePrefix(const char *path, const char *device, int *index, const char **tail, int requireIndex)
 {
     const char *suffix;
     size_t len;
@@ -63,7 +63,7 @@ int pathGetDeviceIndex(const char *path, const char *device, int *index, const c
 
 int pathHasDevicePrefix(const char *path, const char *device)
 {
-    return pathGetDeviceIndex(path, device, NULL, NULL, 0);
+    return pathParseDevicePrefix(path, device, NULL, NULL, 0);
 }
 
 void pathSetLaunchPath(const char *path)
