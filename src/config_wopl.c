@@ -407,7 +407,7 @@ static int wait_for_config_root_ready(const char *path)
     return 0;
 }
 
-static int normalise_true_config_dir(char *out, size_t out_len, const char *dir, int allowLegacyMass)
+static int normalise_config_root_dir(char *out, size_t out_len, const char *dir, int allowLegacyMass)
 {
     int legacyLaunchPath;
 
@@ -474,7 +474,7 @@ static int load_boot_config_from_dir(const char *launch_dir)
 
     // Prepare the boot/cwd root before trying to read wopl_boot.cfg from it
     // Legacy massN: is allowed here only because this path came from argv0/cwd
-    if (!normalise_true_config_dir(boot_root, sizeof(boot_root), launch_dir, 1))
+    if (!normalise_config_root_dir(boot_root, sizeof(boot_root), launch_dir, 1))
         return 0;
 
     copy_str(boot_dir, boot_root, sizeof(boot_dir));
@@ -507,7 +507,7 @@ static int load_boot_config_from_dir(const char *launch_dir)
         // boot.config_dir is user selected config root.. Do not accept legacy massN: here
         if (pathIsLegacyMassPath(value)) {
             LOG("CONFIG: ignoring legacy boot.config_dir '%s'\n", value);
-        } else if (normalise_true_config_dir(resolved_dir, sizeof(resolved_dir), value, 0)) {
+        } else if (normalise_config_root_dir(resolved_dir, sizeof(resolved_dir), value, 0)) {
             copy_str(config_dir, resolved_dir, sizeof(config_dir));
             have_config_dir = 1;
         } else
@@ -537,7 +537,7 @@ static int pick_default_config_dir(void)
         if (load_boot_config_from_dir(dir))
             return 1;
 
-        if (normalise_true_config_dir(true_dir, sizeof(true_dir), dir, 1)) {
+        if (normalise_config_root_dir(true_dir, sizeof(true_dir), dir, 1)) {
             copy_str(boot_dir, true_dir, sizeof(boot_dir));
             copy_str(config_dir, true_dir, sizeof(config_dir));
             LOG("CONFIG: using boot/cwd config_dir='%s'\n", config_dir);
