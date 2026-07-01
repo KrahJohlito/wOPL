@@ -1198,7 +1198,7 @@ static int bdmResolveLegacyPathPass(char *out, size_t out_len, const char *tail,
         if (!pDeviceData || !pDeviceData->bdmTruePrefix[0])
             continue;
 
-        if (pDeviceData->deviceType != BDM_TYPE_USB)
+        if (pDeviceData->bdmDeviceType != BDM_TYPE_USB)
             continue;
 
         if (strictIndex && massIndex >= 0 && pDeviceData->massDeviceIndex != massIndex)
