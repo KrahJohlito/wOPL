@@ -1688,10 +1688,10 @@ static int resolve_usb_mass_config_path(char *dir, size_t dir_len, const char *l
     if (!pathIsUsbMassCompatPath(dir))
         return 1;
 
-    LOG("CONFIG: resolving legacy %s '%s'\n", label, dir);
+    LOG("CONFIG: resolving USB mass compatibility %s '%s'\n", label, dir);
 
     if (!bdmResolveUsbMassCompatPath(resolved, sizeof(resolved), dir)) {
-        LOG("CONFIG: could not resolve legacy %s '%s'\n", label, dir);
+        LOG("CONFIG: could not resolve USB mass compatibility %s '%s'\n", label, dir);
         return 0;
     }
 
