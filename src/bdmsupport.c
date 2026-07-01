@@ -238,9 +238,9 @@ void bdmLoadModulesForPath(const char *path)
     SignalSema(bdmLoadModuleLock);
 }
 
-void bdmLoadModulesForLegacyMass(void)
+void bdmLoadModulesForUsbMassCompat(void)
 {
-    LOG("BDMSUPPORT LoadModulesForLegacyMass\n");
+    LOG("BDMSUPPORT LoadModulesForUsbMassCompat\n");
 
     bdmLoadBaseModules();
 
@@ -1163,7 +1163,7 @@ static int bdmSetupDeviceData(bdm_device_data_t *pDeviceData, item_list_t *itemL
     return 1;
 }
 
-static int bdmBuildResolvedLegacyCandidate(char *out, size_t out_len, const char *truePrefix, const char *tail)
+static int bdmBuildUsbMassCompatCandidate(char *out, size_t out_len, const char *truePrefix, const char *tail)
 {
     int len;
 
@@ -1183,7 +1183,7 @@ static int bdmBuildResolvedLegacyCandidate(char *out, size_t out_len, const char
     return 1;
 }
 
-static int bdmResolveLegacyPathPass(char *out, size_t out_len, const char *tail, int massIndex, int strictIndex)
+static int bdmResolveUsbMassCompatPathPass(char *out, size_t out_len, const char *tail, int massIndex, int strictIndex)
 {
     int i;
     struct stat st;
@@ -1204,14 +1204,14 @@ static int bdmResolveLegacyPathPass(char *out, size_t out_len, const char *tail,
         if (strictIndex && massIndex >= 0 && pDeviceData->massDeviceIndex != massIndex)
             continue;
 
-        if (!bdmBuildResolvedLegacyCandidate(candidate, sizeof(candidate), pDeviceData->bdmTruePrefix, tail))
+        if (!bdmBuildUsbMassCompatCandidate(candidate, sizeof(candidate), pDeviceData->bdmTruePrefix, tail))
             continue;
 
         if (stat(candidate, &st) != 0)
             continue;
 
         snprintf(out, out_len, "%s", candidate);
-        LOG("BDMSUPPORT: resolved legacy path from device list '%s'\n", out);
+        LOG("BDMSUPPORT: resolved USB mass compatibility path '%s'\n", out);
 
         return 1;
     }
@@ -1219,7 +1219,7 @@ static int bdmResolveLegacyPathPass(char *out, size_t out_len, const char *tail,
     return 0;
 }
 
-int bdmResolveLegacyPath(char *out, size_t out_len, const char *path)
+int bdmResolveUsbMassCompatPath(char *out, size_t out_len, const char *path)
 {
     const char *tail;
     int massIndex;
@@ -1231,14 +1231,14 @@ int bdmResolveLegacyPath(char *out, size_t out_len, const char *path)
         return 0;
 
     // First try a strict match using the reported BDM device number
-    if (bdmResolveLegacyPathPass(out, out_len, tail, massIndex, 1))
+    if (bdmResolveUsbMassCompatPathPass(out, out_len, tail, massIndex, 1))
         return 1;
 
     // Fallback wLE massN: does not always match the true BDM index
-    if (bdmResolveLegacyPathPass(out, out_len, tail, massIndex, 0))
+    if (bdmResolveUsbMassCompatPathPass(out, out_len, tail, massIndex, 0))
         return 1;
 
-    LOG("BDMSUPPORT: could not resolve legacy path from device list '%s'\n", path);
+    LOG("BDMSUPPORT: could not resolve USB mass compatibility path '%s'\n", path);
 
     return 0;
 }

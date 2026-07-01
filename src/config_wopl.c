@@ -407,25 +407,25 @@ static int wait_for_config_root_ready(const char *path)
     return 0;
 }
 
-static int normalise_config_root_dir(char *out, size_t out_len, const char *dir, int allowLegacyMass)
+static int normalise_config_root_dir(char *out, size_t out_len, const char *dir, int allowUsbMassCompat)
 {
-    int legacyLaunchPath;
+    int usbMassCompatPath;
 
     if (!out || !out_len || !dir || !dir[0]) {
         LOG("CONFIG: normalise failed invalid dir='%s'\n", dir ? dir : "(null)");
         return 0;
     }
 
-    legacyLaunchPath = pathIsLegacyMassPath(dir);
+    usbMassCompatPath = pathIsUsbMassCompatPath(dir);
 
-    if (legacyLaunchPath) {
-        if (!allowLegacyMass) {
-            LOG("CONFIG: rejecting legacy mass path '%s'\n", dir);
+    if (usbMassCompatPath) {
+        if (!allowUsbMassCompat) {
+            LOG("CONFIG: rejecting USB mass compatibility path '%s'\n", dir);
             return 0;
         }
 
-        guiSetBootStatusIfActive("Loading legacy mass support...");
-        bdmLoadModulesForLegacyMass();
+        guiSetBootStatusIfActive("Loading USB mass compatibility support...");
+        bdmLoadModulesForUsbMassCompat();
 
         delay(8);
 
@@ -467,7 +467,6 @@ static int load_boot_config_from_dir(const char *launch_dir)
     const char *value;
     config_t cfg;
     int have_config_dir = 0;
-    int legacy_boot_root = 0;
 
     if (!launch_dir || !launch_dir[0])
         return 0;
@@ -478,7 +477,6 @@ static int load_boot_config_from_dir(const char *launch_dir)
         return 0;
 
     copy_str(boot_dir, boot_root, sizeof(boot_dir));
-    legacy_boot_root = pathIsLegacyMassPath(boot_root);
 
     if (!pathJoin(boot_path, sizeof(boot_path), boot_root, BOOT_FILENAME)) {
         LOG("CONFIG: failed to build boot cfg path from '%s'\n", boot_root);
@@ -504,8 +502,8 @@ static int load_boot_config_from_dir(const char *launch_dir)
     cfgValidateBegin(boot_path);
 
     if (cfgGetStr(&cfg, "boot.config_dir", &value) && value[0]) {
-        // boot.config_dir is user selected config root.. Do not accept legacy massN: here
-        if (pathIsLegacyMassPath(value)) {
+        // boot.config_dir is user selected config root.. do not accept USB mass compatibility paths here
+        if (pathIsUsbMassCompatPath(value)) {
             LOG("CONFIG: ignoring legacy boot.config_dir '%s'\n", value);
         } else if (normalise_config_root_dir(resolved_dir, sizeof(resolved_dir), value, 0)) {
             copy_str(config_dir, resolved_dir, sizeof(config_dir));
@@ -627,7 +625,7 @@ static int save_boot_config(void)
     if (!boot_dir[0] || !config_dir[0])
         return 1;
 
-    if (pathIsLegacyMassPath(config_dir)) {
+    if (pathIsUsbMassCompatPath(config_dir)) {
         LOG("CONFIG: not saving unresolved legacy boot config_dir '%s'\n", config_dir);
         return 1;
     }
@@ -1683,23 +1681,23 @@ void configApply(int themeID, int langID, int skipDeviceRefresh)
 #endif
 }
 
-static int resolve_legacy_config_path(char *dir, size_t dir_len, const char *label)
+static int resolve_usb_mass_config_path(char *dir, size_t dir_len, const char *label)
 {
     char resolved[128];
 
-    if (!pathIsLegacyMassPath(dir))
+    if (!pathIsUsbMassCompatPath(dir))
         return 1;
 
     LOG("CONFIG: resolving legacy %s '%s'\n", label, dir);
 
-    if (!bdmResolveLegacyPath(resolved, sizeof(resolved), dir)) {
+    if (!bdmResolveUsbMassCompatPath(resolved, sizeof(resolved), dir)) {
         LOG("CONFIG: could not resolve legacy %s '%s'\n", label, dir);
         return 0;
     }
 
     pathNormaliseDir(resolved, sizeof(resolved));
 
-    if (!pathIsDevicePath(resolved) || pathIsLegacyMassPath(resolved)) {
+    if (!pathIsDevicePath(resolved) || pathIsUsbMassCompatPath(resolved)) {
         LOG("CONFIG: rejected resolved %s '%s'\n", label, resolved);
         return 0;
     }
@@ -1710,12 +1708,12 @@ static int resolve_legacy_config_path(char *dir, size_t dir_len, const char *lab
     return 1;
 }
 
-static int resolve_legacy_config_paths(void)
+static int resolve_usb_mass_config_paths(void)
 {
-    if (!resolve_legacy_config_path(config_dir, sizeof(config_dir), "config_dir"))
+    if (!resolve_usb_mass_config_path(config_dir, sizeof(config_dir), "config_dir"))
         return 0;
 
-    if (!resolve_legacy_config_path(boot_dir, sizeof(boot_dir), "boot_dir"))
+    if (!resolve_usb_mass_config_path(boot_dir, sizeof(boot_dir), "boot_dir"))
         return 0;
 
     return 1;
@@ -1750,7 +1748,7 @@ void _loadConfig() // called directly by initializer at boot before GUI is ready
     LOG("CONFIG: load requested=0x%X result=0x%X config_dir='%s'\n", lscstatus, result, config_dir);
 
     configApply(themeID, langID, 0);
-    resolve_legacy_config_paths();
+    resolve_usb_mass_config_paths();
 
     lscret = result;
     lscstatus = 0;
@@ -1797,7 +1795,7 @@ static int save_all_to_current_dir(int types) // like the old configWriteMulti()
         return 0;
     }
 
-    if (!resolve_legacy_config_paths())
+    if (!resolve_usb_mass_config_paths())
         return 0;
 
     LOG("CONFIG: saving to config_dir '%s'\n", config_dir);

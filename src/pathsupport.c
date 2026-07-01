@@ -101,7 +101,7 @@ int pathIsDevicePath(const char *path)
     return 0;
 }
 
-int pathIsLegacyMassPath(const char *path)
+int pathIsUsbMassCompatPath(const char *path)
 {
     // wLE seems to use mass: instead of mass0:.. pathHasDevicePrefix() intentionally accepts both forms because the devN is optional
     return pathHasDevicePrefix(path, "mass");
@@ -125,14 +125,14 @@ void pathNormaliseDir(char *dir, size_t dir_len)
     }
 }
 
-static int path_get_dirname(const char *path, char *dir_out, size_t dir_len, int allowLegacyMass)
+static int path_get_dirname(const char *path, char *dir_out, size_t dir_len, int allowUsbMassCompat)
 {
     const char *slash;
 
     if (!path || !path[0] || !dir_len)
         return 0;
 
-    if (!pathIsDevicePath(path) && (!allowLegacyMass || !pathIsLegacyMassPath(path)))
+    if (!pathIsDevicePath(path) && (!allowUsbMassCompat || !pathIsUsbMassCompatPath(path)))
         return 0;
 
     slash = strrchr(path, '/');
