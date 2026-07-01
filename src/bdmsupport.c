@@ -729,10 +729,10 @@ void bdmLaunchGame(item_list_t *itemList, int id, per_game_cfg_t *pgcfg)
             dmaType = 0x20;
         else {
             dmaType = 0x40;
-            dmaMode -= 3;
-
-            if (pDeviceData->ataHighestUDMAMode > 0 && dmaMode > pDeviceData->ataHighestUDMAMode)
+            if (pDeviceData->ataHighestUDMAMode > 0)
                 dmaMode = pDeviceData->ataHighestUDMAMode;
+            else
+                dmaMode -= 3;
         }
 
         hddSetTransferMode(dmaType, dmaMode);
@@ -1066,7 +1066,7 @@ void bdmResolveLBA_UDMA(bdm_device_data_t *pDeviceData)
     }
 
     // Set the UDMA mode to highest available.
-    //hddSetTransferMode(0x40, pDeviceData->ataHighestUDMAMode);
+    hddSetTransferMode(0x40, pDeviceData->ataHighestUDMAMode);
 }
 
 static const char *bdmGetDevicePrefix(int deviceType)
@@ -1506,10 +1506,34 @@ static int bdmGetATADeviceId()
 
 int bdmHDDIsPresent(u32 timeoutMs)
 {
-    (void)timeoutMs;
+    const int RETRY_DELAY = 100;
+    u32 start;
 
     if (!hddIsPresent())
         return 0;
 
-    return bdmGetATADeviceId() >= 0;
+    if (bdmGetATADeviceId() >= 0)
+        return 1;
+
+    if (timeoutMs == 0)
+        return 0;
+
+    start = GetTimerSystemTime();
+
+    while (1) {
+        u32 now = GetTimerSystemTime();
+        u32 elapsedMs = (now - start) / (kBUSCLK / 1000);
+
+        if (elapsedMs >= timeoutMs)
+            break;
+
+        DelayThread(RETRY_DELAY * 1000);
+
+        if (bdmGetATADeviceId() >= 0)
+            return 1;
+    }
+
+    LOG("bdmHDDIsPresent: waiting for BDM ATA device timed out.\n");
+
+    return 0;
 }
