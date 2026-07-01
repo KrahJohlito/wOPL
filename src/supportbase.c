@@ -1643,8 +1643,11 @@ int sbGetPathModeAndDevice(const char *path, int *device)
     if (!strncmp(path, "hdd0:", 5) || !strncmp(path, "pfs0:", 5))
         return HDD_MODE;
 
-    if (pathParseDevicePrefix(path, "mass", &dev, NULL, 1)) {
-        if (dev < 0 || dev >= MAX_BDM_DEVICES)
+    if (pathParseDevicePrefix(path, "mass", &dev, NULL, 0)) {
+        if (dev < 0)
+            dev = 0;
+
+        if (dev >= MAX_BDM_DEVICES)
             return -1;
 
         if (device)
@@ -1653,7 +1656,10 @@ int sbGetPathModeAndDevice(const char *path, int *device)
         return BDM_MODE + dev;
     }
 
-    if (pathParseDevicePrefix(path, "mmce", &dev, NULL, 1)) {
+    if (pathParseDevicePrefix(path, "mmce", &dev, NULL, 0)) {
+        if (dev < 0)
+            dev = 0;
+
         if (device)
             *device = dev;
 
