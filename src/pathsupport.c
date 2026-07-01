@@ -163,18 +163,10 @@ int pathGetBootDir(char *dir_out, size_t dir_len)
     if (path_get_dirname(launchPath, dir_out, dir_len, 1))
         return 1;
 
-    pwd[0] = '\0';
-
     if (getcwd(pwd, sizeof(pwd)) == NULL)
         return 0;
 
-    if (!pathIsDevicePath(pwd) && !pathIsLegacyMassPath(pwd))
-        return 0;
-
-    copy_str(dir_out, pwd, dir_len);
-    pathNormaliseDir(dir_out, dir_len);
-
-    return 1;
+    return path_get_dirname(pwd, dir_out, dir_len, 1);
 }
 
 int pathJoin(char *out, size_t out_len, const char *dir, const char *name)
