@@ -128,6 +128,7 @@ void pathNormaliseDir(char *dir, size_t dir_len)
 static int path_get_dirname(const char *path, char *dir_out, size_t dir_len, int allowUsbMassCompat)
 {
     const char *slash;
+    const char *colon;
 
     if (!path || !path[0] || !dir_len)
         return 0;
@@ -138,7 +139,17 @@ static int path_get_dirname(const char *path, char *dir_out, size_t dir_len, int
     slash = strrchr(path, '/');
 
     if (!slash) {
-        copy_str(dir_out, path, dir_len);
+        colon = strchr(path, ':');
+
+        if (!colon)
+            return 0;
+
+        if ((size_t)(colon - path + 1) >= dir_len)
+            return 0;
+
+        memcpy(dir_out, path, colon - path + 1);
+        dir_out[colon - path + 1] = '\0';
+
         pathNormaliseDir(dir_out, dir_len);
         return 1;
     }
@@ -166,7 +177,13 @@ int pathGetBootDir(char *dir_out, size_t dir_len)
     if (getcwd(pwd, sizeof(pwd)) == NULL)
         return 0;
 
-    return path_get_dirname(pwd, dir_out, dir_len, 1);
+    if (!pathIsDevicePath(pwd) && !pathIsUsbMassCompatPath(pwd))
+        return 0;
+
+    copy_str(dir_out, pwd, dir_len);
+    pathNormaliseDir(dir_out, dir_len);
+
+    return 1;
 }
 
 int pathJoin(char *out, size_t out_len, const char *dir, const char *name)
