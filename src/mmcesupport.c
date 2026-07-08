@@ -89,14 +89,10 @@ void mmceInit(item_list_t *itemList)
 
     mmceLoadModules();
 
-    if (gMMCESlot == 0)
-        sprintf(mmcePrefix, "mmce0:/");
-    else if (gMMCESlot == 1)
-        sprintf(mmcePrefix, "mmce1:/");
-    else if (gMMCESlot == 2) {
+    if (gMMCESlot == 2)
         guiSetBootStatusIfActive("Detecting MMCE slot...");
-        mmceDetectSlot();
-    }
+
+    mmceSetPrefix();
 
     mmceGameList.enabled = 1;
 }
