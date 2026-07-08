@@ -460,7 +460,15 @@ static int scanApps(int (*callback)(const char *path, config_t *appConfig, void 
                 continue;
 
             snprintf(dir, sizeof(dir), "%s/%s", appsPath, pdirent->d_name);
-            if (pdirent->d_type != DT_DIR)
+
+            if (!strncmp(appsPath, "mmce", 4)) {
+                // dont trust d_type for mmce
+                DIR *testDir = opendir(dir);
+                if (testDir == NULL)
+                    continue;
+
+                closedir(testDir);
+            } else if (pdirent->d_type != DT_DIR)
                 continue;
 
             snprintf(path, sizeof(path), "%s/%s", dir, APP_TITLE_CONFIG_FILE);
