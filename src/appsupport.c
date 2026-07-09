@@ -22,7 +22,6 @@
 #include <dirent.h>
 #include <unistd.h>
 #include <libconfig.h>
-#include <fileXio_rpc.h>
 
 #define APP_MODE_UPDATE_DELAY 240
 
@@ -461,10 +460,14 @@ static int scanApps(int (*callback)(const char *path, config_t *appConfig, void 
                 continue;
 
             snprintf(dir, sizeof(dir), "%s/%s", appsPath, pdirent->d_name);
+
             if (!strncmp(appsPath, "mmce", 4)) {
-                iox_stat_t st;
-                if (fileXioGetStat(dir, &st) < 0 || !(FIO_S_ISDIR(st.mode) || FIO_SO_ISDIR(st.mode)))
+                // dont trust d_type for mmce
+                DIR *testDir = opendir(dir);
+                if (testDir == NULL)
                     continue;
+
+                closedir(testDir);
             } else if (pdirent->d_type != DT_DIR)
                 continue;
 
