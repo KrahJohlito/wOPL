@@ -507,7 +507,7 @@ static void appLaunchItem(item_list_t *itemList, int id, per_game_cfg_t *pgcfg)
             argv[0] = appsList[id].argv1;
             argc = 1;
         }
-
+LOG("APP LAUNCH filename=[%s] mode=%d gOPLPart=[%s]\n", filename, mode, gOPLPart);
         deinit(UNMOUNT_EXCEPTION, mode);
         LoadELFFromFileWithPartition(filename, partition, argc, argv);
     } else
