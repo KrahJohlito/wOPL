@@ -414,19 +414,36 @@ static void appRenameItem(item_list_t *itemList, int id, char *newName)
     appForceUpdate = 1;
 }
 
+static void appBuildBootPath(char *out, size_t out_len, const app_info_t *app)
+{
+    if (!out || !out_len)
+        return;
+
+    out[0] = '\0';
+
+    if (!app || !app->boot[0])
+        return;
+
+    if (strchr(app->boot, ':') != NULL)
+        snprintf(out, out_len, "%s", app->boot);
+    else
+        snprintf(out, out_len, "%s/%s", app->path, app->boot[0] == '/' ? app->boot + 1 : app->boot);
+
+    out[out_len - 1] = '\0';
+}
+
 static void appLaunchItem(item_list_t *itemList, int id, per_game_cfg_t *pgcfg)
 {
     int fd;
     char filename[256];
 
-    snprintf(filename, sizeof(filename), "%s/%s", appsList[id].path, appsList[id].boot);
-    filename[sizeof(filename) - 1] = '\0';
+    appBuildBootPath(filename, sizeof(filename), &appsList[id]);
 
     fd = open(filename, O_RDONLY);
     if (fd >= 0) {
         int mode, argc = 0;
         char partition[128];
-        char *argv[1];
+        char *argv[2];
         close(fd);
 
         strcpy(partition, "");
@@ -437,10 +454,10 @@ static void appLaunchItem(item_list_t *itemList, int id, per_game_cfg_t *pgcfg)
         if (mode == HDD_MODE)
             snprintf(partition, sizeof(partition), "%s:", gOPLPart);
 
-        if (appsList[id].argv1[0]) {
-            argv[0] = appsList[id].argv1;
-            argc = 1;
-        }
+        argv[argc++] = filename;
+
+        if (appsList[id].argv1[0])
+            argv[argc++] = appsList[id].argv1;
 
         deinit(UNMOUNT_EXCEPTION, mode);
         LoadELFFromFileWithPartition(filename, partition, argc, argv);
@@ -506,7 +523,7 @@ static void appGetPgCfg(item_list_t *itemList, int id, per_game_cfg_t *cfg)
     strcpy(cfg->format, "ELF");
     strcpy(cfg->media, "APP");
     char path[256];
-    snprintf(path, sizeof(path), "%s/%s", appsList[id].path, appsList[id].boot);
+    appBuildBootPath(path, sizeof(path), &appsList[id]);
     cfg->size_mb = (int)appGetELFSize(path);
 }
 
