@@ -1208,6 +1208,23 @@ static int convertCompatmaskToModes(int compatmask)
     return atoi(result);
 }
 
+int sysLoadELF(const char *truePath, const char *partition, int deinitMode, int argc, char *argv[])
+{
+    char massPath[256];
+    const char *loadPath = truePath;
+
+    if (bdmResolveTrueToMassPath(massPath, sizeof(massPath), truePath))
+        loadPath = massPath;
+
+    deinit(UNMOUNT_EXCEPTION, deinitMode);
+
+    LoadELFFromFileWithPartition(loadPath, partition, argc, argv);
+
+    LOG("ERROR: ELF launch returned (failed): '%s'\n", loadPath);
+    SleepThread();
+    return -1;
+}
+
 static int LoadNeutrinoELF(const char *filename, int argc, char *argv[])
 {
     u8 *boot_elf;

@@ -749,6 +749,22 @@ void bdmLaunchGame(item_list_t *itemList, int id, per_game_cfg_t *pgcfg)
     if (!(selectedCore == CORE_LOADER_NEUTRINO && sbPathIsMC(neutrinoPath.elf)))
         sbMMCESendGameId(game->startup);
 
+    const char *nDvd = partname, *nElf = neutrinoPath.elf, *nCwd = neutrinoPath.cwd;
+    const char *nVmc0 = neutrinoVmc0, *nVmc1 = neutrinoVmc1;
+    char cDvd[256], cElf[256], cCwd[256], cVmc0[256], cVmc1[256];
+    if (selectedCore == CORE_LOADER_NEUTRINO) {
+        if (bdmResolveTrueToMassPath(cDvd, sizeof(cDvd), nDvd))
+            nDvd = cDvd;
+        if (bdmResolveTrueToMassPath(cElf, sizeof(cElf), nElf))
+            nElf = cElf;
+        if (bdmResolveTrueToMassPath(cCwd, sizeof(cCwd), nCwd))
+            nCwd = cCwd;
+        if (bdmResolveTrueToMassPath(cVmc0, sizeof(cVmc0), nVmc0))
+            nVmc0 = cVmc0;
+        if (bdmResolveTrueToMassPath(cVmc1, sizeof(cVmc1), nVmc1))
+            nVmc1 = cVmc1;
+    }
+
     int deinitException = NO_EXCEPTION;
     int deinitMode = gAutoLaunchBDMGame == NULL ? itemList->mode : BDM_MODE;
 
@@ -779,7 +795,7 @@ void bdmLaunchGame(item_list_t *itemList, int id, per_game_cfg_t *pgcfg)
     LOG("bdm pre sysLaunchLoaderElf\n");
 
     if (selectedCore == CORE_LOADER_NEUTRINO) {
-        sysLaunchNeutrino(bdmCurrentDevice, partname, compatmask, EnablePS2Logo, neutrinoPath.elf, neutrinoPath.cwd, neutrinoVmc0, neutrinoVmc1);
+        sysLaunchNeutrino(bdmCurrentDevice, nDvd, compatmask, EnablePS2Logo, nElf, nCwd, nVmc0, nVmc1);
         return;
     }
 
@@ -1181,6 +1197,33 @@ static int bdmBuildUsbMassCompatCandidate(char *out, size_t out_len, const char 
     }
 
     return 1;
+}
+
+int bdmResolveTrueToMassPath(char *out, size_t out_len, const char *path)
+{
+    int i;
+
+    if (!out || !out_len || !path)
+        return 0;
+    if (!bdmDeviceListInitialized)
+        return 0;
+
+    for (i = 0; i < MAX_BDM_TRUE_DEVICES; i++) {
+        bdm_device_data_t *pDeviceData = bdmDeviceList[i].priv;
+        size_t prefixLen;
+
+        if (!pDeviceData || !pDeviceData->bdmTruePrefix[0])
+            continue;
+
+        prefixLen = strlen(pDeviceData->bdmTruePrefix);
+        if (strncmp(path, pDeviceData->bdmTruePrefix, prefixLen) != 0)
+            continue;
+
+        snprintf(out, out_len, "mass%d:%s", pDeviceData->massDeviceIndex, path + prefixLen);
+        LOG("BDMSUPPORT: true '%s' -> mass '%s'\n", path, out);
+        return 1;
+    }
+    return 0;
 }
 
 static int bdmResolveUsbMassCompatPathPass(char *out, size_t out_len, const char *tail, int massIndex, int strictIndex)

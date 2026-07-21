@@ -490,7 +490,7 @@ static void appLaunchItem(item_list_t *itemList, int id, per_game_cfg_t *pgcfg)
 
     fd = open(filename, O_RDONLY);
     if (fd >= 0) {
-        int mode;
+        int mode, argc = 0;
         char partition[128];
         char argv1[APP_ARGV1_MAX + 1];
         char *argv[1];
@@ -506,13 +506,14 @@ static void appLaunchItem(item_list_t *itemList, int id, per_game_cfg_t *pgcfg)
         if (mode == HDD_MODE)
             snprintf(partition, sizeof(partition), "%s:", gOPLPart);
 
-        strncpy(argv1, appsList[id].argv1, APP_ARGV1_MAX);
-        argv1[APP_ARGV1_MAX] = '\0';
+        if (appsList[id].argv1[0]) {
+            strncpy(argv1, appsList[id].argv1, APP_ARGV1_MAX);
+            argv1[APP_ARGV1_MAX] = '\0';
+            argv[0] = argv1;
+            argc = 1;
+        }
 
-        argv[0] = argv1;
-
-        deinit(UNMOUNT_EXCEPTION, mode);
-        LoadELFFromFileWithPartition(filename, partition, 1, argv);
+        sysLoadELF(filename, partition, mode, argc, argv);
     } else {
         guiMsgBox(_l(_STR_ERR_FILE_INVALID), 0, NULL);
     }
