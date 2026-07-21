@@ -166,25 +166,6 @@ static void appStripValue(char *value)
         value[--len] = '\0';
 }
 
-static int appReadKeyValueLine(char *line, const char *key, char *out, size_t out_len)
-{
-    size_t key_len;
-    char *value;
-
-    if (!line || !key || !out || !out_len)
-        return 0;
-
-    key_len = strlen(key);
-    if (strncmp(line, key, key_len) != 0 || line[key_len] != '=')
-        return 0;
-
-    value = line + key_len + 1;
-    appStripValue(value);
-    appCopyStr(out, value, out_len);
-
-    return 1;
-}
-
 typedef struct
 {
     const char *key;
@@ -193,25 +174,53 @@ typedef struct
     int found;
 } app_key_value_t;
 
+static int appReadKeyValueLine(char *line, app_key_value_t *value)
+{
+    size_t key_len;
+    char *text;
+
+    key_len = strlen(value->key);
+    if (strncmp(line, value->key, key_len) != 0 || line[key_len] != '=')
+        return 0;
+
+    text = line + key_len + 1;
+    appStripValue(text);
+    appCopyStr(value->out, text, value->out_len);
+    value->found = 1;
+
+    return 1;
+}
+
 static int appReadKeyValueFile(const char *path, app_key_value_t *values, int count)
 {
-    FILE *file;
-    char line[256];
-    int i, found;
+    int fd, size, i, found;
+    char buffer[4096];
+    char *line, *next;
 
     if (!path || !values || count <= 0)
         return 0;
 
-    file = fopen(path, "r");
-    if (!file)
+    fd = open(path, O_RDONLY);
+    if (fd < 0)
         return 0;
 
-    found = 0;
+    size = read(fd, buffer, sizeof(buffer) - 1);
+    close(fd);
 
-    while (fgets(line, sizeof(line), file) != NULL) {
+    if (size <= 0)
+        return 0;
+
+    buffer[size] = '\0';
+    found = 0;
+    line = buffer;
+
+    while (line && *line) {
+        next = strchr(line, '\n');
+        if (next)
+            *next++ = '\0';
+
         for (i = 0; i < count; i++) {
-            if (!values[i].found && appReadKeyValueLine(line, values[i].key, values[i].out, values[i].out_len)) {
-                values[i].found = 1;
+            if (!values[i].found && appReadKeyValueLine(line, &values[i])) {
                 found++;
                 break;
             }
@@ -219,9 +228,9 @@ static int appReadKeyValueFile(const char *path, app_key_value_t *values, int co
 
         if (found == count)
             break;
-    }
 
-    fclose(file);
+        line = next;
+    }
 
     return found;
 }
@@ -252,8 +261,10 @@ static int appReadTitleCfg(const char *cfgPath, const char *path, app_info_t *in
 
     appReadKeyValueFile(cfgPath, values, 3);
 
-    if (!values[0].found || !values[1].found)
+    if (!values[0].found || !values[1].found) {
+        LOG("APPSUPPORT item has no boot/title.\n");
         return 0;
+    }
 
     appCopyStr(info->path, path, sizeof(info->path));
 
@@ -269,15 +280,25 @@ static int appScanCallback(const char *path, const char *cfgPath, void *arg)
     if (!appReadTitleCfg(cfgPath, path, &info))
         return 1;
 
-    app = malloc(sizeof(struct app_info_linked));
+    if (*appsLinkedList == NULL) {
+        *appsLinkedList = malloc(sizeof(struct app_info_linked));
+        app = *appsLinkedList;
+        if (app)
+            app->next = NULL;
+    } else {
+        app = malloc(sizeof(struct app_info_linked));
+        if (app != NULL) {
+            app->next = *appsLinkedList;
+            *appsLinkedList = app;
+        }
+    }
+
     if (app == NULL) {
         LOG("APPSUPPORT unable to allocate memory.\n");
         return -1;
     }
 
     memcpy(&app->app, &info, sizeof(app_info_t));
-    app->next = *appsLinkedList;
-    *appsLinkedList = app;
 
     return 0;
 }
@@ -354,44 +375,90 @@ static void appDeleteItem(item_list_t *itemList, int id)
     appForceUpdate = 1;
 }
 
+static int appAppendText(char *out, size_t out_len, size_t *pos, const char *text)
+{
+    size_t len;
+
+    if (!out || !pos || !text)
+        return 0;
+
+    len = strlen(text);
+    if (*pos + len >= out_len)
+        return 0;
+
+    memcpy(out + *pos, text, len);
+    *pos += len;
+    out[*pos] = '\0';
+
+    return 1;
+}
+
 static int appUpdateTitleCfgTitle(const char *cfgPath, const char *newName)
 {
-    FILE *in, *out;
+    int fd, size, found;
+    char inbuf[4096];
+    char outbuf[4096];
     char tmpPath[300];
-    char line[256];
-    int found;
+    char *line, *next;
+    size_t pos;
 
     if (!cfgPath || !newName)
         return 0;
 
-    snprintf(tmpPath, sizeof(tmpPath), "%s.tmp", cfgPath);
+    fd = open(cfgPath, O_RDONLY);
+    if (fd >= 0) {
+        size = read(fd, inbuf, sizeof(inbuf) - 1);
+        close(fd);
+        if (size < 0)
+            size = 0;
+    } else
+        size = 0;
 
-    in = fopen(cfgPath, "r");
-    out = fopen(tmpPath, "w");
-    if (!out) {
-        if (in)
-            fclose(in);
+    inbuf[size] = '\0';
+    outbuf[0] = '\0';
+    pos = 0;
+    found = 0;
+    line = inbuf;
+
+    while (line && *line) {
+        next = strchr(line, '\n');
+        if (next)
+            *next++ = '\0';
+
+        if (strncmp(line, APP_CONFIG_TITLE "=", sizeof(APP_CONFIG_TITLE)) == 0) {
+            if (!appAppendText(outbuf, sizeof(outbuf), &pos, APP_CONFIG_TITLE "=") ||
+                !appAppendText(outbuf, sizeof(outbuf), &pos, newName) ||
+                !appAppendText(outbuf, sizeof(outbuf), &pos, "\n"))
+                return 0;
+            found = 1;
+        } else {
+            if (!appAppendText(outbuf, sizeof(outbuf), &pos, line) ||
+                !appAppendText(outbuf, sizeof(outbuf), &pos, "\n"))
+                return 0;
+        }
+
+        line = next;
+    }
+
+    if (!found) {
+        if (!appAppendText(outbuf, sizeof(outbuf), &pos, APP_CONFIG_TITLE "=") ||
+            !appAppendText(outbuf, sizeof(outbuf), &pos, newName) ||
+            !appAppendText(outbuf, sizeof(outbuf), &pos, "\n"))
+            return 0;
+    }
+
+    snprintf(tmpPath, sizeof(tmpPath), "%s.tmp", cfgPath);
+    fd = open(tmpPath, O_WRONLY | O_CREAT | O_TRUNC, 0666);
+    if (fd < 0)
+        return 0;
+
+    if (write(fd, outbuf, pos) != (int)pos) {
+        close(fd);
+        remove(tmpPath);
         return 0;
     }
 
-    found = 0;
-
-    if (in) {
-        while (fgets(line, sizeof(line), in) != NULL) {
-            if (strncmp(line, APP_CONFIG_TITLE "=", sizeof(APP_CONFIG_TITLE)) == 0) {
-                fprintf(out, APP_CONFIG_TITLE "=%s\n", newName);
-                found = 1;
-            } else
-                fputs(line, out);
-        }
-
-        fclose(in);
-    }
-
-    if (!found)
-        fprintf(out, APP_CONFIG_TITLE "=%s\n", newName);
-
-    fclose(out);
+    close(fd);
 
     if (rename(tmpPath, cfgPath) != 0) {
         remove(cfgPath);
@@ -407,29 +474,11 @@ static int appUpdateTitleCfgTitle(const char *cfgPath, const char *newName)
 static void appRenameItem(item_list_t *itemList, int id, char *newName)
 {
     char cfgPath[256];
-
     snprintf(cfgPath, sizeof(cfgPath), "%s/%s", appsList[id].path, APP_TITLE_CONFIG_FILE);
+
     appUpdateTitleCfgTitle(cfgPath, newName);
 
     appForceUpdate = 1;
-}
-
-static void appBuildBootPath(char *out, size_t out_len, const app_info_t *app)
-{
-    if (!out || !out_len)
-        return;
-
-    out[0] = '\0';
-
-    if (!app || !app->boot[0])
-        return;
-
-    if (strchr(app->boot, ':') != NULL)
-        snprintf(out, out_len, "%s", app->boot);
-    else
-        snprintf(out, out_len, "%s/%s", app->path, app->boot[0] == '/' ? app->boot + 1 : app->boot);
-
-    out[out_len - 1] = '\0';
 }
 
 static void appLaunchItem(item_list_t *itemList, int id, per_game_cfg_t *pgcfg)
@@ -437,7 +486,8 @@ static void appLaunchItem(item_list_t *itemList, int id, per_game_cfg_t *pgcfg)
     int fd;
     char filename[256];
 
-    appBuildBootPath(filename, sizeof(filename), &appsList[id]);
+    snprintf(filename, sizeof(filename), "%s/%s", appsList[id].path, appsList[id].boot);
+    filename[sizeof(filename) - 1] = '\0';
 
     fd = open(filename, O_RDONLY);
     if (fd >= 0) {
@@ -512,8 +562,10 @@ static void appGetInfo(item_list_t *itemList, int id, game_info_t *gi)
     appReadKeyValueFile(cfgPath, values, 7);
 
     // fall back to menu title if no display Title set
-    if (!gi->title[0])
-        appCopyStr(gi->title, appsList[id].title, sizeof(gi->title));
+    if (!gi->title[0]) {
+        strncpy(gi->title, appsList[id].title, sizeof(gi->title) - 1);
+        gi->title[sizeof(gi->title) - 1] = '\0';
+    }
 }
 
 static void appGetPgCfg(item_list_t *itemList, int id, per_game_cfg_t *cfg)
@@ -523,7 +575,7 @@ static void appGetPgCfg(item_list_t *itemList, int id, per_game_cfg_t *cfg)
     strcpy(cfg->format, "ELF");
     strcpy(cfg->media, "APP");
     char path[256];
-    appBuildBootPath(path, sizeof(path), &appsList[id]);
+    snprintf(path, sizeof(path), "%s/%s", appsList[id].path, appsList[id].boot);
     cfg->size_mb = (int)appGetELFSize(path);
 }
 
@@ -536,7 +588,6 @@ static int appGetImage(item_list_t *itemList, char *folder, int isRelative, char
 {
     char device[8], *startup;
 
-    device[0] = '\0';
     startup = appGetBoot(device, sizeof(device), value);
 
     if (!strcmp(folder, "ART"))
@@ -549,7 +600,6 @@ static int appGetArchivedImage(item_list_t *itemList, char *folder, char *value,
 {
     char device[8], *startup;
 
-    device[0] = '\0';
     startup = appGetBoot(device, sizeof(device), value);
 
     if (!strcmp(folder, "ART"))
@@ -661,7 +711,7 @@ static int oplGetAppImage(const char *device, char *folder, int isRelative, char
     item_list_t *listSupport;
 
     elfbootmode = -1;
-    if (device != NULL && device[0]) {
+    if (device != NULL) {
         elfbootmode = sbGetPathMode(device);
         if (elfbootmode >= 0) {
             listSupport = list_support[elfbootmode].support;
