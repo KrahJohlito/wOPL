@@ -1183,6 +1183,35 @@ static int bdmBuildUsbMassCompatCandidate(char *out, size_t out_len, const char 
     return 1;
 }
 
+int bdmResolveTrueToMassPath(char *out, size_t out_len, const char *path)
+{
+    int i;
+
+    if (!out || !out_len || !path)
+        return 0;
+
+    if (!bdmDeviceListInitialized)
+        return 0;
+
+    for (i = 0; i < MAX_BDM_TRUE_DEVICES; i++) {
+        bdm_device_data_t *pDeviceData = bdmDeviceList[i].priv;
+        size_t prefixLen;
+
+        if (!pDeviceData || !pDeviceData->bdmTruePrefix[0])
+            continue;
+
+        prefixLen = strlen(pDeviceData->bdmTruePrefix);
+        if (strncmp(path, pDeviceData->bdmTruePrefix, prefixLen) != 0)
+            continue;
+
+        snprintf(out, out_len, "mass%d:%s", pDeviceData->massDeviceIndex, path + prefixLen);
+        LOG("BDMSUPPORT: true '%s' -> mass '%s'\n", path, out);
+        return 1;
+    }
+
+    return 0;
+}
+
 static int bdmResolveUsbMassCompatPathPass(char *out, size_t out_len, const char *tail, int massIndex, int strictIndex)
 {
     int i;
