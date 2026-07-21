@@ -30,6 +30,7 @@ int sysInitDECI2(void);
 void sysInitPadEmu(void);
 #endif
 
+int sysLoadELF(const char *truePath, const char *partition, int deinitMode, int argc, char *argv[]);
 void sysLaunchLoaderElf(const char *filename, const char *mode_str, int size_cdvdman_irx, void **cdvdman_irx, int size_mcemu_irx, void **mcemu_irx, int EnablePS2Logo, unsigned int compatflags);
 void sysLaunchNeutrino(const char *driver, const char *path, int compatmask, int EnablePS2Logo, const char *neutrinoPath, const char *neutrinoCwd, const char *vmc0, const char *vmc1);
 
