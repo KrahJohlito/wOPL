@@ -4,6 +4,12 @@ on:
   push:
   pull_request:
   workflow_dispatch:
+    inputs:
+      tlb_pc:
+        description: "PCSX2 TLB Miss PC address to resolve (for example 0x226578)"
+        required: false
+        default: "0x226578"
+        type: string
   repository_dispatch:
     types: [run_build]
 
@@ -43,6 +49,168 @@ jobs:
 
       - name: Compile -> make clean release
         run: make --trace clean release
+
+      - name: Resolve PCSX2 TLB address
+        if: ${{ success() }}
+        shell: sh
+        env:
+          TLB_PC: ${{ github.event.inputs.tlb_pc || github.event.client_payload.tlb_pc || '0x226578' }}
+        run: |
+          set -eu
+
+          ELF="wopl.elf"
+          REPORT="TLB_REPORT.txt"
+          NM_FILE="TLB_NM.txt"
+
+          echo "Requested TLB PC: ${TLB_PC}"
+
+          case "${TLB_PC}" in
+            0x[0-9a-fA-F]*|[0-9]*)
+              ;;
+            *)
+              echo "ERROR: TLB_PC must be a decimal or hexadecimal address."
+              exit 1
+              ;;
+          esac
+
+          # The release target normally leaves the unstripped linker ELF here.
+          # If it does not, rebuild the same source without packing so symbols
+          # and source-line information are available for the lookup.
+          if [ ! -f "${ELF}" ]; then
+            echo "wopl.elf was not left by the release target; rebuilding NOT_PACKED=1 for symbols."
+            make --trace NOT_PACKED=1
+          fi
+
+          if [ ! -f "${ELF}" ]; then
+            echo "ERROR: Could not find or build ${ELF}."
+            find . -maxdepth 2 -type f \( -iname '*.elf' -o -iname '*.map' \) -print || true
+            exit 1
+          fi
+
+          ADDR2LINE="$(command -v mips64r5900el-ps2-elf-addr2line || true)"
+          OBJDUMP="$(command -v mips64r5900el-ps2-elf-objdump || true)"
+          NM="$(command -v mips64r5900el-ps2-elf-nm || true)"
+          READELF="$(command -v mips64r5900el-ps2-elf-readelf || true)"
+
+          if [ -z "${ADDR2LINE}" ] || [ -z "${OBJDUMP}" ] || [ -z "${NM}" ] || [ -z "${READELF}" ]; then
+            echo "ERROR: Required PS2 EE binutils were not found."
+            echo "addr2line=${ADDR2LINE}"
+            echo "objdump=${OBJDUMP}"
+            echo "nm=${NM}"
+            echo "readelf=${READELF}"
+            exit 1
+          fi
+
+          START_HEX="$(python3 -c 'import sys; pc=int(sys.argv[1], 0); print(hex(max(0, pc-0x100)))' "${TLB_PC}")"
+          PREV_HEX="$(python3 -c 'import sys; pc=int(sys.argv[1], 0); print(hex(max(0, pc-4)))' "${TLB_PC}")"
+          NEXT_HEX="$(python3 -c 'import sys; pc=int(sys.argv[1], 0); print(hex(pc+4))' "${TLB_PC}")"
+          STOP_HEX="$(python3 -c 'import sys; pc=int(sys.argv[1], 0); print(hex(pc+0x100))' "${TLB_PC}")"
+
+          "${NM}" -n -C "${ELF}" > "${NM_FILE}"
+
+          {
+            echo "============================================================"
+            echo "wOPL PCSX2 TLB LOOKUP"
+            echo "============================================================"
+            echo "Commit:       ${GITHUB_SHA}"
+            echo "Repository:   ${GITHUB_REPOSITORY}"
+            echo "Ref:          ${GITHUB_REF}"
+            echo "ELF:          ${ELF}"
+            echo "TLB PC:       ${TLB_PC}"
+            echo "Window:       ${START_HEX} .. ${STOP_HEX}"
+            echo "ELF SHA-256:  $(sha256sum "${ELF}" | cut -d' ' -f1)"
+            echo
+
+            echo "============================================================"
+            echo "ADDR2LINE: PC - 4"
+            echo "============================================================"
+            "${ADDR2LINE}" -a -f -C -i -e "${ELF}" "${PREV_HEX}" || true
+            echo
+
+            echo "============================================================"
+            echo "ADDR2LINE: EXACT TLB PC"
+            echo "============================================================"
+            "${ADDR2LINE}" -a -f -C -i -e "${ELF}" "${TLB_PC}" || true
+            echo
+
+            echo "============================================================"
+            echo "ADDR2LINE: PC + 4"
+            echo "============================================================"
+            "${ADDR2LINE}" -a -f -C -i -e "${ELF}" "${NEXT_HEX}" || true
+            echo
+
+            echo "============================================================"
+            echo "NEAREST LINKER SYMBOLS"
+            echo "============================================================"
+            python3 - "${TLB_PC}" "${NM_FILE}" <<'PY'
+          import sys
+
+          pc = int(sys.argv[1], 0)
+          symbols = []
+
+          with open(sys.argv[2], "r", errors="replace") as handle:
+              for raw_line in handle:
+                  parts = raw_line.strip().split(None, 2)
+                  if len(parts) < 3:
+                      continue
+
+                  try:
+                      address = int(parts[0], 16)
+                  except ValueError:
+                      continue
+
+                  symbols.append((address, parts[1], parts[2]))
+
+          before = [symbol for symbol in symbols if symbol[0] <= pc]
+          after = [symbol for symbol in symbols if symbol[0] > pc]
+
+          if before:
+              address, symbol_type, name = before[-1]
+              print(f"Previous/containing: 0x{address:08x} {symbol_type} {name} (+0x{pc-address:x})")
+          else:
+              print("Previous/containing: not found")
+
+          if after:
+              address, symbol_type, name = after[0]
+              print(f"Next:                0x{address:08x} {symbol_type} {name} (-0x{address-pc:x})")
+          else:
+              print("Next:                not found")
+          PY
+            echo
+
+            echo "============================================================"
+            echo "DISASSEMBLY AND SOURCE AROUND ${TLB_PC}"
+            echo "============================================================"
+            "${OBJDUMP}" \
+              -d \
+              -S \
+              -l \
+              -C \
+              --start-address="${START_HEX}" \
+              --stop-address="${STOP_HEX}" \
+              "${ELF}" || true
+            echo
+
+            echo "============================================================"
+            echo "ELF SECTIONS"
+            echo "============================================================"
+            "${READELF}" -S "${ELF}" || true
+          } 2>&1 | tee "${REPORT}"
+
+          echo
+          echo "TLB lookup complete. The full report is also in ${REPORT}."
+
+      - name: Upload TLB lookup report and symbol ELF
+        if: ${{ success() }}
+        uses: actions/upload-artifact@v6
+        with:
+          name: WOPL-TLB-SYMBOLS
+          if-no-files-found: error
+          path: |
+            TLB_REPORT.txt
+            TLB_NM.txt
+            wopl.elf
+            wopl.map
 
       - name: Create detailed changelog
         run: sh ./make_changelog.sh
