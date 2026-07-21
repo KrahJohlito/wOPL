@@ -1216,9 +1216,10 @@ int sysLoadELF(const char *truePath, const char *partition, int deinitMode, int 
     if (bdmResolveTrueToMassPath(massPath, sizeof(massPath), truePath))
         loadPath = massPath;
 
+    LOG("sysLoadELF: loadPath='%s' (truePath='%s')\n", loadPath, truePath);
+
     deinit(UNMOUNT_EXCEPTION, deinitMode);
 
-    LOG("sysLoadELF: loadPath='%s' (truePath='%s')\n", loadPath, truePath);
     LoadELFFromFileWithPartition(loadPath, partition, argc, argv);
 
     LOG("ERROR: ELF launch returned (failed): '%s'\n", loadPath);
