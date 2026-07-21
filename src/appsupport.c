@@ -64,6 +64,7 @@ static int oplScanApps(int (*callback)(const char *path, const char *cfgPath, vo
 
 static int oplGetAppImage(const char *device, char *folder, int isRelative, char *value, char *suffix, GSTEXTURE *resultTex, short psm);
 static int oplShouldAppsUpdate(void);
+static int oplPath2Mode(const char *path);
 
 static float appGetELFSize(char *path)
 {
@@ -213,10 +214,6 @@ static int appReadKeyValueFile(const char *path, app_key_value_t *values, int co
     buffer[size] = '\0';
     found = 0;
     line = buffer;
-
-    // Skip a leading UTF-8 BOM (EF BB BF) if a text editor left one..
-    if (size >= 3 && (unsigned char)line[0] == 0xEF && (unsigned char)line[1] == 0xBB && (unsigned char)line[2] == 0xBF)
-        line += 3;
 
     while (line && *line) {
         next = strchr(line, '\n');
@@ -430,11 +427,14 @@ static int appUpdateTitleCfgTitle(const char *cfgPath, const char *newName)
             *next++ = '\0';
 
         if (strncmp(line, APP_CONFIG_TITLE "=", sizeof(APP_CONFIG_TITLE)) == 0) {
-            if (!appAppendText(outbuf, sizeof(outbuf), &pos, APP_CONFIG_TITLE "=") || !appAppendText(outbuf, sizeof(outbuf), &pos, newName) || !appAppendText(outbuf, sizeof(outbuf), &pos, "\n"))
+            if (!appAppendText(outbuf, sizeof(outbuf), &pos, APP_CONFIG_TITLE "=") ||
+                !appAppendText(outbuf, sizeof(outbuf), &pos, newName) ||
+                !appAppendText(outbuf, sizeof(outbuf), &pos, "\n"))
                 return 0;
             found = 1;
         } else {
-            if (!appAppendText(outbuf, sizeof(outbuf), &pos, line) || !appAppendText(outbuf, sizeof(outbuf), &pos, "\n"))
+            if (!appAppendText(outbuf, sizeof(outbuf), &pos, line) ||
+                !appAppendText(outbuf, sizeof(outbuf), &pos, "\n"))
                 return 0;
         }
 
@@ -442,7 +442,9 @@ static int appUpdateTitleCfgTitle(const char *cfgPath, const char *newName)
     }
 
     if (!found) {
-        if (!appAppendText(outbuf, sizeof(outbuf), &pos, APP_CONFIG_TITLE "=") || !appAppendText(outbuf, sizeof(outbuf), &pos, newName) || !appAppendText(outbuf, sizeof(outbuf), &pos, "\n"))
+        if (!appAppendText(outbuf, sizeof(outbuf), &pos, APP_CONFIG_TITLE "=") ||
+            !appAppendText(outbuf, sizeof(outbuf), &pos, newName) ||
+            !appAppendText(outbuf, sizeof(outbuf), &pos, "\n"))
             return 0;
     }
 
@@ -499,7 +501,7 @@ static void appLaunchItem(item_list_t *itemList, int id, per_game_cfg_t *pgcfg)
 
         partition[0] = '\0';
 
-        mode = sbGetPathMode(filename);
+        mode = oplPath2Mode(filename);
         if (mode < 0)
             mode = APP_MODE;
 
@@ -715,7 +717,7 @@ static int oplGetAppImage(const char *device, char *folder, int isRelative, char
 
     elfbootmode = -1;
     if (device != NULL) {
-        elfbootmode = sbGetPathMode(device);
+        elfbootmode = oplPath2Mode(device);
         if (elfbootmode >= 0) {
             listSupport = list_support[elfbootmode].support;
 
@@ -753,4 +755,35 @@ static int oplShouldAppsUpdate(void)
     shouldAppsUpdate = 0;
 
     return result;
+}
+
+// Resolve the support mode that owns an app path.
+static int oplPath2Mode(const char *path)
+{
+    char appsPath[64];
+    const char *blkdevnameend;
+    int i, blkdevnamelen;
+    item_list_t *listSupport;
+
+    for (i = 0; i < MODE_COUNT; i++) {
+        listSupport = list_support[i].support;
+        if ((listSupport != NULL) && (listSupport->itemGetPrefix != NULL)) {
+            char *prefix = listSupport->itemGetPrefix(listSupport);
+
+            if (prefix == NULL)
+                continue;
+
+            snprintf(appsPath, sizeof(appsPath), "%sAPPS", prefix);
+
+            blkdevnameend = strchr(appsPath, ':');
+            if (blkdevnameend != NULL) {
+                blkdevnamelen = (int)(blkdevnameend - appsPath);
+
+                if (strncmp(path, appsPath, blkdevnamelen) == 0)
+                    return listSupport->mode;
+            }
+        }
+    }
+
+    return -1;
 }
