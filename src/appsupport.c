@@ -490,13 +490,15 @@ static void appLaunchItem(item_list_t *itemList, int id, per_game_cfg_t *pgcfg)
 
     fd = open(filename, O_RDONLY);
     if (fd >= 0) {
-        int mode, argc = 0;
+        int mode;
         char partition[128];
-        char launchPath[256];
+        char argv1[APP_ARGV1_MAX + 1];
         char *argv[1];
+
         close(fd);
 
-        strcpy(partition, "");
+        partition[0] = '\0';
+
         mode = sbGetPathMode(filename);
         if (mode < 0)
             mode = APP_MODE;
@@ -504,18 +506,16 @@ static void appLaunchItem(item_list_t *itemList, int id, per_game_cfg_t *pgcfg)
         if (mode == HDD_MODE)
             snprintf(partition, sizeof(partition), "%s:", gOPLPart);
 
-        if (bdmResolveTrueToMassPath(launchPath, sizeof(launchPath), filename))
-            appCopyStr(filename, launchPath, sizeof(filename));
+        strncpy(argv1, appsList[id].argv1, APP_ARGV1_MAX);
+        argv1[APP_ARGV1_MAX] = '\0';
 
-        if (appsList[id].argv1[0]) {
-            argv[0] = appsList[id].argv1;
-            argc = 1;
-        }
+        argv[0] = argv1;
 
         deinit(UNMOUNT_EXCEPTION, mode);
-        LoadELFFromFileWithPartition(filename, partition, argc, argv);
-    } else
+        LoadELFFromFileWithPartition(filename, partition, 1, argv);
+    } else {
         guiMsgBox(_l(_STR_ERR_FILE_INVALID), 0, NULL);
+    }
 }
 
 static void appGetInfo(item_list_t *itemList, int id, game_info_t *gi)
