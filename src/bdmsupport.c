@@ -749,35 +749,33 @@ void bdmLaunchGame(item_list_t *itemList, int id, per_game_cfg_t *pgcfg)
     if (!(selectedCore == CORE_LOADER_NEUTRINO && sbPathIsMC(neutrinoPath.elf)))
         sbMMCESendGameId(game->startup);
 
-    const char *nDvd = partname, *nElf = neutrinoPath.elf, *nCwd = neutrinoPath.cwd;
-    const char *nVmc0 = neutrinoVmc0, *nVmc1 = neutrinoVmc1;
-    char cDvd[256], cElf[256], cCwd[256], cVmc0[256], cVmc1[256];
+    char nElf[256], nCwd[256], nDvd[256], nVmc0[256], nVmc1[256];
+    const char *pElf = neutrinoPath.elf, *pCwd = neutrinoPath.cwd, *pDvd = partname;
+    const char *pVmc0 = neutrinoVmc0, *pVmc1 = neutrinoVmc1;
+    int neutrinoElfMode = -1;
+
     if (selectedCore == CORE_LOADER_NEUTRINO) {
-        if (bdmResolveTrueToMassPath(cDvd, sizeof(cDvd), nDvd, NULL))
-            nDvd = cDvd;
-        if (bdmResolveTrueToMassPath(cElf, sizeof(cElf), nElf, NULL))
-            nElf = cElf;
-        if (bdmResolveTrueToMassPath(cCwd, sizeof(cCwd), nCwd, NULL))
-            nCwd = cCwd;
-        if (bdmResolveTrueToMassPath(cVmc0, sizeof(cVmc0), nVmc0, NULL))
-            nVmc0 = cVmc0;
-        if (bdmResolveTrueToMassPath(cVmc1, sizeof(cVmc1), nVmc1, NULL))
-            nVmc1 = cVmc1;
+        if (bdmResolveTrueToMassPath(nElf, sizeof(nElf), neutrinoPath.elf, &neutrinoElfMode))
+            pElf  = nElf;
+        if (bdmResolveTrueToMassPath(nCwd, sizeof(nCwd), neutrinoPath.cwd, NULL))
+            pCwd  = nCwd;
+        if (bdmResolveTrueToMassPath(nDvd, sizeof(nDvd), partname, NULL))
+            pDvd  = nDvd;
+        if (bdmResolveTrueToMassPath(nVmc0, sizeof(nVmc0), neutrinoVmc0, NULL))
+            pVmc0 = nVmc0;
+        if (bdmResolveTrueToMassPath(nVmc1, sizeof(nVmc1), neutrinoVmc1, NULL))
+            pVmc1 = nVmc1;
     }
 
     int deinitException = NO_EXCEPTION;
     int deinitMode = gAutoLaunchBDMGame == NULL ? itemList->mode : BDM_MODE;
 
     if (selectedCore == CORE_LOADER_NEUTRINO) {
-        int elfDevice = -1;
-        int elfMode = sbGetPathModeAndDevice(neutrinoPath.elf, &elfDevice);
-
+        int elfMode = (neutrinoElfMode >= 0) ? neutrinoElfMode : sbGetPathModeAndDevice(neutrinoPath.elf, NULL);
         if (elfMode >= 0) {
             deinitException = UNMOUNT_EXCEPTION;
             deinitMode = elfMode;
         }
-
-        LOG("NEUTRINO ELF MODE=%d DEVICE=%d\n", elfMode, elfDevice);
     }
 
     if (gAutoLaunchBDMGame == NULL)
@@ -947,7 +945,7 @@ static void bdmShutdown(item_list_t *itemList)
     LOG("BDMSUPPORT Shutdown\n");
 
     bdm_device_data_t *pDeviceData = (bdm_device_data_t *)itemList->priv;
-
+    LOG("BDMSUPPORT Shutdown (%d)\n", pDeviceData->massDeviceIndex);
     if (pDeviceData && bdmBuildTruePath(path, sizeof(path), pDeviceData->bdmDeviceType, pDeviceData->massDeviceIndex, 0)) {
         // As required by some (typically 2.5") HDDs, issue the SCSI STOP UNIT command to avoid causing an emergency park.
         fileXioDevctl(path, USBMASS_DEVCTL_STOP_ALL, NULL, 0, NULL, 0);
