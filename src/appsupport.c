@@ -513,7 +513,8 @@ static void appLaunchItem(item_list_t *itemList, int id, per_game_cfg_t *pgcfg)
             argc = 1;
         }
 
-        sysLoadELF(filename, partition, mode, argc, argv);
+        deinit(UNMOUNT_EXCEPTION, mode);
+        LoadELFFromFileWithPartition(filename, partition, argc, argv);
     } else
         guiMsgBox(_l(_STR_ERR_FILE_INVALID), 0, NULL);
 }
