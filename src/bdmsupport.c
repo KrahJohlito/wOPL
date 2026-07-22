@@ -753,15 +753,15 @@ void bdmLaunchGame(item_list_t *itemList, int id, per_game_cfg_t *pgcfg)
     const char *nVmc0 = neutrinoVmc0, *nVmc1 = neutrinoVmc1;
     char cDvd[256], cElf[256], cCwd[256], cVmc0[256], cVmc1[256];
     if (selectedCore == CORE_LOADER_NEUTRINO) {
-        if (bdmResolveTrueToMassPath(cDvd, sizeof(cDvd), nDvd))
+        if (bdmResolveTrueToMassPath(cDvd, sizeof(cDvd), nDvd, -1))
             nDvd = cDvd;
-        if (bdmResolveTrueToMassPath(cElf, sizeof(cElf), nElf))
+        if (bdmResolveTrueToMassPath(cElf, sizeof(cElf), nElf, -1))
             nElf = cElf;
-        if (bdmResolveTrueToMassPath(cCwd, sizeof(cCwd), nCwd))
+        if (bdmResolveTrueToMassPath(cCwd, sizeof(cCwd), nCwd, -1))
             nCwd = cCwd;
-        if (bdmResolveTrueToMassPath(cVmc0, sizeof(cVmc0), nVmc0))
+        if (bdmResolveTrueToMassPath(cVmc0, sizeof(cVmc0), nVmc0, -1))
             nVmc0 = cVmc0;
-        if (bdmResolveTrueToMassPath(cVmc1, sizeof(cVmc1), nVmc1))
+        if (bdmResolveTrueToMassPath(cVmc1, sizeof(cVmc1), nVmc1, -1))
             nVmc1 = cVmc1;
     }
 
