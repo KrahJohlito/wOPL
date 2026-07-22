@@ -1199,10 +1199,12 @@ static int bdmBuildUsbMassCompatCandidate(char *out, size_t out_len, const char 
     return 1;
 }
 
-int bdmResolveTrueToMassPath(char *out, size_t out_len, const char *path)
+int bdmResolveTrueToMassPath(char *out, size_t out_len, const char *path, int *mode)
 {
     int i;
 
+    if (mode)
+        *mode = -1;
     if (!out || !out_len || !path)
         return 0;
     if (!bdmDeviceListInitialized)
@@ -1211,7 +1213,6 @@ int bdmResolveTrueToMassPath(char *out, size_t out_len, const char *path)
     for (i = 0; i < MAX_BDM_TRUE_DEVICES; i++) {
         bdm_device_data_t *pDeviceData = bdmDeviceList[i].priv;
         size_t prefixLen;
-
         if (!pDeviceData || !pDeviceData->bdmTruePrefix[0])
             continue;
 
@@ -1220,9 +1221,12 @@ int bdmResolveTrueToMassPath(char *out, size_t out_len, const char *path)
             continue;
 
         snprintf(out, out_len, "mass%d:%s", pDeviceData->massDeviceIndex, path + prefixLen);
-        LOG("BDMSUPPORT: true '%s' -> mass '%s'\n", path, out);
+        if (mode)
+            *mode = bdmDeviceList[i].mode;
+        LOG("BDMSUPPORT: true '%s' -> mass '%s' (mode %d)\n", path, out, bdmDeviceList[i].mode);
         return 1;
     }
+
     return 0;
 }
 

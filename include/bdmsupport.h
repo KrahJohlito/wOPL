@@ -60,7 +60,7 @@ int bdmHDDIsPresent(u32 timeoutMs);
 
 void autoLaunchBDMGame(char *argv[]);
 
-int bdmResolveTrueToMassPath(char *out, size_t out_len, const char *path);
+int bdmResolveTrueToMassPath(char *out, size_t out_len, const char *path, int *mode);
 int bdmResolveUsbMassCompatPath(char *out, size_t out_len, const char *path);
 
 #endif

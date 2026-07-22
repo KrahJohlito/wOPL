@@ -1212,23 +1212,19 @@ int sysLoadELF(const char *truePath, const char *partition, int deinitMode, int 
 {
     char massPath[256];
     const char *loadPath = truePath;
+    int bdmMode = -1;
 
-    if (bdmResolveTrueToMassPath(massPath, sizeof(massPath), truePath))
+    if (bdmResolveTrueToMassPath(massPath, sizeof(massPath), truePath, &bdmMode)) {
         loadPath = massPath;
-
-    LOG("sysLoadELF: loadPath='%s' (truePath='%s')\n", loadPath, truePath);
-    
-    int tu = open(truePath, O_RDONLY);
-LOG("EE open usb0: fd=%d\n", tu); if (tu >= 0) close(tu);
-int tm = open(loadPath, O_RDONLY);
-LOG("EE open mass0: fd=%d\n", tm); if (tm >= 0) close(tm);
+        deinitMode = bdmMode;
+    }
 
     deinit(UNMOUNT_EXCEPTION, deinitMode);
-
     LoadELFFromFileWithPartition(loadPath, partition, argc, argv);
 
     LOG("ERROR: ELF launch returned (failed): '%s'\n", loadPath);
     SleepThread();
+
     return -1;
 }
 
