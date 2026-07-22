@@ -1217,6 +1217,11 @@ int sysLoadELF(const char *truePath, const char *partition, int deinitMode, int 
         loadPath = massPath;
 
     LOG("sysLoadELF: loadPath='%s' (truePath='%s')\n", loadPath, truePath);
+    
+    int tu = open(truePath, O_RDONLY);
+LOG("EE open usb0: fd=%d\n", tu); if (tu >= 0) close(tu);
+int tm = open(loadPath, O_RDONLY);
+LOG("EE open mass0: fd=%d\n", tm); if (tm >= 0) close(tm);
 
     deinit(UNMOUNT_EXCEPTION, deinitMode);
 
