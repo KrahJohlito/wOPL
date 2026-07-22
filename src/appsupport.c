@@ -491,9 +491,7 @@ static void appLaunchItem(item_list_t *itemList, int id, per_game_cfg_t *pgcfg)
     if (fd >= 0) {
         int mode, argc = 0;
         char partition[128];
-        char argv1[APP_ARGV1_MAX + 1];
         char *argv[1];
-
         close(fd);
 
         partition[0] = '\0';
@@ -506,9 +504,7 @@ static void appLaunchItem(item_list_t *itemList, int id, per_game_cfg_t *pgcfg)
             snprintf(partition, sizeof(partition), "%s:", gOPLPart);
 
         if (appsList[id].argv1[0]) {
-            strncpy(argv1, appsList[id].argv1, APP_ARGV1_MAX);
-            argv1[APP_ARGV1_MAX] = '\0';
-            argv[0] = argv1;
+            argv[0] = appsList[id].argv1;
             argc = 1;
         }
 
