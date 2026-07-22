@@ -7,7 +7,6 @@
 #include "include/ioman.h"
 #include "include/util.h"
 #include "include/module.h"
-#include "include/config_wopl.h"
 #include "include/bdmsupport.h"
 #include "include/ethsupport.h"
 #include "include/hddsupport.h"
@@ -400,8 +399,8 @@ static int appAppendText(char *out, size_t out_len, size_t *pos, const char *tex
 static int appUpdateTitleCfgTitle(const char *cfgPath, const char *newName)
 {
     int fd, size, found;
-    char inbuf[4096];
-    char outbuf[4096];
+    char inbuf[1024];
+    char outbuf[1024];
     char tmpPath[300];
     char *line, *next;
     size_t pos;
