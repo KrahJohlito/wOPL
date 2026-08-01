@@ -589,7 +589,6 @@ static int do_save_at_dir(const char *dir, const char *filename, void (*build)(c
         return 0;
     }
 
-    copy_str(config_dir, dir, sizeof(config_dir));
     LOG("CONFIG: saved to '%s'\n", path);
 
     return 1;
@@ -1723,11 +1722,8 @@ void _loadConfig() // called directly by initializer at boot before GUI is ready
 {
     int themeID = -1, langID = -1;
     int result = 0;
-    int have_config_dir;
 
-    have_config_dir = ensure_config_dir();
-
-    LOG("CONFIG: initial config root result=%d config_dir='%s' boot_dir='%s'\n", have_config_dir, config_dir, boot_dir);
+    LOG("CONFIG: initial config root result=%d config_dir='%s' boot_dir='%s'\n", ensure_config_dir(), config_dir, boot_dir);
 
     if (lscstatus & CONFIG_OPL) {
         if (wOPLLoad(&themeID, &langID))
