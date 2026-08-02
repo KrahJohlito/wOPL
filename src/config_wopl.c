@@ -368,21 +368,11 @@ static void prepare_config_root_modules(const char *path)
     // BDM/FAT roots: usbN:, mx4sioN:, ilinkN:, ataN:
     bdmLoadModulesForPath(path);
 
-    // APA/PFS internal HDD root: hddN:
-    if (pathHasDevicePrefix(path, "hdd")) {
-        guiSetBootStatusIfActive("Loading HDD config root...");
-        LOG("CONFIG: loading HDD modules for config root '%s'\n", path);
-        hddLoadModules();
-        hddLoadSupportModules();
-        return;
-    }
-
     // MMCE root: mmceN:
     if (pathHasDevicePrefix(path, "mmce")) {
         guiSetBootStatusIfActive("Loading MMCE config root...");
         LOG("CONFIG: loading MMCE modules for config root '%s'\n", path);
         mmceLoadModules();
-        return;
     }
 }
 
@@ -435,9 +425,9 @@ static int normalise_config_root_dir(char *out, size_t out_len, const char *dir,
         LOG("CONFIG: using legacy launch config dir '%s'\n", out);
 
         return 1;
-    } else
-        copy_str(out, dir, out_len);
+    }
 
+    copy_str(out, dir, out_len);
     pathNormaliseDir(out, out_len);
 
     if (!pathIsDevicePath(out)) {
@@ -445,8 +435,21 @@ static int normalise_config_root_dir(char *out, size_t out_len, const char *dir,
         return 0;
     }
 
-    // Load only the modules required by this selected boot/config root before probing it.
-    prepare_config_root_modules(out);
+    if (pathHasDevicePrefix(out, "hdd")) {
+        guiSetBootStatusIfActive("Resolving HDD config root...");
+
+        LOG("CONFIG: resolving HDD launch backend '%s' through existing conf_hdd.cfg\n", out);
+
+        if (hddResolvewOPLRoot(out, out_len) < 0) {
+            LOG("CONFIG: failed to resolve existing HDD OPL root\n");
+            return 0;
+        }
+
+        pathNormaliseDir(out, out_len);
+
+        LOG("CONFIG: resolved HDD config root '%s'\n", out);
+    } else
+        prepare_config_root_modules(out);
 
     // BDM modules may be loaded but the filesystem/device might not be ready..
     if (!wait_for_config_root_ready(out)) {

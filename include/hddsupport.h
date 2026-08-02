@@ -3,6 +3,7 @@
 
 #include "include/iosupport.h"
 #include <hdd-ioctl.h>
+#include <stddef.h>
 
 #define HDL_GAME_NAME_MAX 64
 
@@ -44,6 +45,7 @@ void hddSetIdleTimeout(int timeout);
 item_list_t *hddGetObject(int initOnly);
 int hddLoadModules(void);
 void hddLoadSupportModules(void);
+int hddResolvewOPLRoot(char *out, size_t out_len);
 void hddLaunchGame(item_list_t *itemList, int id, per_game_cfg_t *pgcfg);
 int hddIsPresent();
 void autoLaunchHDDGame(char *argv[]);

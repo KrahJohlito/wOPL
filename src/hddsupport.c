@@ -178,7 +178,7 @@ int hddCacheSize;
 hdl_game_info_t *gAutoLaunchGame;
 int gHDDGameListCache;
 char gOPLPart[128];
-char *gHDDPrefix;
+char *gHDDPrefix = "pfs0:";
 typedef enum {
     HDD_LOADMODULES_STATUS_ERROR = -2,
     HDD_LOADMODULES_STATUS_UNK = -1,
@@ -607,57 +607,106 @@ static void hddCheckOPLFolder(const char *mountPoint)
         closedir(dir);
 }
 
-static void hddFindOPLPartition(void)
+static int hddFindOPLPartition(int allowCreate)
 {
-    int fd, ret = 0;
+    const char *paths[] = {
+        "pfs0:" WOPL_CONFIG_NAME "/conf_hdd.cfg",
+        "pfs0:OPL/conf_hdd.cfg", // OPL Launcher backwards compatibility
+        NULL};
+    int fd;
+    int ret;
+    int i;
 
     fileXioUmount(hddPrefix);
-    ret = fileXioMount("pfs0:", "hdd0:__common", FIO_MT_RDWR);
-    if (ret == 0) {
-        const char *paths[] = {
-            "pfs0:" WOPL_CONFIG_NAME "/conf_hdd.cfg",
-            "pfs0:OPL/conf_hdd.cfg", // for OPL Launcher backwards compat
-            NULL};
 
-        for (int i = 0; paths[i]; i++) {
-            fd = open(paths[i], O_RDONLY);
-            if (fd >= 0) {
-                char line[128];
-                int n = read(fd, line, sizeof(line) - 1);
-                close(fd);
-                if (n > 0) {
-                    line[n] = '\0';
-                    char *val = strchr(line, '=');
-                    if (val) {
-                        val++;
-                        char *cr = strchr(val, '\r');
-                        if (cr)
-                            *cr = '\0';
-                        char *nl = strchr(val, '\n');
-                        if (nl)
-                            *nl = '\0';
-                        snprintf(gOPLPart, sizeof(gOPLPart), "hdd0:%s", val);
+    // cwd read only..
+    ret = fileXioMount(hddPrefix, "hdd0:__common", allowCreate ? FIO_MT_RDWR : FIO_MT_RDONLY);
 
-                        return;
-                    }
-                }
-            }
-        }
+    if (ret < 0) {
+        LOG("HDDSUPPORT: failed to mount __common for conf_hdd.cfg: %d\n", ret);
 
-        // not found anywhere.. create in wOPL location with default
-        hddCheckOPLFolder(hddPrefix);
-        char path[256];
-        snprintf(path, sizeof(path), "pfs0:%s/conf_hdd.cfg", WOPL_CONFIG_NAME);
-        fd = open(path, O_CREAT | O_TRUNC | O_WRONLY);
+        if (!allowCreate)
+            return ret;
+
+        snprintf(gOPLPart, sizeof(gOPLPart), "hdd0:%s", WOPL_PARTITION);
+        return 0;
+    }
+
+    for (i = 0; paths[i] != NULL; i++) {
+        fd = open(paths[i], O_RDONLY);
         if (fd >= 0) {
-            char buf[64];
-            snprintf(buf, sizeof(buf), "hdd_partition=%s\n", WOPL_PARTITION);
-            write(fd, buf, strlen(buf));
+            char line[128];
+            char *value;
+            char *end;
+            int length;
+
+            length = read(fd, line, sizeof(line) - 1);
             close(fd);
+
+            if (length <= 0)
+                continue;
+
+            line[length] = '\0';
+
+            if (strncmp(line, "hdd_partition=", 14) != 0)
+                continue;
+
+            value = line + 14;
+
+            while (*value == ' ' || *value == '\t')
+                value++;
+
+            end = value + strlen(value);
+            while (end > value && (end[-1] == '\r' || end[-1] == '\n' || end[-1] == ' ' || end[-1] == '\t')) {
+                *--end = '\0';
+            }
+
+            if (!value[0] || strchr(value, ':') != NULL || strchr(value, '/') != NULL || strchr(value, '\\') != NULL) {
+                LOG("HDDSUPPORT: rejected invalid hdd_partition value\n");
+                continue;
+            }
+
+            length = snprintf(gOPLPart, sizeof(gOPLPart), "hdd0:%s", value);
+
+            if (length < 0 || (size_t)length >= sizeof(gOPLPart)) {
+                gOPLPart[0] = '\0';
+                LOG("HDDSUPPORT: hdd_partition value is too long\n");
+                continue;
+            }
+
+            LOG("HDDSUPPORT: resolved existing OPL partition '%s'\n", gOPLPart);
+            return 0;
         }
     }
 
+    if (!allowCreate) {
+        fileXioUmount(hddPrefix);
+        LOG("HDDSUPPORT: existing conf_hdd.cfg was not found\n");
+        return -ENOENT;
+    }
+
+    hddCheckOPLFolder(hddPrefix);
+
+    char path[256];
+
+    snprintf(path, sizeof(path), "pfs0:%s/conf_hdd.cfg", WOPL_CONFIG_NAME);
+
+    fd = open(path, O_CREAT | O_TRUNC | O_WRONLY);
+    if (fd >= 0) {
+        char buffer[64];
+        int length;
+
+        length = snprintf(buffer, sizeof(buffer), "hdd_partition=%s\n", WOPL_PARTITION);
+
+        if (length > 0)
+            write(fd, buffer, length);
+
+        close(fd);
+    }
+
     snprintf(gOPLPart, sizeof(gOPLPart), "hdd0:%s", WOPL_PARTITION);
+
+    return 0;
 }
 
 static int hddCreateOPLPartition(const char *name)
@@ -774,8 +823,9 @@ int hddDetectNonSonyFileSystem()
     return result;
 }
 
-void hddLoadSupportModules(void)
+static int hddLoadSupportModulesInternal(int allowCreate)
 {
+    int ret;
     static char hddarg[] = "-o"
                            "\0"
                            "4"
@@ -792,30 +842,26 @@ void hddLoadSupportModules(void)
                            "\0"
                            "40"; // Default value: 8 | Max value: 127
 
-    LOG("HDDSUPPORT LoadSupportModules\n");
-
-    // Check if the drive contains MBR/GPT partition data before we load the APA/PFS modules. If the drive is not
-    // APA then loading the APA irx modules can corrupt the drive as it will try to write APA partition data.
-    if (hddDetectNonSonyFileSystem() != 0) {
-        // Drive is MBR/GPT style, or unknown, bail out or risk corrupting the drive.
-        LOG("HDDSUPPORT LoadSupportModules bailing out early...\n");
-        return;
-    }
+    LOG("HDDSUPPORT LoadSupportModules allowCreate=%d\n", allowCreate);
 
     if (!hddSupportModulesLoaded) {
+        if (hddDetectNonSonyFileSystem() != 0) {
+            LOG("HDDSUPPORT LoadSupportModules bailing out early...\n");
+            return -EINVAL;
+        }
+
         LOG("[HDD]:\n");
-        int ret = sysLoadModuleBuffer(&ps2hdd_irx, size_ps2hdd_irx, sizeof(hddarg), hddarg);
+        ret = sysLoadModuleBuffer(&ps2hdd_irx, size_ps2hdd_irx, sizeof(hddarg), hddarg);
         if (ret < 0) {
             LOG("HDD: No HardDisk Drive detected.\n");
             guiSetErrorMessageWithCode(_STR_HDD_NOT_CONNECTED_ERROR, ERROR_HDD_MODULE_HDD_FAILURE);
-            return;
+            return ret;
         }
 
-        // Check if a HDD unit is connected
         if (hddCheck() < 0) {
             LOG("HDD: No HardDisk Drive detected.\n");
             guiSetErrorMessageWithCode(_STR_HDD_NOT_CONNECTED_ERROR, ERROR_HDD_NOT_DETECTED);
-            return;
+            return -ENODEV;
         }
 
         LOG("[PS2FS]:\n");
@@ -823,29 +869,94 @@ void hddLoadSupportModules(void)
         if (ret < 0) {
             LOG("HDD: HardDisk Drive not formatted (PFS).\n");
             guiSetErrorMessageWithCode(_STR_HDD_NOT_FORMATTED_ERROR, ERROR_HDD_MODULE_PFS_FAILURE);
-            return;
+            return ret;
         }
 
         hddSupportModulesLoaded = 1;
         LOG("HDDSUPPORT modules loaded\n");
-
-        if (gOPLPart[0] == '\0')
-            hddFindOPLPartition();
-
-        fileXioUmount(hddPrefix);
-
-        ret = fileXioMount(hddPrefix, gOPLPart, FIO_MT_RDWR);
-        if (ret == -ENOENT) {
-            // Attempt to create the partition.
-            if ((hddCreateOPLPartition(gOPLPart)) >= 0)
-                fileXioMount(hddPrefix, gOPLPart, FIO_MT_RDWR);
-        }
-
-        if (gOPLPart[5] != '+') {
-            hddCheckOPLFolder(hddPrefix);
-            gHDDPrefix = "pfs0:wOPL/";
-        }
     }
+
+    if (gOPLPart[0] == '\0') {
+        ret = hddFindOPLPartition(allowCreate);
+        if (ret < 0)
+            return ret;
+    }
+
+    fileXioUmount(hddPrefix);
+
+    ret = fileXioMount(hddPrefix, gOPLPart, FIO_MT_RDWR);
+
+    if (ret == -ENOENT && allowCreate) {
+        ret = hddCreateOPLPartition(gOPLPart);
+        if (ret >= 0)
+            ret = fileXioMount(hddPrefix, gOPLPart, FIO_MT_RDWR);
+    }
+
+    if (ret < 0) {
+        LOG("HDDSUPPORT: failed to mount OPL partition '%s': %d\n", gOPLPart, ret);
+        return ret;
+    }
+
+    if (gOPLPart[5] != '+') {
+        if (allowCreate)
+            hddCheckOPLFolder(hddPrefix);
+        else {
+            DIR *dir;
+
+            dir = opendir("pfs0:" WOPL_CONFIG_NAME);
+            if (dir == NULL) {
+                LOG("HDDSUPPORT: existing '%s' folder was not found on partition '%s'\n", WOPL_CONFIG_NAME, gOPLPart);
+                fileXioUmount(hddPrefix);
+                return -ENOENT;
+            }
+
+            closedir(dir);
+        }
+
+        gHDDPrefix = "pfs0:" WOPL_CONFIG_NAME "/";
+    } else
+        gHDDPrefix = "pfs0:";
+
+    LOG("HDDSUPPORT: OPL partition='%s' root='%s'\n", gOPLPart, gHDDPrefix);
+
+    return 0;
+}
+
+void hddLoadSupportModules(void)
+{
+    hddLoadSupportModulesInternal(1);
+}
+
+int hddResolvewOPLRoot(char *out, size_t out_len)
+{
+    int length;
+    int ret;
+
+    if (out == NULL || out_len == 0)
+        return -EINVAL;
+
+    out[0] = '\0';
+
+    ret = hddLoadModules();
+    if (ret < 0) {
+        LOG("HDDSUPPORT: failed to load base HDD modules: %d\n", ret);
+        return ret;
+    }
+
+    // cwd read only
+    ret = hddLoadSupportModulesInternal(0);
+    if (ret < 0) {
+        LOG("HDDSUPPORT: non-creating root resolution failed: %d\n", ret);
+        return ret;
+    }
+
+    length = snprintf(out, out_len, "%s", gHDDPrefix);
+    if (length < 0 || (size_t)length >= out_len) {
+        out[0] = '\0';
+        return -ENAMETOOLONG;
+    }
+
+    return 0;
 }
 
 static void hddInit(item_list_t *itemList)
